@@ -110,3 +110,109 @@ fn test_multiple_delegations_per_owner() {
     assert_eq!(dels.get(0).unwrap().label, label1);
     assert_eq!(dels.get(1).unwrap().label, label2);
 }
+
+// Issue #360: Delegation Versioning with Rollback Support
+
+#[test]
+fn test_version_increments_on_each_update() {
+    let (env, client, _, owner, agent_id, permissions_contract) = setup();
+    env.mock_all_auths();
+
+    let label = Symbol::new(&env, "Versioned_Agent");
+    let id = client.create_delegation(&owner, &agent_id, &permissions_contract, &label, &1000);
+
+    // Version should be 1 at creation
+    assert_eq!(client.get_delegation_version(&id), 1);
+
+    // Pause increments version
+    client.pause_delegation(&id);
+    assert_eq!(client.get_delegation_version(&id), 2);
+
+    // Resume increments version
+    client.resume_delegation(&id);
+    assert_eq!(client.get_delegation_version(&id), 3);
+
+    // Revoke increments version
+    client.revoke_delegation(&id);
+    assert_eq!(client.get_delegation_version(&id), 4);
+}
+
+#[test]
+fn test_rollback_restores_previous_state() {
+    let (env, client, _, owner, agent_id, permissions_contract) = setup();
+    env.mock_all_auths();
+
+    let label = Symbol::new(&env, "Rollback_Test");
+    let id = client.create_delegation(&owner, &agent_id, &permissions_contract, &label, &1000);
+
+    // Version 1: Active
+    assert_eq!(client.get_delegation(&id).status, DelegationStatus::Active);
+    assert_eq!(client.get_delegation_version(&id), 1);
+
+    // Pause → Version 2: Paused
+    client.pause_delegation(&id);
+    assert_eq!(client.get_delegation(&id).status, DelegationStatus::Paused);
+    assert_eq!(client.get_delegation_version(&id), 2);
+
+    // Resume → Version 3: Active
+    client.resume_delegation(&id);
+    assert_eq!(client.get_delegation(&id).status, DelegationStatus::Active);
+    assert_eq!(client.get_delegation_version(&id), 3);
+
+    // Rollback to version 1 (Active)
+    client.rollback_delegation(&id, &1);
+
+    let record = client.get_delegation(&id);
+    assert_eq!(record.status, DelegationStatus::Active);
+    // Version should be incremented after rollback
+    assert_eq!(client.get_delegation_version(&id), 4);
+}
+
+#[test]
+#[should_panic(expected = "Cannot rollback before version 1")]
+fn test_cannot_rollback_before_version_1() {
+    let (env, client, _, owner, agent_id, permissions_contract) = setup();
+    env.mock_all_auths();
+
+    let label = Symbol::new(&env, "No_Rollback_V0");
+    let id = client.create_delegation(&owner, &agent_id, &permissions_contract, &label, &1000);
+
+    // Attempt to rollback to version 0 should panic
+    client.rollback_delegation(&id, &0);
+}
+
+#[test]
+#[should_panic(expected = "Target version must be less than current version")]
+fn test_cannot_rollback_to_current_or_future_version() {
+    let (env, client, _, owner, agent_id, permissions_contract) = setup();
+    env.mock_all_auths();
+
+    let label = Symbol::new(&env, "Future_Rollback");
+    let id = client.create_delegation(&owner, &agent_id, &permissions_contract, &label, &1000);
+
+    client.pause_delegation(&id);
+
+    // Try to rollback to current version (should fail)
+    client.rollback_delegation(&id, &2);
+}
+
+#[test]
+fn test_version_history_is_stored() {
+    let (env, client, _, owner, agent_id, permissions_contract) = setup();
+    env.mock_all_auths();
+
+    let label = Symbol::new(&env, "History_Test");
+    let id = client.create_delegation(&owner, &agent_id, &permissions_contract, &label, &1000);
+
+    client.pause_delegation(&id);
+    client.resume_delegation(&id);
+
+    let history = client.get_delegation_history(&id);
+    
+    // Should have 3 snapshots: created (v1), paused (v2), resumed (v3)
+    assert!(history.len() >= 1);
+
+    let first_snapshot = history.get(0).unwrap();
+    assert_eq!(first_snapshot.version, 1);
+    assert_eq!(first_snapshot.record.status, DelegationStatus::Active);
+}
