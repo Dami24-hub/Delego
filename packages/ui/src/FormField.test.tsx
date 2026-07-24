@@ -1,0 +1,114 @@
+import { describe, it, expect } from "vitest";
+import { render, screen } from "@testing-library/react";
+import { FormField } from "./FormField.js";
+
+describe("FormField", () => {
+  it("renders label and input", () => {
+    render(<FormField label="Email" inputProps={{ type: "email" }} />);
+    expect(screen.getByLabelText("Email")).toBeDefined();
+  });
+
+  it("renders required indicator when required", () => {
+    const { container } = render(
+      <FormField label="Name" required inputProps={{ type: "text" }} />,
+    );
+    const requiredSpan = container.querySelector('[aria-label="required"]');
+    expect(requiredSpan).toBeDefined();
+  });
+
+  it("renders hint text when provided", () => {
+    render(
+      <FormField
+        label="Password"
+        hint="Minimum 8 characters"
+        inputProps={{ type: "password" }}
+      />,
+    );
+    expect(screen.getByText("Minimum 8 characters")).toBeDefined();
+  });
+
+  it("renders error message with alert role", () => {
+    render(
+      <FormField
+        label="Email"
+        error="Email is invalid"
+        inputProps={{ type: "email" }}
+      />,
+    );
+    const errorAlert = screen.getByRole("alert");
+    expect(errorAlert).toBeDefined();
+    expect(errorAlert.textContent).toBe("Email is invalid");
+  });
+
+  describe("Accessibility", () => {
+    it("connects label to input with htmlFor", () => {
+      render(
+        <FormField
+          label="Username"
+          inputProps={{ id: "user-input", type: "text" }}
+        />,
+      );
+      const label = screen.getByText("Username");
+      expect(label.getAttribute("for")).toBe("user-input");
+    });
+
+    it("generates unique IDs when not provided", () => {
+      const { container } = render(
+        <>
+          <FormField label="First" inputProps={{ type: "text" }} />
+          <FormField label="Second" inputProps={{ type: "text" }} />
+        </>,
+      );
+      const inputs = container.querySelectorAll("input");
+      expect(inputs[0].id).not.toBe(inputs[1].id);
+    });
+
+    it("connects aria-describedby to hint when present", () => {
+      const { container } = render(
+        <FormField
+          label="Amount"
+          hint="In XLM"
+          inputProps={{ type: "number" }}
+        />,
+      );
+      const input = container.querySelector("input");
+      expect(input?.getAttribute("aria-describedby")).toContain("hint");
+    });
+
+    it("connects aria-describedby to error when present", () => {
+      const { container } = render(
+        <FormField
+          label="Email"
+          error="Invalid format"
+          inputProps={{ type: "email" }}
+        />,
+      );
+      const input = container.querySelector("input");
+      expect(input?.getAttribute("aria-describedby")).toContain("error");
+    });
+
+    it("sets aria-invalid when error exists", () => {
+      const { container } = render(
+        <FormField
+          label="Email"
+          error="Invalid format"
+          inputProps={{ type: "email" }}
+        />,
+      );
+      const input = container.querySelector("input");
+      expect(input?.getAttribute("aria-invalid")).toBe("true");
+    });
+
+    it("displays required indicator with proper styling", () => {
+      const { container } = render(
+        <FormField
+          label="Required Field"
+          required
+          inputProps={{ type: "text" }}
+        />,
+      );
+      const requiredSpan = container.querySelector('[aria-label="required"]');
+      expect(requiredSpan?.style.color).toBe("rgb(220, 38, 38)");
+    });
+  });
+});
