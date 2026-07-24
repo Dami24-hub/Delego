@@ -25,10 +25,29 @@
                   "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAITA4"
                 },
                 {
-                  "symbol": "Agent_Y"
+                  "symbol": "Future_Rollback"
                 },
                 {
-                  "u32": 100
+                  "u32": 1000
+                }
+              ]
+            }
+          },
+          "sub_invocations": []
+        }
+      ]
+    ],
+    [
+      [
+        "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAHK3M",
+        {
+          "function": {
+            "contract_fn": {
+              "contract_address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD2KM",
+              "function_name": "pause_delegation",
+              "args": [
+                {
+                  "u64": 1
                 }
               ]
             }
@@ -107,7 +126,7 @@
                         "symbol": "expires_at_ledger"
                       },
                       "val": {
-                        "u32": 100
+                        "u32": 1000
                       }
                     },
                     {
@@ -123,7 +142,7 @@
                         "symbol": "label"
                       },
                       "val": {
-                        "symbol": "Agent_Y"
+                        "symbol": "Future_Rollback"
                       }
                     },
                     {
@@ -149,7 +168,7 @@
                       "val": {
                         "vec": [
                           {
-                            "symbol": "Active"
+                            "symbol": "Paused"
                           }
                         ]
                       }
@@ -159,7 +178,7 @@
                         "symbol": "version"
                       },
                       "val": {
-                        "u32": 1
+                        "u32": 2
                       }
                     }
                   ]
@@ -237,7 +256,7 @@
                                   "symbol": "expires_at_ledger"
                                 },
                                 "val": {
-                                  "u32": 100
+                                  "u32": 1000
                                 }
                               },
                               {
@@ -253,7 +272,7 @@
                                   "symbol": "label"
                                 },
                                 "val": {
-                                  "symbol": "Agent_Y"
+                                  "symbol": "Future_Rollback"
                                 }
                               },
                               {
@@ -312,6 +331,111 @@
                           }
                         }
                       ]
+                    },
+                    {
+                      "map": [
+                        {
+                          "key": {
+                            "symbol": "record"
+                          },
+                          "val": {
+                            "map": [
+                              {
+                                "key": {
+                                  "symbol": "agent_id"
+                                },
+                                "val": {
+                                  "bytes": "0101010101010101010101010101010101010101010101010101010101010101"
+                                }
+                              },
+                              {
+                                "key": {
+                                  "symbol": "created_at"
+                                },
+                                "val": {
+                                  "u64": 0
+                                }
+                              },
+                              {
+                                "key": {
+                                  "symbol": "expires_at_ledger"
+                                },
+                                "val": {
+                                  "u32": 1000
+                                }
+                              },
+                              {
+                                "key": {
+                                  "symbol": "id"
+                                },
+                                "val": {
+                                  "u64": 1
+                                }
+                              },
+                              {
+                                "key": {
+                                  "symbol": "label"
+                                },
+                                "val": {
+                                  "symbol": "Future_Rollback"
+                                }
+                              },
+                              {
+                                "key": {
+                                  "symbol": "owner"
+                                },
+                                "val": {
+                                  "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAHK3M"
+                                }
+                              },
+                              {
+                                "key": {
+                                  "symbol": "permissions_contract"
+                                },
+                                "val": {
+                                  "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAITA4"
+                                }
+                              },
+                              {
+                                "key": {
+                                  "symbol": "status"
+                                },
+                                "val": {
+                                  "vec": [
+                                    {
+                                      "symbol": "Paused"
+                                    }
+                                  ]
+                                }
+                              },
+                              {
+                                "key": {
+                                  "symbol": "version"
+                                },
+                                "val": {
+                                  "u32": 2
+                                }
+                              }
+                            ]
+                          }
+                        },
+                        {
+                          "key": {
+                            "symbol": "snapshot_ledger"
+                          },
+                          "val": {
+                            "u32": 0
+                          }
+                        },
+                        {
+                          "key": {
+                            "symbol": "version"
+                          },
+                          "val": {
+                            "u32": 2
+                          }
+                        }
+                      ]
                     }
                   ]
                 }
@@ -358,7 +482,7 @@
                 },
                 "durability": "persistent",
                 "val": {
-                  "u32": 1
+                  "u32": 2
                 }
               }
             },
@@ -495,6 +619,39 @@
                 "key": {
                   "ledger_key_nonce": {
                     "nonce": 801925984706572462
+                  }
+                },
+                "durability": "temporary",
+                "val": "void"
+              }
+            },
+            "ext": "v0"
+          },
+          6311999
+        ]
+      ],
+      [
+        {
+          "contract_data": {
+            "contract": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAHK3M",
+            "key": {
+              "ledger_key_nonce": {
+                "nonce": 5541220902715666415
+              }
+            },
+            "durability": "temporary"
+          }
+        },
+        [
+          {
+            "last_modified_ledger_seq": 0,
+            "data": {
+              "contract_data": {
+                "ext": "v0",
+                "contract": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAHK3M",
+                "key": {
+                  "ledger_key_nonce": {
+                    "nonce": 5541220902715666415
                   }
                 },
                 "durability": "temporary",

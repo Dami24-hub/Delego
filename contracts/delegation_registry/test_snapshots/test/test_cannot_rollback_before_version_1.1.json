@@ -25,10 +25,10 @@
                   "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAITA4"
                 },
                 {
-                  "symbol": "Agent_Y"
+                  "symbol": "No_Rollback_V0"
                 },
                 {
-                  "u32": 100
+                  "u32": 1000
                 }
               ]
             }
@@ -107,7 +107,7 @@
                         "symbol": "expires_at_ledger"
                       },
                       "val": {
-                        "u32": 100
+                        "u32": 1000
                       }
                     },
                     {
@@ -123,7 +123,7 @@
                         "symbol": "label"
                       },
                       "val": {
-                        "symbol": "Agent_Y"
+                        "symbol": "No_Rollback_V0"
                       }
                     },
                     {
@@ -237,7 +237,7 @@
                                   "symbol": "expires_at_ledger"
                                 },
                                 "val": {
-                                  "u32": 100
+                                  "u32": 1000
                                 }
                               },
                               {
@@ -253,7 +253,7 @@
                                   "symbol": "label"
                                 },
                                 "val": {
-                                  "symbol": "Agent_Y"
+                                  "symbol": "No_Rollback_V0"
                                 }
                               },
                               {
