@@ -1145,3 +1145,280 @@ fn test_cancellation_full_lifecycle() {
         Err(Ok(EscrowError::AlreadyCancelled))
     );
 }
+
+// ── Issue #333: Escrow Timeout Extension via Quorum Vote ──────────────────
+
+fn setup_quorum(t: &TestEnv, threshold: u32) -> soroban_sdk::Vec<Address> {
+    let escrow_client = EscrowContractClient::new(&t.env, &t.escrow_contract_id);
+    let mut arbiters = soroban_sdk::Vec::new(&t.env);
+    arbiters.push_back(Address::generate(&t.env));
+    arbiters.push_back(Address::generate(&t.env));
+    arbiters.push_back(Address::generate(&t.env));
+    escrow_client.set_quorum_config(&t.admin, &arbiters, &threshold);
+    arbiters
+}
+
+#[test]
+fn test_extend_timeout_via_quorum_reaches_threshold() {
+    let t = TestEnv::setup();
+    let escrow_client = EscrowContractClient::new(&t.env, &t.escrow_contract_id);
+    let arbiters = setup_quorum(&t, 2);
+
+    let escrow_id = deposit_escrow(&t, 1000, 100);
+    let before = escrow_client.get_escrow(&escrow_id);
+
+    // First vote: quorum not yet reached, timeout unchanged.
+    let applied = escrow_client.extend_timeout_via_quorum(&escrow_id, &arbiters.get(0).unwrap(), &50u32);
+    assert!(!applied);
+    let mid = escrow_client.get_escrow(&escrow_id);
+    assert_eq!(mid.timeout_ledger, before.timeout_ledger);
+
+    // Second matching vote reaches the threshold and extends the timeout.
+    let applied = escrow_client.extend_timeout_via_quorum(&escrow_id, &arbiters.get(1).unwrap(), &50u32);
+    assert!(applied);
+    let after = escrow_client.get_escrow(&escrow_id);
+    assert_eq!(after.timeout_ledger, before.timeout_ledger + 50);
+
+    // Vote log is cleared after a successful extension.
+    let votes = escrow_client.get_timeout_extension_votes(&escrow_id);
+    assert_eq!(votes.len(), 0);
+}
+
+#[test]
+fn test_extend_timeout_via_quorum_fails_without_sufficient_votes() {
+    let t = TestEnv::setup();
+    let escrow_client = EscrowContractClient::new(&t.env, &t.escrow_contract_id);
+    let arbiters = setup_quorum(&t, 3);
+
+    let escrow_id = deposit_escrow(&t, 1000, 100);
+    let before = escrow_client.get_escrow(&escrow_id);
+
+    let applied = escrow_client.extend_timeout_via_quorum(&escrow_id, &arbiters.get(0).unwrap(), &50u32);
+    assert!(!applied);
+
+    let after = escrow_client.get_escrow(&escrow_id);
+    assert_eq!(after.timeout_ledger, before.timeout_ledger);
+
+    let votes = escrow_client.get_timeout_extension_votes(&escrow_id);
+    assert_eq!(votes.len(), 1);
+}
+
+#[test]
+fn test_extend_timeout_via_quorum_rejects_non_arbiter() {
+    let t = TestEnv::setup();
+    let escrow_client = EscrowContractClient::new(&t.env, &t.escrow_contract_id);
+    setup_quorum(&t, 2);
+
+    let escrow_id = deposit_escrow(&t, 1000, 100);
+    let stranger = Address::generate(&t.env);
+
+    assert_eq!(
+        escrow_client.try_extend_timeout_via_quorum(&escrow_id, &stranger, &50u32),
+        Err(Ok(EscrowError::NotAnArbiter))
+    );
+}
+
+#[test]
+fn test_extend_timeout_via_quorum_rejects_duplicate_vote() {
+    let t = TestEnv::setup();
+    let escrow_client = EscrowContractClient::new(&t.env, &t.escrow_contract_id);
+    let arbiters = setup_quorum(&t, 3);
+
+    let escrow_id = deposit_escrow(&t, 1000, 100);
+
+    let applied = escrow_client.extend_timeout_via_quorum(&escrow_id, &arbiters.get(0).unwrap(), &50u32);
+    assert!(!applied);
+
+    assert_eq!(
+        escrow_client.try_extend_timeout_via_quorum(&escrow_id, &arbiters.get(0).unwrap(), &50u32),
+        Err(Ok(EscrowError::AlreadyVoted))
+    );
+}
+
+#[test]
+fn test_extend_timeout_via_quorum_rejects_zero_extension() {
+    let t = TestEnv::setup();
+    let escrow_client = EscrowContractClient::new(&t.env, &t.escrow_contract_id);
+    let arbiters = setup_quorum(&t, 2);
+
+    let escrow_id = deposit_escrow(&t, 1000, 100);
+
+    assert_eq!(
+        escrow_client.try_extend_timeout_via_quorum(&escrow_id, &arbiters.get(0).unwrap(), &0u32),
+        Err(Ok(EscrowError::InvalidExtension))
+    );
+}
+
+// ── Issue #335: Escrow Liquidity Pool for Instant Settlement ──────────────
+
+#[test]
+fn test_fund_pool_increases_balance() {
+    let t = TestEnv::setup();
+    let escrow_client = EscrowContractClient::new(&t.env, &t.escrow_contract_id);
+    let token_client = soroban_sdk::token::Client::new(&t.env, &t.token_contract_id);
+
+    let funder = Address::generate(&t.env);
+    let token_admin_client =
+        soroban_sdk::token::StellarAssetClient::new(&t.env, &t.token_contract_id);
+    token_admin_client.mint(&funder, &5000);
+
+    let new_balance = escrow_client.fund_pool(&funder, &t.token_contract_id, &2000);
+    assert_eq!(new_balance, 2000);
+
+    let pool = escrow_client.get_liquidity_pool(&t.token_contract_id);
+    assert_eq!(pool.balance, 2000);
+    assert_eq!(pool.token, t.token_contract_id);
+    assert_eq!(token_client.balance(&t.escrow_contract_id), 2000);
+
+    let newer_balance = escrow_client.fund_pool(&funder, &t.token_contract_id, &500);
+    assert_eq!(newer_balance, 2500);
+    assert_eq!(
+        escrow_client.get_liquidity_pool(&t.token_contract_id).balance,
+        2500
+    );
+}
+
+#[test]
+fn test_fund_pool_rejects_non_whitelisted_token() {
+    let t = TestEnv::setup();
+    let escrow_client = EscrowContractClient::new(&t.env, &t.escrow_contract_id);
+
+    let other_token_admin = Address::generate(&t.env);
+    let other_token = t
+        .env
+        .register_stellar_asset_contract_v2(other_token_admin.clone())
+        .address();
+
+    assert_eq!(
+        escrow_client.try_fund_pool(&t.buyer, &other_token, &1000),
+        Err(Ok(EscrowError::TokenNotWhitelisted))
+    );
+}
+
+#[test]
+fn test_settle_from_pool_transfers_to_seller() {
+    let t = TestEnv::setup();
+    let escrow_client = EscrowContractClient::new(&t.env, &t.escrow_contract_id);
+    let token_client = soroban_sdk::token::Client::new(&t.env, &t.token_contract_id);
+
+    let funder = Address::generate(&t.env);
+    let token_admin_client =
+        soroban_sdk::token::StellarAssetClient::new(&t.env, &t.token_contract_id);
+    token_admin_client.mint(&funder, &5000);
+    escrow_client.fund_pool(&funder, &t.token_contract_id, &5000);
+
+    let escrow_id = deposit_escrow(&t, 1000, 100);
+    assert_eq!(token_client.balance(&t.seller), 0);
+
+    assert!(escrow_client.settle_from_pool(&escrow_id, &t.admin));
+
+    assert_eq!(token_client.balance(&t.seller), 1000);
+
+    let record = escrow_client.get_escrow(&escrow_id);
+    assert_eq!(record.status, EscrowStatus::Released);
+    assert_eq!(record.released_amount, 1000);
+
+    // Pool balance is unaffected: the seller's payout is backed by this
+    // escrow's own now-settled deposit rather than draining the reserve.
+    let pool = escrow_client.get_liquidity_pool(&t.token_contract_id);
+    assert_eq!(pool.balance, 5000);
+}
+
+#[test]
+fn test_settle_from_pool_rejects_non_admin() {
+    let t = TestEnv::setup();
+    let escrow_client = EscrowContractClient::new(&t.env, &t.escrow_contract_id);
+
+    let funder = Address::generate(&t.env);
+    let token_admin_client =
+        soroban_sdk::token::StellarAssetClient::new(&t.env, &t.token_contract_id);
+    token_admin_client.mint(&funder, &5000);
+    escrow_client.fund_pool(&funder, &t.token_contract_id, &5000);
+
+    let escrow_id = deposit_escrow(&t, 1000, 100);
+
+    assert_eq!(
+        escrow_client.try_settle_from_pool(&escrow_id, &t.agent),
+        Err(Ok(EscrowError::Unauthorized))
+    );
+}
+
+#[test]
+fn test_settle_from_pool_insufficient_liquidity_fails() {
+    let t = TestEnv::setup();
+    let escrow_client = EscrowContractClient::new(&t.env, &t.escrow_contract_id);
+
+    let funder = Address::generate(&t.env);
+    let token_admin_client =
+        soroban_sdk::token::StellarAssetClient::new(&t.env, &t.token_contract_id);
+    token_admin_client.mint(&funder, &500);
+    escrow_client.fund_pool(&funder, &t.token_contract_id, &500);
+
+    let escrow_id = deposit_escrow(&t, 1000, 100);
+
+    assert_eq!(
+        escrow_client.try_settle_from_pool(&escrow_id, &t.admin),
+        Err(Ok(EscrowError::InsufficientPoolBalance))
+    );
+}
+
+#[test]
+fn test_withdraw_from_pool_respects_available_balance() {
+    let t = TestEnv::setup();
+    let escrow_client = EscrowContractClient::new(&t.env, &t.escrow_contract_id);
+    let token_client = soroban_sdk::token::Client::new(&t.env, &t.token_contract_id);
+
+    let funder = Address::generate(&t.env);
+    let token_admin_client =
+        soroban_sdk::token::StellarAssetClient::new(&t.env, &t.token_contract_id);
+    token_admin_client.mint(&funder, &1000);
+    escrow_client.fund_pool(&funder, &t.token_contract_id, &1000);
+
+    // Withdrawing more than the pool holds fails.
+    assert_eq!(
+        escrow_client.try_withdraw_from_pool(&t.admin, &t.token_contract_id, &1500),
+        Err(Ok(EscrowError::InsufficientPoolBalance))
+    );
+
+    // Withdrawing within the available balance succeeds and decrements it.
+    let new_balance = escrow_client.withdraw_from_pool(&t.admin, &t.token_contract_id, &400);
+    assert_eq!(new_balance, 600);
+    assert_eq!(
+        escrow_client.get_liquidity_pool(&t.token_contract_id).balance,
+        600
+    );
+    assert_eq!(token_client.balance(&t.admin), 400);
+
+    // A further withdrawal beyond the now-reduced balance fails.
+    assert_eq!(
+        escrow_client.try_withdraw_from_pool(&t.admin, &t.token_contract_id, &601),
+        Err(Ok(EscrowError::InsufficientPoolBalance))
+    );
+}
+
+#[test]
+fn test_withdraw_from_pool_rejects_non_admin() {
+    let t = TestEnv::setup();
+    let escrow_client = EscrowContractClient::new(&t.env, &t.escrow_contract_id);
+
+    let funder = Address::generate(&t.env);
+    let token_admin_client =
+        soroban_sdk::token::StellarAssetClient::new(&t.env, &t.token_contract_id);
+    token_admin_client.mint(&funder, &1000);
+    escrow_client.fund_pool(&funder, &t.token_contract_id, &1000);
+
+    assert_eq!(
+        escrow_client.try_withdraw_from_pool(&t.agent, &t.token_contract_id, &100),
+        Err(Ok(EscrowError::Unauthorized))
+    );
+}
+
+#[test]
+fn test_get_liquidity_pool_defaults_to_zero_for_unfunded_token() {
+    let t = TestEnv::setup();
+    let escrow_client = EscrowContractClient::new(&t.env, &t.escrow_contract_id);
+
+    let pool = escrow_client.get_liquidity_pool(&t.token_contract_id);
+    assert_eq!(pool.balance, 0);
+    assert_eq!(pool.token, t.token_contract_id);
+}
