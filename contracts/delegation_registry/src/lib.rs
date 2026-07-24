@@ -1,5 +1,36 @@
 #![no_std]
-use soroban_sdk::{contract, contractimpl, contracttype, Address, BytesN, Env, Symbol, Vec};
+use soroban_sdk::{
+    contract, contracterror, contractimpl, contracttype, symbol_short, Address, BytesN, Env,
+    Symbol, Vec,
+};
+
+// ── Error type ───────────────────────────────────────────────────────────────
+
+#[contracterror]
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+#[repr(u32)]
+pub enum DelegationError {
+    /// Contract already initialized
+    AlreadyInitialized = 1,
+    /// Delegation record not found
+    NotFound = 2,
+    /// Caller is not authorized
+    Unauthorized = 3,
+    /// Can only pause an active delegation
+    NotActive = 4,
+    /// Can only resume a paused delegation
+    NotPaused = 5,
+    /// Delegation has already expired
+    Expired = 6,
+    /// Target rollback version must be ≥ 1
+    InvalidVersion = 7,
+    /// Target version must be less than the current version
+    VersionNotLower = 8,
+    /// Snapshot for the requested version was not found
+    SnapshotNotFound = 9,
+}
+
+// ── Domain types ─────────────────────────────────────────────────────────────
 
 #[contracttype]
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -33,6 +64,60 @@ pub struct DelegationSnapshot {
     pub record: DelegationRecord,
 }
 
+// ── Events ────────────────────────────────────────────────────────────────────
+
+/// Emitted when a new delegation is created.
+#[contracttype]
+#[derive(Clone, Debug)]
+pub struct DelegationCreatedEvent {
+    pub delegation_id: u64,
+    pub owner: Address,
+    pub agent: BytesN<32>,
+    pub timestamp: u64,
+}
+
+/// Emitted when a delegation is paused.
+#[contracttype]
+#[derive(Clone, Debug)]
+pub struct DelegationPausedEvent {
+    pub delegation_id: u64,
+    pub owner: Address,
+    pub agent: BytesN<32>,
+    pub timestamp: u64,
+}
+
+/// Emitted when a delegation is resumed.
+#[contracttype]
+#[derive(Clone, Debug)]
+pub struct DelegationResumedEvent {
+    pub delegation_id: u64,
+    pub owner: Address,
+    pub agent: BytesN<32>,
+    pub timestamp: u64,
+}
+
+/// Emitted when a delegation is revoked.
+#[contracttype]
+#[derive(Clone, Debug)]
+pub struct DelegationRevokedEvent {
+    pub delegation_id: u64,
+    pub owner: Address,
+    pub agent: BytesN<32>,
+    pub timestamp: u64,
+}
+
+/// Emitted when a delegation transitions to Expired status.
+#[contracttype]
+#[derive(Clone, Debug)]
+pub struct DelegationExpiredEvent {
+    pub delegation_id: u64,
+    pub owner: Address,
+    pub agent: BytesN<32>,
+    pub timestamp: u64,
+}
+
+// ── Storage keys ──────────────────────────────────────────────────────────────
+
 #[contracttype]
 pub enum DataKey {
     Admin,
@@ -43,18 +128,20 @@ pub enum DataKey {
     DelegationHistory(u64),
 }
 
+// ── Contract ──────────────────────────────────────────────────────────────────
+
 #[contract]
 pub struct DelegationRegistry;
 
 #[contractimpl]
 impl DelegationRegistry {
-    pub fn initialize(env: Env, admin: Address) -> bool {
+    pub fn initialize(env: Env, admin: Address) -> Result<bool, DelegationError> {
         if env.storage().instance().has(&DataKey::Admin) {
-            panic!("Contract already initialized");
+            return Err(DelegationError::AlreadyInitialized);
         }
         env.storage().instance().set(&DataKey::Admin, &admin);
         env.storage().instance().set(&DataKey::NextId, &1u64);
-        true
+        Ok(true)
     }
 
     pub fn create_delegation(
@@ -75,15 +162,16 @@ impl DelegationRegistry {
         env.storage().instance().set(&DataKey::NextId, &(id + 1));
 
         let expires_at_ledger = env.ledger().sequence() + ttl_ledgers;
+        let now = env.ledger().timestamp();
 
         let record = DelegationRecord {
             id,
             owner: owner.clone(),
-            agent_id,
+            agent_id: agent_id.clone(),
             permissions_contract,
             status: DelegationStatus::Active,
             label,
-            created_at: env.ledger().timestamp(),
+            created_at: now,
             expires_at_ledger,
             version: 1,
         };
@@ -124,22 +212,35 @@ impl DelegationRegistry {
         user_dels.push_back(id);
         env.storage()
             .persistent()
-            .set(&DataKey::UserDelegations(owner), &user_dels);
+            .set(&DataKey::UserDelegations(owner.clone()), &user_dels);
+
+        env.events().publish(
+            (symbol_short!("deleg"), symbol_short!("created")),
+            DelegationCreatedEvent {
+                delegation_id: id,
+                owner,
+                agent: agent_id,
+                timestamp: now,
+            },
+        );
 
         id
     }
 
-    pub fn pause_delegation(env: Env, delegation_id: u64) -> bool {
+    pub fn pause_delegation(
+        env: Env,
+        delegation_id: u64,
+    ) -> Result<bool, DelegationError> {
         let mut record: DelegationRecord = env
             .storage()
             .persistent()
             .get(&DataKey::Delegation(delegation_id))
-            .expect("Delegation not found");
+            .ok_or(DelegationError::NotFound)?;
 
         record.owner.require_auth();
 
         if record.status != DelegationStatus::Active {
-            panic!("Can only pause an active delegation");
+            return Err(DelegationError::NotActive);
         }
 
         record.status = DelegationStatus::Paused;
@@ -151,20 +252,33 @@ impl DelegationRegistry {
 
         Self::store_snapshot(&env, delegation_id, &record);
 
-        true
+        env.events().publish(
+            (symbol_short!("deleg"), symbol_short!("paused")),
+            DelegationPausedEvent {
+                delegation_id,
+                owner: record.owner.clone(),
+                agent: record.agent_id.clone(),
+                timestamp: env.ledger().timestamp(),
+            },
+        );
+
+        Ok(true)
     }
 
-    pub fn resume_delegation(env: Env, delegation_id: u64) -> bool {
+    pub fn resume_delegation(
+        env: Env,
+        delegation_id: u64,
+    ) -> Result<bool, DelegationError> {
         let mut record: DelegationRecord = env
             .storage()
             .persistent()
             .get(&DataKey::Delegation(delegation_id))
-            .expect("Delegation not found");
+            .ok_or(DelegationError::NotFound)?;
 
         record.owner.require_auth();
 
         if record.status != DelegationStatus::Paused {
-            panic!("Can only resume a paused delegation");
+            return Err(DelegationError::NotPaused);
         }
 
         if env.ledger().sequence() >= record.expires_at_ledger {
@@ -174,7 +288,18 @@ impl DelegationRegistry {
                 .persistent()
                 .set(&DataKey::Delegation(delegation_id), &record);
             Self::store_snapshot(&env, delegation_id, &record);
-            panic!("Delegation has already expired");
+
+            env.events().publish(
+                (symbol_short!("deleg"), symbol_short!("expired")),
+                DelegationExpiredEvent {
+                    delegation_id,
+                    owner: record.owner.clone(),
+                    agent: record.agent_id.clone(),
+                    timestamp: env.ledger().timestamp(),
+                },
+            );
+
+            return Err(DelegationError::Expired);
         }
 
         record.status = DelegationStatus::Active;
@@ -186,20 +311,33 @@ impl DelegationRegistry {
 
         Self::store_snapshot(&env, delegation_id, &record);
 
-        true
+        env.events().publish(
+            (symbol_short!("deleg"), symbol_short!("resumed")),
+            DelegationResumedEvent {
+                delegation_id,
+                owner: record.owner.clone(),
+                agent: record.agent_id.clone(),
+                timestamp: env.ledger().timestamp(),
+            },
+        );
+
+        Ok(true)
     }
 
-    pub fn revoke_delegation(env: Env, delegation_id: u64) -> bool {
+    pub fn revoke_delegation(
+        env: Env,
+        delegation_id: u64,
+    ) -> Result<bool, DelegationError> {
         let mut record: DelegationRecord = env
             .storage()
             .persistent()
             .get(&DataKey::Delegation(delegation_id))
-            .expect("Delegation not found");
+            .ok_or(DelegationError::NotFound)?;
 
         record.owner.require_auth();
 
         if record.status == DelegationStatus::Revoked {
-            return true;
+            return Ok(true);
         }
 
         record.status = DelegationStatus::Revoked;
@@ -211,20 +349,34 @@ impl DelegationRegistry {
 
         Self::store_snapshot(&env, delegation_id, &record);
 
-        true
+        env.events().publish(
+            (symbol_short!("deleg"), symbol_short!("revoked")),
+            DelegationRevokedEvent {
+                delegation_id,
+                owner: record.owner.clone(),
+                agent: record.agent_id.clone(),
+                timestamp: env.ledger().timestamp(),
+            },
+        );
+
+        Ok(true)
     }
 
-    pub fn rollback_delegation(env: Env, delegation_id: u64, target_version: u32) -> bool {
+    pub fn rollback_delegation(
+        env: Env,
+        delegation_id: u64,
+        target_version: u32,
+    ) -> Result<bool, DelegationError> {
         let mut record: DelegationRecord = env
             .storage()
             .persistent()
             .get(&DataKey::Delegation(delegation_id))
-            .expect("Delegation not found");
+            .ok_or(DelegationError::NotFound)?;
 
         record.owner.require_auth();
 
         if target_version < 1 {
-            panic!("Cannot rollback before version 1");
+            return Err(DelegationError::InvalidVersion);
         }
 
         let current_version: u32 = env
@@ -234,7 +386,7 @@ impl DelegationRegistry {
             .unwrap_or(1);
 
         if target_version >= current_version {
-            panic!("Target version must be less than current version");
+            return Err(DelegationError::VersionNotLower);
         }
 
         let history: Vec<DelegationSnapshot> = env
@@ -251,7 +403,7 @@ impl DelegationRegistry {
             }
         }
 
-        let snapshot = target_snapshot.expect("Target version snapshot not found");
+        let snapshot = target_snapshot.ok_or(DelegationError::SnapshotNotFound)?;
 
         record = snapshot.record;
         record.version = Self::increment_version(&env, delegation_id);
@@ -262,14 +414,14 @@ impl DelegationRegistry {
 
         Self::store_snapshot(&env, delegation_id, &record);
 
-        true
+        Ok(true)
     }
 
-    pub fn get_delegation(env: Env, delegation_id: u64) -> DelegationRecord {
+    pub fn get_delegation(env: Env, delegation_id: u64) -> Result<DelegationRecord, DelegationError> {
         env.storage()
             .persistent()
             .get(&DataKey::Delegation(delegation_id))
-            .expect("Delegation not found")
+            .ok_or(DelegationError::NotFound)
     }
 
     pub fn get_delegation_version(env: Env, delegation_id: u64) -> u32 {
@@ -331,7 +483,7 @@ impl DelegationRegistry {
         true
     }
 
-    // Internal helper functions
+    // ── Internal helpers ─────────────────────────────────────────────────────
 
     fn increment_version(env: &Env, delegation_id: u64) -> u32 {
         let current: u32 = env

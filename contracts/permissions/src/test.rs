@@ -1616,5 +1616,135 @@ mod test {
         assert_eq!(r.delegate, delegate);
         assert!(r.merchant.is_none());
     }
-    
+
+    // ── #324 Velocity-check tests ─────────────────────────────────────────────
+
+    fn setup_with_admin(env: &Env) -> (PermissionsContractClient<'static>, Address) {
+        let contract_id = env.register(PermissionsContract, ());
+        let client = PermissionsContractClient::new(env, &contract_id);
+        let admin = Address::generate(env);
+        client.set_admin(&admin);
+        (client, admin)
+    }
+
+    #[test]
+    fn test_velocity_spend_within_interval_rejected() {
+        let env = Env::default();
+        env.mock_all_auths();
+        let (client, admin) = setup_with_admin(&env);
+
+        let owner = Address::generate(&env);
+        let delegate = Address::generate(&env);
+        let merchant = Address::generate(&env);
+        let merchants = Vec::<Address>::new(&env);
+
+        client.grant(&owner, &delegate, &10_000, &500, &merchants, &50_000);
+
+        // Set velocity limit: 100 ledgers between spends
+        client.set_velocity_limit(&admin, &100u32);
+
+        env.ledger().set_sequence_number(500);
+
+        // First spend succeeds
+        client.execute_spend(&owner, &delegate, &100, &merchant);
+
+        // Second spend at same ledger (< interval) should fail
+        let result = client.try_execute_spend(&owner, &delegate, &100, &merchant);
+        assert_eq!(result, Err(Ok(PermissionError::VelocityLimitExceeded)));
+    }
+
+    #[test]
+    fn test_velocity_spend_after_interval_succeeds() {
+        let env = Env::default();
+        env.mock_all_auths();
+        let (client, admin) = setup_with_admin(&env);
+
+        let owner = Address::generate(&env);
+        let delegate = Address::generate(&env);
+        let merchant = Address::generate(&env);
+        let merchants = Vec::<Address>::new(&env);
+
+        client.grant(&owner, &delegate, &10_000, &500, &merchants, &50_000);
+        client.set_velocity_limit(&admin, &100u32);
+
+        env.ledger().set_sequence_number(500);
+        client.execute_spend(&owner, &delegate, &100, &merchant);
+
+        // Advance past interval
+        env.ledger().set_sequence_number(601);
+        // Should succeed now
+        client.execute_spend(&owner, &delegate, &100, &merchant);
+
+        let record = client.get_permission(&owner, &delegate);
+        assert_eq!(record.spent, 200);
+    }
+
+    #[test]
+    fn test_velocity_no_limit_set_allows_rapid_spends() {
+        let env = Env::default();
+        env.mock_all_auths();
+        let (client, _admin) = setup_with_admin(&env);
+
+        let owner = Address::generate(&env);
+        let delegate = Address::generate(&env);
+        let merchant = Address::generate(&env);
+        let merchants = Vec::<Address>::new(&env);
+
+        client.grant(&owner, &delegate, &10_000, &500, &merchants, &50_000);
+        // No set_velocity_limit call — limit defaults to 0 (disabled)
+
+        env.ledger().set_sequence_number(500);
+        client.execute_spend(&owner, &delegate, &100, &merchant);
+        // Second immediate spend should also succeed
+        client.execute_spend(&owner, &delegate, &100, &merchant);
+
+        let record = client.get_permission(&owner, &delegate);
+        assert_eq!(record.spent, 200);
+    }
+
+    #[test]
+    fn test_set_velocity_limit_admin_update() {
+        let env = Env::default();
+        env.mock_all_auths();
+        let (client, admin) = setup_with_admin(&env);
+
+        assert_eq!(client.get_velocity_limit(), 0u32);
+
+        client.set_velocity_limit(&admin, &50u32);
+        assert_eq!(client.get_velocity_limit(), 50u32);
+
+        // Admin can update it again
+        client.set_velocity_limit(&admin, &200u32);
+        assert_eq!(client.get_velocity_limit(), 200u32);
+    }
+
+    #[test]
+    fn test_set_velocity_limit_non_admin_rejected() {
+        let env = Env::default();
+        env.mock_all_auths();
+        let (client, _admin) = setup_with_admin(&env);
+
+        let other = Address::generate(&env);
+        let result = client.try_set_velocity_limit(&other, &100u32);
+        assert_eq!(result, Err(Ok(PermissionError::Unauthorized)));
+    }
+
+    #[test]
+    fn test_velocity_limit_set_event_emitted() {
+        let env = Env::default();
+        env.mock_all_auths();
+        let (client, admin) = setup_with_admin(&env);
+
+        client.set_velocity_limit(&admin, &75u32);
+
+        let events = env.events().all();
+        let found = events.iter().any(|(_, topics, _)| {
+            let t: soroban_sdk::Vec<soroban_sdk::Val> = topics;
+            t.len() >= 2
+                && t.get(0) == Some(soroban_sdk::symbol_short!("perm").into_val(&env))
+                && t.get(1) == Some(soroban_sdk::symbol_short!("velset").into_val(&env))
+        });
+        assert!(found, "VelocityLimitSetEvent not emitted");
+    }
+
 }
