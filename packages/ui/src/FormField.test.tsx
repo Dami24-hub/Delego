@@ -107,7 +107,9 @@ describe("FormField", () => {
           inputProps={{ type: "text" }}
         />,
       );
-      const requiredSpan = container.querySelector('[aria-label="required"]');
+      const requiredSpan = container.querySelector(
+        '[aria-label="required"]',
+      ) as HTMLElement;
       expect(requiredSpan?.style.color).toBe("rgb(220, 38, 38)");
     });
   });
