@@ -216,6 +216,7 @@ pub struct EscrowPauseState {
     pub create_paused: bool,
     pub updated_by: Address,
     pub updated_at_ledger: u32,
+    pub expires_at_ledger: Option<u32>,
 }
 
 /// Emitted when the contract is upgraded to new wasm code (issue #325).
@@ -351,6 +352,27 @@ pub struct TimeoutExtendedEvent {
     pub extension_ledgers: u32,
 }
 
+/// Emitted when escrow funds are split among multiple recipients (issue #321).
+#[contracttype]
+#[derive(Clone, Debug)]
+pub struct EscrowSplitReleasedEvent {
+    pub escrow_id: u64,
+    pub recipient_count: u32,
+    pub total_released: i128,
+    pub fee_charged: i128,
+    pub released_by: Address,
+}
+
+/// Emitted when an escrow's timeout is extended directly (issue #323).
+#[contracttype]
+#[derive(Clone, Debug)]
+pub struct EscrowTimeoutExtendedEvent {
+    pub escrow_id: u64,
+    pub old_timeout_ledger: u32,
+    pub new_timeout_ledger: u32,
+    pub extended_by: Address,
+}
+
 /// Contract version information for deployment scripts and runtime compatibility checks.
 ///
 /// # When to bump
@@ -388,6 +410,10 @@ pub enum DataKey {
     MigrationFlag,
     /// Optional multi-treasury fee split configured via `set_fee_distribution`.
     FeeDistribution,
+    /// Optional yield configuration for an escrow.
+    EscrowYieldConfig(u64),
+    /// Release condition for an escrow.
+    ReleaseCondition(u64),
 }
 
 #[contracterror]
@@ -462,10 +488,18 @@ pub enum EscrowError {
     PoolNotFound = 30,
     /// Liquidity pool balance is insufficient for the requested operation
     InsufficientPoolBalance = 31,
+    /// Release condition not set for escrow
+    ReleaseConditionNotSet = 32,
+    /// Oracle contract call failed
+    OracleCallFailed = 33,
     /// Fee config has not been initialized
     FeeConfigNotSet = 34,
     /// Amount limits have not been initialized
     AmountLimitsNotSet = 35,
+    /// Release condition not met
+    ConditionNotMet = 36,
+    /// Invalid yield configuration
+    InvalidYieldConfig = 37,
 }
 
 /// Compact receipt returned to buyers after escrow creation via `get_receipt`.
@@ -2384,6 +2418,7 @@ impl EscrowContract {
             create_paused: paused,
             updated_by: admin.clone(),
             updated_at_ledger: env.ledger().sequence(),
+            expires_at_ledger: None,
         };
         env.storage()
             .instance()
@@ -2399,12 +2434,57 @@ impl EscrowContract {
         Ok(true)
     }
 
+    /// Set an emergency pause with automatic expiry after specified duration in ledgers.
+    /// Admin-only. The pause auto-expires after `duration_ledgers` ledgers.
+    pub fn set_emergency_pause(
+        env: Env,
+        admin: Address,
+        paused: bool,
+        duration_ledgers: u32,
+    ) -> Result<bool, EscrowError> {
+        admin.require_auth();
+        if !Self::is_admin(env.clone(), admin.clone()) {
+            return Err(EscrowError::Unauthorized);
+        }
+        let current_ledger = env.ledger().sequence();
+        let expires_at = if paused && duration_ledgers > 0 {
+            Some(current_ledger.saturating_add(duration_ledgers))
+        } else {
+            None
+        };
+        let pause_state = EscrowPauseState {
+            create_paused: paused,
+            updated_by: admin.clone(),
+            updated_at_ledger: current_ledger,
+            expires_at_ledger: expires_at,
+        };
+        env.storage()
+            .instance()
+            .set(&DataKey::PauseState, &pause_state);
+        env.events().publish(
+            (symbol_short!("escrow"), symbol_short!("paused")),
+            EscrowPauseChangedEvent {
+                paused,
+                admin,
+                ledger: current_ledger,
+            },
+        );
+        Ok(true)
+    }
+
     /// Get the current escrow creation pause state.
+    /// Returns false if pause has expired.
     pub fn get_create_paused(env: Env) -> bool {
         env.storage()
             .instance()
             .get::<DataKey, EscrowPauseState>(&DataKey::PauseState)
-            .map(|s| s.create_paused)
+            .map(|s| {
+                if let Some(expires_at) = s.expires_at_ledger {
+                    s.create_paused && env.ledger().sequence() < expires_at
+                } else {
+                    s.create_paused
+                }
+            })
             .unwrap_or(false)
     }
 
