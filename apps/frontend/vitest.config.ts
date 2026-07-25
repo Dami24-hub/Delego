@@ -14,4 +14,9 @@ export default defineConfig({
       "@": path.resolve(__dirname),
     },
   },
+
+export default defineConfig({
+    test: {
+        environment: "jsdom",
+    },
 });
