@@ -1,10 +1,12 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
 import type { ApiResponse, Delegation } from "@delego/types";
 import { api } from "../lib/api";
 
-/** Fetch user delegations — TODO: Add SWR or React Query */
+/**
+ * Fetch the current user's delegations from the Delego API.
+ */
 export function useDelegations() {
   const [delegations, setDelegations] = useState<Delegation[]>([]);
   const [loading, setLoading] = useState(true);

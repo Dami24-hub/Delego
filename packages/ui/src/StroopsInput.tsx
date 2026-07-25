@@ -1,6 +1,7 @@
 import type { InputHTMLAttributes } from "react";
 import { useState } from "react";
 
+/** Props accepted by the stroops/XLM conversion input. */
 export interface StroopsInputProps extends Omit<
   InputHTMLAttributes<HTMLInputElement>,
   "type" | "onChange" | "value"
