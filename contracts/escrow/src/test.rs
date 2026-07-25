@@ -5,7 +5,7 @@ mod test {
     };
     use soroban_sdk::{
         symbol_short,
-        testutils::{Address as _, Events},
+        testutils::{Address as _, Events, Ledger},
         Address, BytesN, Env, IntoVal, TryIntoVal,
     };
 
@@ -936,5 +936,98 @@ mod test {
         // fee_bps = 250 (2.5%) from setup_client -> fee = 25
         assert_eq!(token_client.balance(&treasury), 25);
         assert_eq!(token_client.balance(&seller), 975);
+    }
+
+    // ─── Issue #319: Time-Locked Emergency Pause Tests ──────────────────────────
+
+    #[test]
+    fn test_emergency_pause_auto_expires() {
+        let env = Env::default();
+        env.mock_all_auths();
+        let (client, admin, _contract_id) = setup_client(&env);
+
+        assert!(!client.get_create_paused());
+
+        // Set emergency pause for 10 ledgers
+        let res = client.set_emergency_pause(&admin, &true, &10u32);
+        assert!(res);
+        assert!(client.get_create_paused());
+
+        // Advance 9 ledgers - still paused
+        env.ledger().with_mut(|li| {
+            li.sequence_number = 9;
+        });
+        assert!(client.get_create_paused());
+
+        // Advance to expiry - should auto-unpause
+        env.ledger().with_mut(|li| {
+            li.sequence_number = 10;
+        });
+        assert!(!client.get_create_paused());
+    }
+
+    #[test]
+    fn test_manual_unpause_before_expiry() {
+        let env = Env::default();
+        env.mock_all_auths();
+        let (client, admin, _contract_id) = setup_client(&env);
+
+        // Set emergency pause for 100 ledgers
+        client.set_emergency_pause(&admin, &true, &100u32);
+        assert!(client.get_create_paused());
+
+        // Manually unpause before expiry
+        client.set_create_paused(&admin, &false);
+        assert!(!client.get_create_paused());
+    }
+
+    #[test]
+    fn test_get_create_paused_respects_expiry() {
+        let env = Env::default();
+        env.mock_all_auths();
+        let (client, admin, _contract_id) = setup_client(&env);
+
+        // Set emergency pause for 5 ledgers
+        client.set_emergency_pause(&admin, &true, &5u32);
+
+        // Before expiry - paused
+        env.ledger().with_mut(|li| {
+            li.sequence_number = 4;
+        });
+        assert!(client.get_create_paused());
+
+        // After expiry - unpaused
+        env.ledger().with_mut(|li| {
+            li.sequence_number = 5;
+        });
+        assert!(!client.get_create_paused());
+    }
+
+    #[test]
+    fn test_emergency_pause_unauthorized() {
+        let env = Env::default();
+        env.mock_all_auths();
+        let (client, _admin, _contract_id) = setup_client(&env);
+        let non_admin = Address::generate(&env);
+
+        let res = client.try_set_emergency_pause(&non_admin, &true, &10u32);
+        assert_eq!(res, Err(Ok(EscrowError::Unauthorized)));
+    }
+
+    #[test]
+    fn test_set_emergency_pause_zero_duration_is_permanent() {
+        let env = Env::default();
+        env.mock_all_auths();
+        let (client, admin, _contract_id) = setup_client(&env);
+
+        // Set emergency pause with 0 duration (permanent)
+        client.set_emergency_pause(&admin, &true, &0u32);
+        assert!(client.get_create_paused());
+
+        // Advance many ledgers - still paused
+        env.ledger().with_mut(|li| {
+            li.sequence_number = 1000;
+        });
+        assert!(client.get_create_paused());
     }
 }
