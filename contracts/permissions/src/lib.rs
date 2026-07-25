@@ -531,6 +531,60 @@ impl PermissionsContract {
         }
     }
 
+    /// Renew a permission by extending its TTL without disruption.
+    /// Owner extends the expiry ledger by the specified additional ledgers.
+    /// Fails if permission is revoked or expired.
+    pub fn renew_permission(
+        env: Env,
+        owner: Address,
+        delegate: Address,
+        additional_ledgers: u32,
+    ) -> Result<(), PermissionError> {
+        owner.require_auth();
+
+        let key = DataKey::Permission(owner.clone(), delegate.clone());
+        if let Some(mut record) = env
+            .storage()
+            .persistent()
+            .get::<DataKey, PermissionRecord>(&key)
+        {
+            // Reject if already revoked
+            if record.status == PermissionStatus::Revoked {
+                return Err(PermissionError::Unauthorized);
+            }
+
+            // Reject if already expired
+            if env.ledger().sequence() >= record.expires_at_ledger {
+                return Err(PermissionError::Expired);
+            }
+
+            // Store old expiry for audit log
+            let old_expires = record.expires_at_ledger;
+
+            // Extend TTL
+            record.expires_at_ledger = record.expires_at_ledger.saturating_add(additional_ledgers);
+
+            // Persist the updated record (spent counter preserved)
+            env.storage().persistent().set(&key, &record);
+
+            // Publish renewal event
+            env.events().publish(
+                (symbol_short!("perm"), symbol_short!("renewed")),
+                (
+                    owner.clone(),
+                    delegate.clone(),
+                    old_expires,
+                    record.expires_at_ledger,
+                ),
+            );
+
+            Self::append_audit_log(&env, &owner, &delegate, owner.clone(), symbol_short!("renewed"));
+
+            Ok(())
+        } else {
+            Err(PermissionError::NotFound)
+        }
+      
     /// Recursively revokes every child permission granted under
     /// `(owner, delegate)` via `grant_child`.
     fn revoke_children(env: &Env, owner: &Address, delegate: &Address) {
