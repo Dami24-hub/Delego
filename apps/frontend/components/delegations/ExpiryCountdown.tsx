@@ -59,7 +59,7 @@ export function ExpiryCountdown({ expiresAt }: ExpiryCountdownProps) {
     colorClass = "text-red-500";
   }
 
-  const parts = [];
+  const parts: string[] = [];
   if (days > 0) parts.push(`${days}d`);
   if (hours > 0) parts.push(`${hours}h`);
   if (minutes > 0) parts.push(`${minutes}m`);
