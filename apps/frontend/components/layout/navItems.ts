@@ -1,5 +1,5 @@
 /** Shared primary navigation items for the sidebar and mobile nav. */
-
+/** Single navigation entry used by the app shell. */
 export interface NavItem {
   label: string;
   href: string;
@@ -7,6 +7,7 @@ export interface NavItem {
   icon: string;
 }
 
+/** Canonical navigation items for the main application shell. */
 export const navItems: NavItem[] = [
   { label: "Dashboard", href: "/", icon: "🏠" },
   { label: "Delegations", href: "/delegations", icon: "🤝" },

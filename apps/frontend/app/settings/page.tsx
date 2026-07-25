@@ -30,6 +30,7 @@ const PLACEHOLDER_PREFERENCES: UserPreferences = {
   notificationPush: false,
 };
 
+/** Settings page that owns local profile and preference state. */
 export default function SettingsPage() {
   const [user, setUser] = useState<User>(PLACEHOLDER_USER);
   const [preferences, setPreferences] = useState<UserPreferences>(

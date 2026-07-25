@@ -1,5 +1,6 @@
 import { Button, Card } from "@delego/ui";
 
+/** Dashboard landing page for the main Delego experience. */
 export default function HomePage() {
   return (
     <div className="settings-page">

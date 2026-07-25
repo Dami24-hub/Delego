@@ -1,9 +1,12 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
 import type { ApiResponse, Delegation } from "@delego/types";
 import { api } from "../lib/api";
 
+/**
+ * Fetch the current user's delegations from the Delego API.
+ */
 function isDelegationArray(data: unknown): data is Delegation[] {
   if (!Array.isArray(data)) return false;
   return data.every(

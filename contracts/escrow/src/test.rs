@@ -18,6 +18,17 @@ mod test {
         (client, admin, contract_id)
     }
 
+    const ZERO_ACCOUNT_STRKEY: &str = "GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWHF";
+    const ZERO_CONTRACT_STRKEY: &str = "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABSC4";
+
+    fn zero_account(env: &Env) -> Address {
+        Address::from_str(env, ZERO_ACCOUNT_STRKEY)
+    }
+
+    fn zero_contract(env: &Env) -> Address {
+        Address::from_str(env, ZERO_CONTRACT_STRKEY)
+    }
+
     #[test]
     fn test_initialize() {
         let env = Env::default();
@@ -34,6 +45,107 @@ mod test {
 
         let res_try = client.try_initialize(&admin, &fee_bps, &treasury, &min_amount, &max_amount);
         assert_eq!(res_try, Err(Ok(EscrowError::AlreadyInitialized)));
+    }
+
+    #[test]
+    fn test_initialize_rejects_zero_treasury() {
+        let env = Env::default();
+        let contract_id = env.register(EscrowContract, ());
+        let client = EscrowContractClient::new(&env, &contract_id);
+        let admin = Address::generate(&env);
+        let treasury = zero_account(&env);
+
+        let res = client.try_initialize(&admin, &250u32, &treasury, &100i128, &1_000_000i128);
+        assert_eq!(res, Err(Ok(EscrowError::InvalidAddress)));
+    }
+
+    #[test]
+    fn test_getters_return_errors_before_initialization() {
+        let env = Env::default();
+        let contract_id = env.register(EscrowContract, ());
+        let client = EscrowContractClient::new(&env, &contract_id);
+
+        assert_eq!(
+            client.try_get_fee_config(),
+            Err(Ok(EscrowError::FeeConfigNotSet))
+        );
+        assert_eq!(
+            client.try_get_limits(),
+            Err(Ok(EscrowError::AmountLimitsNotSet))
+        );
+    }
+
+    #[test]
+    fn test_create_rejects_zero_addresses() {
+        let env = Env::default();
+        let (client, _admin, _contract_id) = setup_client(&env);
+
+        let buyer = Address::generate(&env);
+        let seller = Address::generate(&env);
+        let token = zero_contract(&env);
+        let order_id = BytesN::from_array(&env, &[1u8; 32]);
+
+        let buyer_zero = client.try_create(
+            &zero_account(&env),
+            &seller,
+            &token,
+            &1000i128,
+            &order_id,
+            &100u32,
+            &None,
+            &None,
+        );
+        assert_eq!(buyer_zero, Err(Ok(EscrowError::InvalidAddress)));
+
+        let seller_zero = client.try_create(
+            &buyer,
+            &zero_account(&env),
+            &token,
+            &1000i128,
+            &order_id,
+            &100u32,
+            &None,
+            &None,
+        );
+        assert_eq!(seller_zero, Err(Ok(EscrowError::InvalidAddress)));
+
+        let token_zero = client.try_create(
+            &buyer,
+            &seller,
+            &zero_contract(&env),
+            &1000i128,
+            &order_id,
+            &100u32,
+            &None,
+            &None,
+        );
+        assert_eq!(token_zero, Err(Ok(EscrowError::InvalidAddress)));
+    }
+
+    #[test]
+    fn test_create_rejects_same_buyer_and_seller() {
+        let env = Env::default();
+        env.mock_all_auths();
+        let (client, admin, _contract_id) = setup_client(&env);
+
+        let party = Address::generate(&env);
+        let token_admin = Address::generate(&env);
+        let token = env.register_stellar_asset_contract_v2(token_admin).address();
+        client.add_token(&admin, &token);
+
+        let order_id = BytesN::from_array(&env, &[2u8; 32]);
+
+        let res = client.try_create(
+            &party,
+            &party,
+            &token,
+            &1000i128,
+            &order_id,
+            &100u32,
+            &None,
+            &None,
+        );
+        assert_eq!(res, Err(Ok(EscrowError::InvalidEscrowParticipants)));
     }
 
     // ─── Issue #179: Storage Key Namespace Tests ───────────────────────────────
