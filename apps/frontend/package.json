@@ -8,7 +8,8 @@
     "build": "next build",
     "start": "next start -p ${WEB_PORT:-3001}",
     "typecheck": "tsc --noEmit",
-    "lint": "echo 'TODO: add eslint'"
+    "lint": "echo 'TODO: add eslint'",
+    "test": "vitest run"
   },
   "dependencies": {
     "@delego/sdk": "workspace:*",
@@ -19,9 +20,14 @@
     "react-dom": "^19.0.0"
   },
   "devDependencies": {
+    "@testing-library/jest-dom": "^6.6.0",
+    "@testing-library/react": "^16.1.0",
     "@types/node": "^22.0.0",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
-    "typescript": "^5.7.0"
+    "@vitejs/plugin-react": "^4.3.0",
+    "jsdom": "^25.0.0",
+    "typescript": "^5.7.0",
+    "vitest": "^2.1.0"
   }
 }
