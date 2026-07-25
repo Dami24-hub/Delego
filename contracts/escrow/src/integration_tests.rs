@@ -1700,3 +1700,57 @@ fn test_get_liquidity_pool_defaults_to_zero_for_unfunded_token() {
     assert_eq!(pool.balance, 0);
     assert_eq!(pool.token, t.token_contract_id);
 }
+
+#[test]
+fn test_get_escrow_summary_returns_all_fields() {
+    let t = TestEnv::setup();
+    let escrow_client = EscrowContractClient::new(&t.env, &t.escrow_contract_id);
+
+    let escrow_id = deposit_escrow(&t, 1000, 100);
+    let summary = escrow_client.get_escrow_summary(&escrow_id);
+
+    assert_eq!(summary.escrow_id, t.order_id());
+    assert_eq!(summary.buyer, t.buyer);
+    assert_eq!(summary.merchant, t.seller);
+    assert_eq!(summary.amount, 1000);
+    assert_eq!(summary.status, EscrowStatus::Funded);
+}
+
+#[test]
+fn test_get_escrow_summary_not_found() {
+    let t = TestEnv::setup();
+    let escrow_client = EscrowContractClient::new(&t.env, &t.escrow_contract_id);
+
+    assert_eq!(
+        escrow_client.try_get_escrow_summary(&999),
+        Err(Ok(EscrowError::NotFound))
+    );
+}
+
+#[test]
+fn test_get_escrow_summary_terminal_state() {
+    let t = TestEnv::setup();
+    let escrow_client = EscrowContractClient::new(&t.env, &t.escrow_contract_id);
+
+    let escrow_id = deposit_escrow(&t, 1000, 100);
+    escrow_client.release(&escrow_id, &t.buyer, &t.seller);
+
+    let summary = escrow_client.get_escrow_summary(&escrow_id);
+    assert_eq!(summary.status, EscrowStatus::Released);
+    assert_eq!(summary.amount, 1000);
+    assert_eq!(summary.escrow_id, t.order_id());
+}
+
+#[test]
+fn test_get_escrow_summary_does_not_mutate_state() {
+    let t = TestEnv::setup();
+    let escrow_client = EscrowContractClient::new(&t.env, &t.escrow_contract_id);
+
+    let escrow_id = deposit_escrow(&t, 1000, 100);
+    let summary_before = escrow_client.get_escrow_summary(&escrow_id);
+    let _summary_after = escrow_client.get_escrow_summary(&escrow_id);
+
+    let record = escrow_client.get_escrow(&escrow_id);
+    assert_eq!(summary_before.status, record.status);
+    assert_eq!(summary_before.amount, record.amount);
+}
