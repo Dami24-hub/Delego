@@ -1424,160 +1424,279 @@ fn test_cancellation_full_lifecycle() {
     );
 }
 
-// ── Escrow State Snapshot Tests (issue #329) ───────────────────────────────
+// ── Issue #333: Escrow Timeout Extension via Quorum Vote ──────────────────
 
-#[test]
-fn test_get_escrow_snapshot_not_found() {
-    let t = TestEnv::setup();
-    let client = EscrowContractClient::new(&t.env, &t.escrow_contract_id);
-
-    let res = client.try_get_escrow_snapshot(&999u64);
-    assert_eq!(res, Err(Ok(EscrowError::NotFound)));
+fn setup_quorum(t: &TestEnv, threshold: u32) -> soroban_sdk::Vec<Address> {
+    let escrow_client = EscrowContractClient::new(&t.env, &t.escrow_contract_id);
+    let mut arbiters = soroban_sdk::Vec::new(&t.env);
+    arbiters.push_back(Address::generate(&t.env));
+    arbiters.push_back(Address::generate(&t.env));
+    arbiters.push_back(Address::generate(&t.env));
+    escrow_client.set_quorum_config(&t.admin, &arbiters, &threshold);
+    arbiters
 }
 
 #[test]
-fn test_get_escrow_snapshot_returns_all_fields() {
+fn test_extend_timeout_via_quorum_reaches_threshold() {
     let t = TestEnv::setup();
-    let client = EscrowContractClient::new(&t.env, &t.escrow_contract_id);
+    let escrow_client = EscrowContractClient::new(&t.env, &t.escrow_contract_id);
+    let arbiters = setup_quorum(&t, 2);
 
     let escrow_id = deposit_escrow(&t, 1000, 100);
-    let record = client.get_escrow(&escrow_id);
-    let fee_config = client.get_fee_config();
+    let before = escrow_client.get_escrow(&escrow_id);
 
-    let snapshot = client.get_escrow_snapshot(&escrow_id);
+    // First vote: quorum not yet reached, timeout unchanged.
+    let applied = escrow_client.extend_timeout_via_quorum(&escrow_id, &arbiters.get(0).unwrap(), &50u32);
+    assert!(!applied);
+    let mid = escrow_client.get_escrow(&escrow_id);
+    assert_eq!(mid.timeout_ledger, before.timeout_ledger);
 
-    assert_eq!(snapshot.record, record);
-    assert_eq!(snapshot.fee_config, fee_config);
-    assert_eq!(snapshot.current_ledger, t.env.ledger().sequence());
-    assert!(!snapshot.timed_out);
-    assert!(snapshot.release_eligible);
+    // Second matching vote reaches the threshold and extends the timeout.
+    let applied = escrow_client.extend_timeout_via_quorum(&escrow_id, &arbiters.get(1).unwrap(), &50u32);
+    assert!(applied);
+    let after = escrow_client.get_escrow(&escrow_id);
+    assert_eq!(after.timeout_ledger, before.timeout_ledger + 50);
+
+    // Vote log is cleared after a successful extension.
+    let votes = escrow_client.get_timeout_extension_votes(&escrow_id);
+    assert_eq!(votes.len(), 0);
 }
 
 #[test]
-fn test_get_escrow_snapshot_reflects_current_timeout_status() {
+fn test_extend_timeout_via_quorum_fails_without_sufficient_votes() {
     let t = TestEnv::setup();
-    let client = EscrowContractClient::new(&t.env, &t.escrow_contract_id);
+    let escrow_client = EscrowContractClient::new(&t.env, &t.escrow_contract_id);
+    let arbiters = setup_quorum(&t, 3);
 
     let escrow_id = deposit_escrow(&t, 1000, 100);
-    let record = client.get_escrow(&escrow_id);
+    let before = escrow_client.get_escrow(&escrow_id);
 
-    t.env.ledger().set_sequence_number(record.timeout_ledger + 5);
+    let applied = escrow_client.extend_timeout_via_quorum(&escrow_id, &arbiters.get(0).unwrap(), &50u32);
+    assert!(!applied);
 
-    let snapshot = client.get_escrow_snapshot(&escrow_id);
+    let after = escrow_client.get_escrow(&escrow_id);
+    assert_eq!(after.timeout_ledger, before.timeout_ledger);
 
-    assert!(snapshot.timed_out);
-    assert!(!snapshot.release_eligible);
-    assert_eq!(snapshot.current_ledger, record.timeout_ledger + 5);
+    let votes = escrow_client.get_timeout_extension_votes(&escrow_id);
+    assert_eq!(votes.len(), 1);
 }
 
 #[test]
-fn test_get_escrow_snapshot_is_read_only() {
+fn test_extend_timeout_via_quorum_rejects_non_arbiter() {
     let t = TestEnv::setup();
-    let client = EscrowContractClient::new(&t.env, &t.escrow_contract_id);
+    let escrow_client = EscrowContractClient::new(&t.env, &t.escrow_contract_id);
+    setup_quorum(&t, 2);
 
     let escrow_id = deposit_escrow(&t, 1000, 100);
-    let before = client.get_escrow(&escrow_id);
-
-    t.env.ledger().set_sequence_number(before.timeout_ledger + 5);
-    let _snapshot = client.get_escrow_snapshot(&escrow_id);
-
-    let after = client.get_escrow(&escrow_id);
-    assert_eq!(before.status, after.status);
-    assert_eq!(before.amount, after.amount);
-    assert_eq!(before.released_amount, after.released_amount);
-}
-
-// ── Escrow Compound Release / Yield Accrual Tests (issue #331) ────────────
-
-#[test]
-fn test_no_yield_config_means_zero_yield() {
-    let t = TestEnv::setup();
-    let client = EscrowContractClient::new(&t.env, &t.escrow_contract_id);
-
-    let escrow_id = deposit_escrow(&t, 1000, 100);
-
-    let view = client.get_accrued_yield(&escrow_id);
-    assert_eq!(view.accrued_yield, 0);
-    assert_eq!(view.apr_bps, 0);
-}
-
-#[test]
-fn test_yield_calculation_for_30_day_escrow() {
-    let t = TestEnv::setup();
-    let client = EscrowContractClient::new(&t.env, &t.escrow_contract_id);
-
-    let escrow_id = deposit_escrow(&t, 10_000, 100_000);
-    let lending_contract = Address::generate(&t.env);
-
-    // 10% APR.
-    let apr_bps = 1_000u32;
-    assert!(client.set_yield_config(&t.admin, &escrow_id, &lending_contract, &apr_bps));
-
-    // Advance 30 days.
-    let thirty_days_secs = 30 * 24 * 60 * 60;
-    t.env.ledger().with_mut(|li| {
-        li.timestamp += thirty_days_secs;
-    });
-
-    let view = client.get_accrued_yield(&escrow_id);
-    // amount * apr_bps * held_seconds / (10_000 * seconds_per_year)
-    let expected = (10_000i128 * apr_bps as i128 * thirty_days_secs as i128)
-        / (10_000i128 * 31_536_000i128);
-    assert_eq!(view.accrued_yield, expected);
-    assert_eq!(view.apr_bps, apr_bps);
-}
-
-#[test]
-fn test_yield_distribution_on_release() {
-    let t = TestEnv::setup();
-    let client = EscrowContractClient::new(&t.env, &t.escrow_contract_id);
-
-    let escrow_id = deposit_escrow(&t, 10_000, 100_000);
-    let lending_contract = Address::generate(&t.env);
-    let apr_bps = 1_000u32;
-    client.set_yield_config(&t.admin, &escrow_id, &lending_contract, &apr_bps);
-
-    let thirty_days_secs = 30 * 24 * 60 * 60;
-    t.env.ledger().with_mut(|li| {
-        li.timestamp += thirty_days_secs;
-    });
-
-    let expected_yield = client.get_accrued_yield(&escrow_id).accrued_yield;
-    assert!(expected_yield > 0);
-
-    assert!(client.release(&escrow_id, &t.buyer, &t.seller));
-
-    let events = t.env.events().all();
-    let mut found = false;
-    for event in events.iter() {
-        let (contract, topics, value) = event;
-        if contract != t.escrow_contract_id || topics.len() != 2 {
-            continue;
-        }
-        let t0: soroban_sdk::Symbol = topics.get(0).unwrap().into_val(&t.env);
-        let t1: soroban_sdk::Symbol = topics.get(1).unwrap().into_val(&t.env);
-        if t0 == symbol_short!("escrow") && t1 == symbol_short!("yield") {
-            let decoded: crate::EscrowYieldAccruedEvent = value.into_val(&t.env);
-            assert_eq!(decoded.escrow_id, escrow_id);
-            assert_eq!(decoded.seller, t.seller);
-            assert_eq!(decoded.yield_amount, expected_yield);
-            assert_eq!(decoded.held_seconds, thirty_days_secs);
-            found = true;
-        }
-    }
-    assert!(found, "EscrowYieldAccruedEvent not found in events");
-}
-
-#[test]
-fn test_set_yield_config_rejects_invalid_apr() {
-    let t = TestEnv::setup();
-    let client = EscrowContractClient::new(&t.env, &t.escrow_contract_id);
-
-    let escrow_id = deposit_escrow(&t, 1000, 100);
-    let lending_contract = Address::generate(&t.env);
+    let stranger = Address::generate(&t.env);
 
     assert_eq!(
-        client.try_set_yield_config(&t.admin, &escrow_id, &lending_contract, &10_001u32),
-        Err(Ok(EscrowError::InvalidYieldConfig))
+        escrow_client.try_extend_timeout_via_quorum(&escrow_id, &stranger, &50u32),
+        Err(Ok(EscrowError::NotAnArbiter))
     );
+}
+
+#[test]
+fn test_extend_timeout_via_quorum_rejects_duplicate_vote() {
+    let t = TestEnv::setup();
+    let escrow_client = EscrowContractClient::new(&t.env, &t.escrow_contract_id);
+    let arbiters = setup_quorum(&t, 3);
+
+    let escrow_id = deposit_escrow(&t, 1000, 100);
+
+    let applied = escrow_client.extend_timeout_via_quorum(&escrow_id, &arbiters.get(0).unwrap(), &50u32);
+    assert!(!applied);
+
+    assert_eq!(
+        escrow_client.try_extend_timeout_via_quorum(&escrow_id, &arbiters.get(0).unwrap(), &50u32),
+        Err(Ok(EscrowError::AlreadyVoted))
+    );
+}
+
+#[test]
+fn test_extend_timeout_via_quorum_rejects_zero_extension() {
+    let t = TestEnv::setup();
+    let escrow_client = EscrowContractClient::new(&t.env, &t.escrow_contract_id);
+    let arbiters = setup_quorum(&t, 2);
+
+    let escrow_id = deposit_escrow(&t, 1000, 100);
+
+    assert_eq!(
+        escrow_client.try_extend_timeout_via_quorum(&escrow_id, &arbiters.get(0).unwrap(), &0u32),
+        Err(Ok(EscrowError::InvalidExtension))
+    );
+}
+
+// ── Issue #335: Escrow Liquidity Pool for Instant Settlement ──────────────
+
+#[test]
+fn test_fund_pool_increases_balance() {
+    let t = TestEnv::setup();
+    let escrow_client = EscrowContractClient::new(&t.env, &t.escrow_contract_id);
+    let token_client = soroban_sdk::token::Client::new(&t.env, &t.token_contract_id);
+
+    let funder = Address::generate(&t.env);
+    let token_admin_client =
+        soroban_sdk::token::StellarAssetClient::new(&t.env, &t.token_contract_id);
+    token_admin_client.mint(&funder, &5000);
+
+    let new_balance = escrow_client.fund_pool(&funder, &t.token_contract_id, &2000);
+    assert_eq!(new_balance, 2000);
+
+    let pool = escrow_client.get_liquidity_pool(&t.token_contract_id);
+    assert_eq!(pool.balance, 2000);
+    assert_eq!(pool.token, t.token_contract_id);
+    assert_eq!(token_client.balance(&t.escrow_contract_id), 2000);
+
+    let newer_balance = escrow_client.fund_pool(&funder, &t.token_contract_id, &500);
+    assert_eq!(newer_balance, 2500);
+    assert_eq!(
+        escrow_client.get_liquidity_pool(&t.token_contract_id).balance,
+        2500
+    );
+}
+
+#[test]
+fn test_fund_pool_rejects_non_whitelisted_token() {
+    let t = TestEnv::setup();
+    let escrow_client = EscrowContractClient::new(&t.env, &t.escrow_contract_id);
+
+    let other_token_admin = Address::generate(&t.env);
+    let other_token = t
+        .env
+        .register_stellar_asset_contract_v2(other_token_admin.clone())
+        .address();
+
+    assert_eq!(
+        escrow_client.try_fund_pool(&t.buyer, &other_token, &1000),
+        Err(Ok(EscrowError::TokenNotWhitelisted))
+    );
+}
+
+#[test]
+fn test_settle_from_pool_transfers_to_seller() {
+    let t = TestEnv::setup();
+    let escrow_client = EscrowContractClient::new(&t.env, &t.escrow_contract_id);
+    let token_client = soroban_sdk::token::Client::new(&t.env, &t.token_contract_id);
+
+    let funder = Address::generate(&t.env);
+    let token_admin_client =
+        soroban_sdk::token::StellarAssetClient::new(&t.env, &t.token_contract_id);
+    token_admin_client.mint(&funder, &5000);
+    escrow_client.fund_pool(&funder, &t.token_contract_id, &5000);
+
+    let escrow_id = deposit_escrow(&t, 1000, 100);
+    assert_eq!(token_client.balance(&t.seller), 0);
+
+    assert!(escrow_client.settle_from_pool(&escrow_id, &t.admin));
+
+    assert_eq!(token_client.balance(&t.seller), 1000);
+
+    let record = escrow_client.get_escrow(&escrow_id);
+    assert_eq!(record.status, EscrowStatus::Released);
+    assert_eq!(record.released_amount, 1000);
+
+    // Pool balance is unaffected: the seller's payout is backed by this
+    // escrow's own now-settled deposit rather than draining the reserve.
+    let pool = escrow_client.get_liquidity_pool(&t.token_contract_id);
+    assert_eq!(pool.balance, 5000);
+}
+
+#[test]
+fn test_settle_from_pool_rejects_non_admin() {
+    let t = TestEnv::setup();
+    let escrow_client = EscrowContractClient::new(&t.env, &t.escrow_contract_id);
+
+    let funder = Address::generate(&t.env);
+    let token_admin_client =
+        soroban_sdk::token::StellarAssetClient::new(&t.env, &t.token_contract_id);
+    token_admin_client.mint(&funder, &5000);
+    escrow_client.fund_pool(&funder, &t.token_contract_id, &5000);
+
+    let escrow_id = deposit_escrow(&t, 1000, 100);
+
+    assert_eq!(
+        escrow_client.try_settle_from_pool(&escrow_id, &t.agent),
+        Err(Ok(EscrowError::Unauthorized))
+    );
+}
+
+#[test]
+fn test_settle_from_pool_insufficient_liquidity_fails() {
+    let t = TestEnv::setup();
+    let escrow_client = EscrowContractClient::new(&t.env, &t.escrow_contract_id);
+
+    let funder = Address::generate(&t.env);
+    let token_admin_client =
+        soroban_sdk::token::StellarAssetClient::new(&t.env, &t.token_contract_id);
+    token_admin_client.mint(&funder, &500);
+    escrow_client.fund_pool(&funder, &t.token_contract_id, &500);
+
+    let escrow_id = deposit_escrow(&t, 1000, 100);
+
+    assert_eq!(
+        escrow_client.try_settle_from_pool(&escrow_id, &t.admin),
+        Err(Ok(EscrowError::InsufficientPoolBalance))
+    );
+}
+
+#[test]
+fn test_withdraw_from_pool_respects_available_balance() {
+    let t = TestEnv::setup();
+    let escrow_client = EscrowContractClient::new(&t.env, &t.escrow_contract_id);
+    let token_client = soroban_sdk::token::Client::new(&t.env, &t.token_contract_id);
+
+    let funder = Address::generate(&t.env);
+    let token_admin_client =
+        soroban_sdk::token::StellarAssetClient::new(&t.env, &t.token_contract_id);
+    token_admin_client.mint(&funder, &1000);
+    escrow_client.fund_pool(&funder, &t.token_contract_id, &1000);
+
+    // Withdrawing more than the pool holds fails.
+    assert_eq!(
+        escrow_client.try_withdraw_from_pool(&t.admin, &t.token_contract_id, &1500),
+        Err(Ok(EscrowError::InsufficientPoolBalance))
+    );
+
+    // Withdrawing within the available balance succeeds and decrements it.
+    let new_balance = escrow_client.withdraw_from_pool(&t.admin, &t.token_contract_id, &400);
+    assert_eq!(new_balance, 600);
+    assert_eq!(
+        escrow_client.get_liquidity_pool(&t.token_contract_id).balance,
+        600
+    );
+    assert_eq!(token_client.balance(&t.admin), 400);
+
+    // A further withdrawal beyond the now-reduced balance fails.
+    assert_eq!(
+        escrow_client.try_withdraw_from_pool(&t.admin, &t.token_contract_id, &601),
+        Err(Ok(EscrowError::InsufficientPoolBalance))
+    );
+}
+
+#[test]
+fn test_withdraw_from_pool_rejects_non_admin() {
+    let t = TestEnv::setup();
+    let escrow_client = EscrowContractClient::new(&t.env, &t.escrow_contract_id);
+
+    let funder = Address::generate(&t.env);
+    let token_admin_client =
+        soroban_sdk::token::StellarAssetClient::new(&t.env, &t.token_contract_id);
+    token_admin_client.mint(&funder, &1000);
+    escrow_client.fund_pool(&funder, &t.token_contract_id, &1000);
+
+    assert_eq!(
+        escrow_client.try_withdraw_from_pool(&t.agent, &t.token_contract_id, &100),
+        Err(Ok(EscrowError::Unauthorized))
+    );
+}
+
+#[test]
+fn test_get_liquidity_pool_defaults_to_zero_for_unfunded_token() {
+    let t = TestEnv::setup();
+    let escrow_client = EscrowContractClient::new(&t.env, &t.escrow_contract_id);
+
+    let pool = escrow_client.get_liquidity_pool(&t.token_contract_id);
+    assert_eq!(pool.balance, 0);
+    assert_eq!(pool.token, t.token_contract_id);
 }

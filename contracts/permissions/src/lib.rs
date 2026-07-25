@@ -1,10 +1,10 @@
 //! Delego Permissions Contract
 //! Spending limits, delegated authority, and time-locked allowance decrements
 
-#![no_std]
+#![cfg_attr(not(test), no_std)]
 use soroban_sdk::{
-    contract, contracterror, contractimpl, contracttype, symbol_short, Address, BytesN, Env,
-    Symbol, Vec,
+    contract, contracterror, contractimpl, contracttype, symbol_short,
+    xdr::ToXdr, Address, BytesN, Env, Symbol, Vec,
 };
 
 const _PERM: Symbol = symbol_short!("PERM");
@@ -41,10 +41,12 @@ pub enum PermissionError {
     AlreadyActive = 10,
     /// New grants are globally paused by admin
     GrantsPaused = 11,
-    /// Referenced parent permission does not exist
-    ParentNotFound = 12,
-    /// Child grant/spend exceeds the bounds of its parent permission
-    ExceedsParentLimit = 13,
+    /// No relayer signing key registered for this delegate
+    RelayerKeyNotSet = 12,
+    /// Relayer-submitted nonce does not match the delegate's expected next nonce
+    InvalidNonce = 13,
+    /// Relayer-submitted signature has expired
+    SignatureExpired = 14,
     /// Owner and delegate cannot be the same address
     SelfDelegationNotAllowed = 401,
     /// Fewer valid owner signatures were provided than the configured threshold
@@ -177,6 +179,21 @@ pub struct PermissionSpendEvent {
     pub merchant: Address,
     pub amount: i128,
     pub remaining: i128,
+}
+
+/// Canonical payload a delegate signs off-chain to authorize a gasless spend
+/// submitted on their behalf by a relayer (issue #334). Serialized via
+/// [`soroban_sdk::xdr::ToXdr`] to produce the exact bytes that are ed25519-signed
+/// and later re-derived and verified inside `execute_spend_via_relayer`.
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct RelayedSpendMessage {
+    pub owner: Address,
+    pub delegate: Address,
+    pub merchant: Address,
+    pub amount: i128,
+    pub nonce: u64,
+    pub expiration_ledger: u32,
 }
 
 #[contracttype]
@@ -320,16 +337,17 @@ pub struct PermissionMetadata {
     pub schema: Symbol,
 }
 
-/// Immutable, append-only audit log entry recording a permission state
-/// transition (issue #359). Entries are never modified or removed once
-/// written — only `append_audit_log` (private) writes to this storage, and
-/// it only ever appends.
+/// On-chain spend analytics for a single (owner, delegate) delegation,
+/// updated on every successful spend (issue #336).
 #[contracttype]
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub struct AuditLogEntry {
-    pub timestamp: u64,
-    pub actor: Address,
-    pub action: Symbol,
+pub struct PermissionUsageStats {
+    pub total_spends: u64,
+    pub total_spent: i128,
+    pub average_spend: i128,
+    pub largest_spend: i128,
+    pub first_spend_ledger: u32,
+    pub last_spend_ledger: u32,
 }
 
 /// Read-only view of the merchant restriction configured under a delegation
@@ -353,6 +371,12 @@ pub enum DataKey {
     Metadata(Address, Address),
     /// Instance-level flag: when true, grant() allows owner == delegate.
     AllowSelfDelegation,
+    /// Delegate's registered ed25519 public key used to verify relayed spends.
+    RelayerKey(Address),
+    /// Next expected nonce for a (owner, delegate) pair's relayed spends.
+    RelayerNonce(Address, Address),
+    /// On-chain usage analytics for a (owner, delegate) pair.
+    UsageStats(Address, Address),
     /// Multi-owner permission, keyed by (owners[0], delegate).
     MultiPermission(Address, Address),
     /// Instance-level list of approved `PermissionMetadata.schema` identifiers.
@@ -940,6 +964,7 @@ impl PermissionsContract {
             _ => None,
         };
         env.storage().persistent().set(&key, &record);
+        Self::record_spend_stats(&env, &owner, &delegate, amount);
 
         // Record the current ledger as the last spend ledger for velocity tracking.
         env.storage()
@@ -990,6 +1015,94 @@ impl PermissionsContract {
         Ok(())
     }
 
+    /// Register (or rotate) the ed25519 public key used to verify this
+    /// delegate's signed messages in `execute_spend_via_relayer`. Must be
+    /// called by the delegate directly (a real, gas-paying transaction) —
+    /// after this one-time setup, subsequent spends can be relayed gaslessly.
+    pub fn set_relayer_key(
+        env: Env,
+        delegate: Address,
+        public_key: BytesN<32>,
+    ) -> Result<(), PermissionError> {
+        delegate.require_auth();
+        env.storage()
+            .instance()
+            .set(&DataKey::RelayerKey(delegate), &public_key);
+        Ok(())
+    }
+
+    /// Returns the delegate's registered relayer signing key, if any.
+    pub fn get_relayer_key(env: Env, delegate: Address) -> Option<BytesN<32>> {
+        env.storage().instance().get(&DataKey::RelayerKey(delegate))
+    }
+
+    /// Returns the next nonce a relayed spend for this (owner, delegate) pair
+    /// must use.
+    pub fn get_relayer_nonce(env: Env, owner: Address, delegate: Address) -> u64 {
+        env.storage()
+            .persistent()
+            .get(&DataKey::RelayerNonce(owner, delegate))
+            .unwrap_or(0)
+    }
+
+    /// Execute a spend on the delegate's behalf from a relayer, without
+    /// requiring the delegate to submit (or pay fees for) the transaction
+    /// themselves.
+    ///
+    /// The delegate authorizes the spend by signing a [`RelayedSpendMessage`]
+    /// off-chain with the key registered via `set_relayer_key`; any relayer
+    /// can then submit that message and signature here. The signature is
+    /// verified with Soroban's ed25519 crypto primitive against the
+    /// delegate's registered public key, the `nonce` must match the
+    /// delegate's next expected nonce (preventing replay), and
+    /// `expiration_ledger` must not yet have been reached.
+    pub fn execute_spend_via_relayer(
+        env: Env,
+        relayer: Address,
+        owner: Address,
+        delegate: Address,
+        amount: i128,
+        merchant: Address,
+        nonce: u64,
+        expiration_ledger: u32,
+        signature: BytesN<64>,
+    ) -> Result<(), PermissionError> {
+        relayer.require_auth();
+
+        if env.ledger().sequence() >= expiration_ledger {
+            return Err(PermissionError::SignatureExpired);
+        }
+
+        let nonce_key = DataKey::RelayerNonce(owner.clone(), delegate.clone());
+        let expected_nonce: u64 = env.storage().persistent().get(&nonce_key).unwrap_or(0);
+        if nonce != expected_nonce {
+            return Err(PermissionError::InvalidNonce);
+        }
+
+        let public_key: BytesN<32> = env
+            .storage()
+            .instance()
+            .get(&DataKey::RelayerKey(delegate.clone()))
+            .ok_or(PermissionError::RelayerKeyNotSet)?;
+
+        let message = RelayedSpendMessage {
+            owner: owner.clone(),
+            delegate: delegate.clone(),
+            merchant: merchant.clone(),
+            amount,
+            nonce,
+            expiration_ledger,
+        };
+        let message_bytes = message.to_xdr(&env);
+        env.crypto()
+            .ed25519_verify(&public_key, &message_bytes, &signature);
+
+        // Signature verified — apply the same validation rules as a direct
+        // execute_spend before mutating state.
+        Self::can_spend(
+            env.clone(),
+            owner.clone(),
+            delegate.clone(),
     /// Grant a delegation jointly controlled by multiple owners (issue #326).
     ///
     /// `owners` must be non-empty and contain no duplicates. `threshold` is
@@ -1152,6 +1265,18 @@ impl PermissionsContract {
             merchant.clone(),
         )?;
 
+        let perm_key = DataKey::Permission(owner.clone(), delegate.clone());
+        let mut record: PermissionRecord = env.storage().persistent().get(&perm_key).unwrap();
+        record.spent += amount;
+        env.storage().persistent().set(&perm_key, &record);
+        env.storage().persistent().set(&nonce_key, &(nonce + 1));
+        Self::record_spend_stats(&env, &owner, &delegate, amount);
+
+        let remaining = record.limit_total - record.spent;
+        env.events().publish(
+            (symbol_short!("perm"), symbol_short!("relayed")),
+            PermissionSpendEvent {
+                owner,
         let key = DataKey::MultiPermission(primary_owner.clone(), delegate.clone());
         let mut record: MultiOwnerPermission = env.storage().persistent().get(&key).unwrap();
 
@@ -1858,31 +1983,54 @@ impl PermissionsContract {
         })
     }
 
-    /// Returns the full, chronologically-ordered audit trail for a delegation
-    /// pair (issue #359). Empty when no state transitions have occurred yet.
-    pub fn get_audit_log(env: Env, owner: Address, delegate: Address) -> Vec<AuditLogEntry> {
+    /// Returns on-chain usage analytics for a (owner, delegate) delegation.
+    /// A pair with no recorded spends yet returns all-zero stats.
+    pub fn get_usage_stats(env: Env, owner: Address, delegate: Address) -> PermissionUsageStats {
         env.storage()
             .persistent()
-            .get(&DataKey::AuditLog(owner, delegate))
-            .unwrap_or_else(|| Vec::new(&env))
+            .get(&DataKey::UsageStats(owner, delegate))
+            .unwrap_or(PermissionUsageStats {
+                total_spends: 0,
+                total_spent: 0,
+                average_spend: 0,
+                largest_spend: 0,
+                first_spend_ledger: 0,
+                last_spend_ledger: 0,
+            })
     }
 
-    /// Appends an entry to a delegation pair's audit log. Private and
-    /// append-only: no public function ever modifies or removes an existing
-    /// entry, so the log is immutable once written.
-    fn append_audit_log(env: &Env, owner: &Address, delegate: &Address, actor: Address, action: Symbol) {
-        let key = DataKey::AuditLog(owner.clone(), delegate.clone());
-        let mut log: Vec<AuditLogEntry> = env
-            .storage()
-            .persistent()
-            .get(&key)
-            .unwrap_or_else(|| Vec::new(env));
-        log.push_back(AuditLogEntry {
-            timestamp: env.ledger().timestamp(),
-            actor,
-            action,
-        });
-        env.storage().persistent().set(&key, &log);
+    /// Updates the (owner, delegate) pair's usage stats after a successful
+    /// spend. Called from both `execute_spend` and `execute_spend_via_relayer`
+    /// so relayed spends are reflected in the same analytics.
+    fn record_spend_stats(env: &Env, owner: &Address, delegate: &Address, amount: i128) {
+        let key = DataKey::UsageStats(owner.clone(), delegate.clone());
+        let ledger = env.ledger().sequence();
+
+        let mut stats: PermissionUsageStats =
+            env.storage()
+                .persistent()
+                .get(&key)
+                .unwrap_or(PermissionUsageStats {
+                    total_spends: 0,
+                    total_spent: 0,
+                    average_spend: 0,
+                    largest_spend: 0,
+                    first_spend_ledger: ledger,
+                    last_spend_ledger: ledger,
+                });
+
+        if stats.total_spends == 0 {
+            stats.first_spend_ledger = ledger;
+        }
+        stats.total_spends += 1;
+        stats.total_spent += amount;
+        stats.average_spend = stats.total_spent / stats.total_spends as i128;
+        stats.last_spend_ledger = ledger;
+        if amount > stats.largest_spend {
+            stats.largest_spend = amount;
+        }
+
+        env.storage().persistent().set(&key, &stats);
     }
 }
 

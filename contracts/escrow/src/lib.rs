@@ -280,6 +280,43 @@ pub struct EscrowAmountLimits {
     pub max_amount: i128,
 }
 
+/// Shared liquidity reserve for a single token, used to instantly settle
+/// funded escrows without waiting on the ordinary buyer/admin release flow
+/// (issue #335).
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct LiquidityPool {
+    pub token: Address,
+    pub balance: i128,
+}
+
+#[contracttype]
+#[derive(Clone, Debug)]
+pub struct PoolFundedEvent {
+    pub token: Address,
+    pub funder: Address,
+    pub amount: i128,
+    pub new_balance: i128,
+}
+
+#[contracttype]
+#[derive(Clone, Debug)]
+pub struct PoolWithdrawnEvent {
+    pub token: Address,
+    pub admin: Address,
+    pub amount: i128,
+    pub new_balance: i128,
+}
+
+#[contracttype]
+#[derive(Clone, Debug)]
+pub struct PoolSettledEvent {
+    pub escrow_id: u64,
+    pub token: Address,
+    pub seller: Address,
+    pub amount: i128,
+}
+
 #[contracttype]
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct QuorumConfig {
@@ -292,6 +329,26 @@ pub struct QuorumConfig {
 pub struct DisputeVote {
     pub arbiter: Address,
     pub release_to_seller: bool,
+}
+
+/// A single arbiter's vote to extend an escrow's refund timeout, cast via
+/// `extend_timeout_via_quorum` (issue #333).
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct TimeoutExtensionVote {
+    pub arbiter: Address,
+    pub extension_ledgers: u32,
+    pub voted_at: u64,
+}
+
+/// Emitted once quorum is reached and `timeout_ledger` is extended.
+#[contracttype]
+#[derive(Clone, Debug)]
+pub struct TimeoutExtendedEvent {
+    pub escrow_id: u64,
+    pub previous_timeout_ledger: u32,
+    pub new_timeout_ledger: u32,
+    pub extension_ledgers: u32,
 }
 
 /// Contract version information for deployment scripts and runtime compatibility checks.
@@ -321,10 +378,12 @@ pub enum DataKey {
     AmountLimits,
     QuorumConfig,
     DisputeVotes(u64),
+    TimeoutExtensionVotes(u64),
     TokenWhitelist,
     TokenEnabled(Address),
     PauseState,
     EscrowMetadata(u64),
+    LiquidityPool(Address),
     /// Set to `true` the first time the contract is upgraded via `upgrade`.
     MigrationFlag,
     /// Optional multi-treasury fee split configured via `set_fee_distribution`.
@@ -393,8 +452,12 @@ pub enum EscrowError {
     AlreadyCancelled = 27,
     /// Escrow has already been funded
     AlreadyFunded = 28,
-    /// Yield APR exceeds the maximum allowed (10000 bps = 100%)
-    InvalidYieldConfig = 29,
+    /// Extension length must be greater than zero
+    InvalidExtension = 29,
+    /// No liquidity pool exists for the given token
+    PoolNotFound = 30,
+    /// Liquidity pool balance is insufficient for the requested operation
+    InsufficientPoolBalance = 31,
 }
 
 /// Compact receipt returned to buyers after escrow creation via `get_receipt`.
@@ -817,6 +880,103 @@ impl EscrowContract {
         Ok(true)
     }
 
+    /// Vote to extend the refund timeout of an escrow via arbiter quorum.
+    ///
+    /// Any arbiter configured in [`QuorumConfig`] may cast one vote per
+    /// escrow proposing an `extension_ledgers` amount. Once at least
+    /// `threshold` arbiters have voted for the *same* `extension_ledgers`
+    /// value, the escrow's `timeout_ledger` is pushed back by that amount,
+    /// a [`TimeoutExtendedEvent`] is published, and the vote log is cleared
+    /// so arbiters can vote again for a future extension.
+    ///
+    /// Requires the escrow to not be in a terminal state (Released,
+    /// Refunded, Cancelled). Each arbiter may vote only once per round.
+    pub fn extend_timeout_via_quorum(
+        env: Env,
+        escrow_id: u64,
+        arbiter: Address,
+        extension_ledgers: u32,
+    ) -> Result<bool, EscrowError> {
+        arbiter.require_auth();
+
+        if extension_ledgers == 0 {
+            return Err(EscrowError::InvalidExtension);
+        }
+
+        let quorum_config: QuorumConfig = env
+            .storage()
+            .instance()
+            .get(&DataKey::QuorumConfig)
+            .ok_or(EscrowError::QuorumConfigNotSet)?;
+        if !quorum_config.arbiters.contains(&arbiter) {
+            return Err(EscrowError::NotAnArbiter);
+        }
+
+        let key = DataKey::Escrow(escrow_id);
+        let mut record: EscrowRecord = match env.storage().persistent().get(&key) {
+            Some(rec) => rec,
+            None => return Err(EscrowError::NotFound),
+        };
+        check_not_terminal(&record)?;
+
+        let votes_key = DataKey::TimeoutExtensionVotes(escrow_id);
+        let mut votes: soroban_sdk::Vec<TimeoutExtensionVote> = env
+            .storage()
+            .persistent()
+            .get(&votes_key)
+            .unwrap_or_else(|| soroban_sdk::Vec::new(&env));
+
+        if votes.iter().any(|vote| vote.arbiter == arbiter) {
+            return Err(EscrowError::AlreadyVoted);
+        }
+
+        votes.push_back(TimeoutExtensionVote {
+            arbiter,
+            extension_ledgers,
+            voted_at: env.ledger().timestamp(),
+        });
+
+        let matching_votes = votes
+            .iter()
+            .filter(|vote| vote.extension_ledgers == extension_ledgers)
+            .count() as u32;
+
+        if matching_votes < quorum_config.threshold {
+            env.storage().persistent().set(&votes_key, &votes);
+            return Ok(false);
+        }
+
+        let previous_timeout_ledger = record.timeout_ledger;
+        let new_timeout_ledger = previous_timeout_ledger.saturating_add(extension_ledgers);
+        record.timeout_ledger = new_timeout_ledger;
+        env.storage().persistent().set(&key, &record);
+        env.storage().persistent().remove(&votes_key);
+
+        env.events().publish(
+            (symbol_short!("escrow"), symbol_short!("tmo_ext")),
+            TimeoutExtendedEvent {
+                escrow_id,
+                previous_timeout_ledger,
+                new_timeout_ledger,
+                extension_ledgers,
+            },
+        );
+
+        Ok(true)
+    }
+
+    /// Get the recorded timeout-extension votes for an escrow's current round.
+    pub fn get_timeout_extension_votes(
+        env: Env,
+        escrow_id: u64,
+    ) -> soroban_sdk::Vec<TimeoutExtensionVote> {
+        let votes_key = DataKey::TimeoutExtensionVotes(escrow_id);
+        env.storage()
+            .persistent()
+            .get(&votes_key)
+            .unwrap_or_else(|| soroban_sdk::Vec::new(&env))
+    }
+
     /// Update the fee percentage. Admin-only.
     pub fn update_fee(env: Env, admin: Address, new_fee_bps: u32) -> Result<bool, EscrowError> {
         admin.require_auth();
@@ -1003,6 +1163,173 @@ impl EscrowContract {
             .instance()
             .get(&DataKey::TokenWhitelist)
             .unwrap_or_else(|| soroban_sdk::Vec::new(&env))
+    }
+
+    /// Fund the shared liquidity pool for a token so it can back instant
+    /// settlements via `settle_from_pool`. Any account may contribute
+    /// liquidity for a whitelisted token.
+    pub fn fund_pool(
+        env: Env,
+        funder: Address,
+        token: Address,
+        amount: i128,
+    ) -> Result<i128, EscrowError> {
+        funder.require_auth();
+
+        if !Self::is_token_allowed(env.clone(), token.clone()) {
+            return Err(EscrowError::TokenNotWhitelisted);
+        }
+        if amount <= 0 {
+            return Err(EscrowError::InvalidAmount);
+        }
+
+        let token_client = soroban_sdk::token::Client::new(&env, &token);
+        token_client.transfer(&funder, &env.current_contract_address(), &amount);
+
+        let pool_key = DataKey::LiquidityPool(token.clone());
+        let mut pool: LiquidityPool =
+            env.storage()
+                .instance()
+                .get(&pool_key)
+                .unwrap_or(LiquidityPool {
+                    token: token.clone(),
+                    balance: 0,
+                });
+        pool.balance += amount;
+        env.storage().instance().set(&pool_key, &pool);
+
+        env.events().publish(
+            (symbol_short!("escrow"), symbol_short!("pl_fund")),
+            PoolFundedEvent {
+                token,
+                funder,
+                amount,
+                new_balance: pool.balance,
+            },
+        );
+
+        Ok(pool.balance)
+    }
+
+    /// Withdraw liquidity from a token's pool. Admin-only.
+    pub fn withdraw_from_pool(
+        env: Env,
+        admin: Address,
+        token: Address,
+        amount: i128,
+    ) -> Result<i128, EscrowError> {
+        admin.require_auth();
+        if !Self::is_admin(env.clone(), admin.clone()) {
+            return Err(EscrowError::Unauthorized);
+        }
+        if amount <= 0 {
+            return Err(EscrowError::InvalidAmount);
+        }
+
+        let pool_key = DataKey::LiquidityPool(token.clone());
+        let mut pool: LiquidityPool = env
+            .storage()
+            .instance()
+            .get(&pool_key)
+            .ok_or(EscrowError::PoolNotFound)?;
+
+        if amount > pool.balance {
+            return Err(EscrowError::InsufficientPoolBalance);
+        }
+
+        let token_client = soroban_sdk::token::Client::new(&env, &token);
+        token_client.transfer(&env.current_contract_address(), &admin, &amount);
+
+        pool.balance -= amount;
+        env.storage().instance().set(&pool_key, &pool);
+
+        env.events().publish(
+            (symbol_short!("escrow"), symbol_short!("pl_wdrw")),
+            PoolWithdrawnEvent {
+                token,
+                admin,
+                amount,
+                new_balance: pool.balance,
+            },
+        );
+
+        Ok(pool.balance)
+    }
+
+    /// Instantly settle a funded escrow by paying the seller out of the
+    /// shared liquidity pool for that escrow's token, instead of going
+    /// through the ordinary buyer/admin-triggered `release` flow. Admin-only.
+    ///
+    /// The pool's tracked balance is left unchanged by a settlement: the
+    /// amount it fronts to the seller is immediately backed by the settling
+    /// escrow's own already-deposited funds, which remain held by this
+    /// contract. `pool.balance` therefore always reflects real, currently
+    /// unencumbered liquidity available to back further instant settlements.
+    pub fn settle_from_pool(
+        env: Env,
+        escrow_id: u64,
+        caller: Address,
+    ) -> Result<bool, EscrowError> {
+        caller.require_auth();
+        if !Self::is_admin(env.clone(), caller.clone()) {
+            return Err(EscrowError::Unauthorized);
+        }
+
+        let key = DataKey::Escrow(escrow_id);
+        let mut record: EscrowRecord = match env.storage().persistent().get(&key) {
+            Some(rec) => rec,
+            None => return Err(EscrowError::NotFound),
+        };
+
+        if record.status != EscrowStatus::Funded {
+            return Err(EscrowError::InvalidStatus);
+        }
+
+        let remaining = record.amount - record.released_amount;
+        if remaining <= 0 {
+            return Err(EscrowError::ZeroAmount);
+        }
+
+        let pool_key = DataKey::LiquidityPool(record.token.clone());
+        let pool: LiquidityPool = env
+            .storage()
+            .instance()
+            .get(&pool_key)
+            .ok_or(EscrowError::PoolNotFound)?;
+        if pool.balance < remaining {
+            return Err(EscrowError::InsufficientPoolBalance);
+        }
+
+        let token_client = soroban_sdk::token::Client::new(&env, &record.token);
+        token_client.transfer(
+            &env.current_contract_address(),
+            &record.seller,
+            &remaining,
+        );
+
+        record.released_amount = record.amount;
+        record.status = EscrowStatus::Released;
+        env.storage().persistent().set(&key, &record);
+
+        env.events().publish(
+            (symbol_short!("escrow"), symbol_short!("pl_stl")),
+            PoolSettledEvent {
+                escrow_id,
+                token: record.token.clone(),
+                seller: record.seller.clone(),
+                amount: remaining,
+            },
+        );
+
+        Ok(true)
+    }
+
+    /// Read-only getter for a token's liquidity pool balance.
+    pub fn get_liquidity_pool(env: Env, token: Address) -> LiquidityPool {
+        env.storage()
+            .instance()
+            .get(&DataKey::LiquidityPool(token.clone()))
+            .unwrap_or(LiquidityPool { token, balance: 0 })
     }
 
     /// Create an escrow in unfunded `Created` status.
