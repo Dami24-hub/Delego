@@ -2,8 +2,9 @@
 
 use super::*;
 use soroban_sdk::{
-    testutils::{Address as _, Ledger},
-    Address, BytesN, Env, Symbol,
+    symbol_short,
+    testutils::{Address as _, Events, Ledger},
+    Address, BytesN, Env, IntoVal, Symbol,
 };
 
 fn setup() -> (
@@ -74,24 +75,154 @@ fn test_expiry_behavior() {
 }
 
 #[test]
-#[should_panic]
 fn test_unauthorized_access() {
+    // Without mock_all_auths, create_delegation should fail with auth error
     let (env, client, _, owner, agent_id, permissions_contract) = setup();
     let label = Symbol::new(&env, "Agent_Z");
 
-    client.create_delegation(&owner, &agent_id, &permissions_contract, &label, &100);
+    // The Soroban test env panics on missing auth, so we test via try_ returning an error
+    let result = client.try_create_delegation(
+        &owner,
+        &agent_id,
+        &permissions_contract,
+        &label,
+        &100,
+    );
+    assert!(result.is_err());
 }
 
+// ── #322 Typed-error tests ──────────────────────────────────────────────────
+
 #[test]
-#[should_panic(expected = "Can only resume a paused delegation")]
-fn test_resume_active_fails() {
+fn test_resume_active_fails_with_typed_error() {
     let (env, client, _, owner, agent_id, permissions_contract) = setup();
     env.mock_all_auths();
 
     let label = Symbol::new(&env, "Agent_Y");
     let id = client.create_delegation(&owner, &agent_id, &permissions_contract, &label, &100);
 
+    // Can only resume a paused delegation — should return NotPaused
+    let result = client.try_resume_delegation(&id);
+    assert_eq!(result, Err(Ok(DelegationError::NotPaused)));
+}
+
+#[test]
+fn test_pause_non_active_fails_with_typed_error() {
+    let (env, client, _, owner, agent_id, permissions_contract) = setup();
+    env.mock_all_auths();
+
+    let label = Symbol::new(&env, "Agent_PA");
+    let id = client.create_delegation(&owner, &agent_id, &permissions_contract, &label, &1000);
+
+    client.pause_delegation(&id);
+    // Delegation is already Paused — pausing again should return NotActive
+    let result = client.try_pause_delegation(&id);
+    assert_eq!(result, Err(Ok(DelegationError::NotActive)));
+}
+
+#[test]
+fn test_not_found_returns_typed_error() {
+    let (env, client, _, _, _, _) = setup();
+    env.mock_all_auths();
+
+    let result = client.try_pause_delegation(&9999u64);
+    assert_eq!(result, Err(Ok(DelegationError::NotFound)));
+}
+
+#[test]
+fn test_already_initialized_returns_typed_error() {
+    let (env, client, admin, _, _, _) = setup();
+    env.mock_all_auths();
+
+    let result = client.try_initialize(&admin);
+    assert_eq!(result, Err(Ok(DelegationError::AlreadyInitialized)));
+}
+
+#[test]
+fn test_rollback_before_version_1_returns_typed_error() {
+    let (env, client, _, owner, agent_id, permissions_contract) = setup();
+    env.mock_all_auths();
+
+    let label = Symbol::new(&env, "No_Rollback_V0");
+    let id = client.create_delegation(&owner, &agent_id, &permissions_contract, &label, &1000);
+
+    let result = client.try_rollback_delegation(&id, &0u32);
+    assert_eq!(result, Err(Ok(DelegationError::InvalidVersion)));
+}
+
+#[test]
+fn test_cannot_rollback_to_current_or_future_version_typed_error() {
+    let (env, client, _, owner, agent_id, permissions_contract) = setup();
+    env.mock_all_auths();
+
+    let label = Symbol::new(&env, "Future_Rollback");
+    let id = client.create_delegation(&owner, &agent_id, &permissions_contract, &label, &1000);
+
+    client.pause_delegation(&id);
+
+    // Try to rollback to current version (v2) — should return VersionNotLower
+    let result = client.try_rollback_delegation(&id, &2u32);
+    assert_eq!(result, Err(Ok(DelegationError::VersionNotLower)));
+}
+
+// ── #322 Event-emission tests ───────────────────────────────────────────────
+
+#[test]
+fn test_created_event_emitted() {
+    let (env, client, _, owner, agent_id, permissions_contract) = setup();
+    env.mock_all_auths();
+
+    let label = Symbol::new(&env, "Evt_Create");
+    let id = client.create_delegation(&owner, &agent_id, &permissions_contract, &label, &1000);
+
+    let events = env.events().all();
+    // Find a "created" event
+    let found = events.iter().any(|(_, topics, _)| {
+        let t: soroban_sdk::Vec<soroban_sdk::Val> = topics;
+        t.len() >= 2
+            && t.get(0) == Some(symbol_short!("deleg").into_val(&env))
+            && t.get(1) == Some(symbol_short!("created").into_val(&env))
+    });
+    assert!(found, "DelegationCreated event not emitted; id={id}");
+}
+
+#[test]
+fn test_paused_event_emitted() {
+    let (env, client, _, owner, agent_id, permissions_contract) = setup();
+    env.mock_all_auths();
+
+    let label = Symbol::new(&env, "Evt_Pause");
+    let id = client.create_delegation(&owner, &agent_id, &permissions_contract, &label, &1000);
+    client.pause_delegation(&id);
+
+    let events = env.events().all();
+    let found = events.iter().any(|(_, topics, _)| {
+        let t: soroban_sdk::Vec<soroban_sdk::Val> = topics;
+        t.len() >= 2
+            && t.get(0) == Some(symbol_short!("deleg").into_val(&env))
+            && t.get(1) == Some(symbol_short!("paused").into_val(&env))
+    });
+    assert!(found, "DelegationPaused event not emitted");
+}
+
+#[test]
+fn test_resumed_event_emitted() {
+    let (env, client, _, owner, agent_id, permissions_contract) = setup();
+    env.mock_all_auths();
+
+    let label = Symbol::new(&env, "Evt_Resume");
+    let id = client.create_delegation(&owner, &agent_id, &permissions_contract, &label, &1000);
+    client.pause_delegation(&id);
     client.resume_delegation(&id);
+
+    let events = env.events().all();
+    let found = events.iter().any(|(_, topics, _)| {
+        let t: soroban_sdk::Vec<soroban_sdk::Val> = topics;
+        t.len() >= 2
+            && t.get(0) == Some(symbol_short!("deleg").into_val(&env))
+            && t.get(1) == Some(symbol_short!("resumed").into_val(&env))
+    });
+    assert!(found, "DelegationResumed event not emitted");
 }
 
 #[test]
@@ -195,28 +326,22 @@ fn test_multiple_delegations_per_owner() {
     assert_eq!(dels.get(1).unwrap().label, label2);
 }
 
-// Issue #360: Delegation Versioning with Rollback Support
-
 #[test]
 fn test_version_increments_on_each_update() {
     let (env, client, _, owner, agent_id, permissions_contract) = setup();
     env.mock_all_auths();
 
-    let label = Symbol::new(&env, "Versioned_Agent");
+    let label = Symbol::new(&env, "Versioned_Agt");
     let id = client.create_delegation(&owner, &agent_id, &permissions_contract, &label, &1000);
 
-    // Version should be 1 at creation
     assert_eq!(client.get_delegation_version(&id), 1);
 
-    // Pause increments version
     client.pause_delegation(&id);
     assert_eq!(client.get_delegation_version(&id), 2);
 
-    // Resume increments version
     client.resume_delegation(&id);
     assert_eq!(client.get_delegation_version(&id), 3);
 
-    // Revoke increments version
     client.revoke_delegation(&id);
     assert_eq!(client.get_delegation_version(&id), 4);
 }
@@ -229,55 +354,18 @@ fn test_rollback_restores_previous_state() {
     let label = Symbol::new(&env, "Rollback_Test");
     let id = client.create_delegation(&owner, &agent_id, &permissions_contract, &label, &1000);
 
-    // Version 1: Active
     assert_eq!(client.get_delegation(&id).status, DelegationStatus::Active);
-    assert_eq!(client.get_delegation_version(&id), 1);
 
-    // Pause → Version 2: Paused
     client.pause_delegation(&id);
     assert_eq!(client.get_delegation(&id).status, DelegationStatus::Paused);
-    assert_eq!(client.get_delegation_version(&id), 2);
 
-    // Resume → Version 3: Active
     client.resume_delegation(&id);
     assert_eq!(client.get_delegation(&id).status, DelegationStatus::Active);
-    assert_eq!(client.get_delegation_version(&id), 3);
 
-    // Rollback to version 1 (Active)
-    client.rollback_delegation(&id, &1);
-
+    client.rollback_delegation(&id, &1u32);
     let record = client.get_delegation(&id);
     assert_eq!(record.status, DelegationStatus::Active);
-    // Version should be incremented after rollback
     assert_eq!(client.get_delegation_version(&id), 4);
-}
-
-#[test]
-#[should_panic(expected = "Cannot rollback before version 1")]
-fn test_cannot_rollback_before_version_1() {
-    let (env, client, _, owner, agent_id, permissions_contract) = setup();
-    env.mock_all_auths();
-
-    let label = Symbol::new(&env, "No_Rollback_V0");
-    let id = client.create_delegation(&owner, &agent_id, &permissions_contract, &label, &1000);
-
-    // Attempt to rollback to version 0 should panic
-    client.rollback_delegation(&id, &0);
-}
-
-#[test]
-#[should_panic(expected = "Target version must be less than current version")]
-fn test_cannot_rollback_to_current_or_future_version() {
-    let (env, client, _, owner, agent_id, permissions_contract) = setup();
-    env.mock_all_auths();
-
-    let label = Symbol::new(&env, "Future_Rollback");
-    let id = client.create_delegation(&owner, &agent_id, &permissions_contract, &label, &1000);
-
-    client.pause_delegation(&id);
-
-    // Try to rollback to current version (should fail)
-    client.rollback_delegation(&id, &2);
 }
 
 #[test]
@@ -292,8 +380,6 @@ fn test_version_history_is_stored() {
     client.resume_delegation(&id);
 
     let history = client.get_delegation_history(&id);
-    
-    // Should have 3 snapshots: created (v1), paused (v2), resumed (v3)
     assert!(history.len() >= 1);
 
     let first_snapshot = history.get(0).unwrap();
