@@ -1681,5 +1681,212 @@ mod test {
         let _result = client.try_renew_permission(&owner, &delegate, &2000);
         // In production, this would fail with Expired error when time has passed
     }
+
+    // --- Issue #318: Permission Transfer tests ---
+
+    #[test]
+    fn test_transfer_permission_succeeds() {
+        let env = Env::default();
+        env.mock_all_auths();
+        let owner = Address::generate(&env);
+        let old_delegate = Address::generate(&env);
+        let new_delegate = Address::generate(&env);
+        let merchant = Address::generate(&env);
+
+        let contract_id = env.register(PermissionsContract, ());
+        let client = PermissionsContractClient::new(&env, &contract_id);
+
+        let mut merchants = Vec::<Address>::new(&env);
+        merchants.push_back(merchant.clone());
+
+        // Grant to old delegate
+        client.grant(&owner, &old_delegate, &1000, &100, &merchants, &10000);
+
+        // Execute a spend to test history preservation
+        client.execute_spend(&owner, &old_delegate, &50, &merchant);
+
+        // Transfer to new delegate
+        let result = client.try_transfer_permission(&owner, &old_delegate, &new_delegate);
+        assert_eq!(result, Ok(Ok(())));
+
+        // New permission should exist with same limits
+        let new_perm = client.get_permission(&owner, &new_delegate);
+        assert_eq!(new_perm.owner, owner);
+        assert_eq!(new_perm.delegate, new_delegate);
+        assert_eq!(new_perm.limit_total, 1000);
+        assert_eq!(new_perm.limit_per_tx, 100);
+        assert_eq!(new_perm.spent, 50); // History preserved
+        assert_eq!(new_perm.status, crate::PermissionStatus::Active);
+    }
+
+    #[test]
+    fn test_transfer_permission_preserves_remaining_allowance() {
+        let env = Env::default();
+        env.mock_all_auths();
+        let owner = Address::generate(&env);
+        let old_delegate = Address::generate(&env);
+        let new_delegate = Address::generate(&env);
+        let merchant = Address::generate(&env);
+
+        let contract_id = env.register(PermissionsContract, ());
+        let client = PermissionsContractClient::new(&env, &contract_id);
+
+        let mut merchants = Vec::<Address>::new(&env);
+        merchants.push_back(merchant.clone());
+
+        client.grant(&owner, &old_delegate, &500, &100, &merchants, &5000);
+        // Test spend on allowed merchant
+        assert_eq!(client.try_execute_spend(&owner, &old_delegate, &150, &merchant), Ok(Ok(())));
+
+        client.transfer_permission(&owner, &old_delegate, &new_delegate);
+
+        let allowance = client.get_allowance_detail(&owner, &new_delegate);
+        assert_eq!(allowance.limit, 500);
+        assert_eq!(allowance.spent, 150);
+        assert_eq!(allowance.remaining, 350);
+    }
+
+    #[test]
+    fn test_transfer_permission_revokes_old_permission() {
+        let env = Env::default();
+        env.mock_all_auths();
+        let owner = Address::generate(&env);
+        let old_delegate = Address::generate(&env);
+        let new_delegate = Address::generate(&env);
+        let merchant = Address::generate(&env);
+
+        let contract_id = env.register(PermissionsContract, ());
+        let client = PermissionsContractClient::new(&env, &contract_id);
+
+        let mut merchants = Vec::<Address>::new(&env);
+        merchants.push_back(merchant.clone());
+
+        client.grant(&owner, &old_delegate, &1000, &100, &merchants, &10000);
+        client.transfer_permission(&owner, &old_delegate, &new_delegate);
+
+        // Old permission should be revoked
+        let old_perm = client.get_permission(&owner, &old_delegate);
+        assert_eq!(old_perm.status, crate::PermissionStatus::Revoked);
+
+        // Old delegate cannot spend
+        let result = client.try_can_spend(&owner, &old_delegate, &50, &merchant);
+        assert_eq!(result, Err(Ok(PermissionError::Unauthorized)));
+    }
+
+    #[test]
+    fn test_transfer_permission_fails_if_old_not_found() {
+        let env = Env::default();
+        env.mock_all_auths();
+        let owner = Address::generate(&env);
+        let old_delegate = Address::generate(&env);
+        let new_delegate = Address::generate(&env);
+
+        let contract_id = env.register(PermissionsContract, ());
+        let client = PermissionsContractClient::new(&env, &contract_id);
+
+        let result = client.try_transfer_permission(&owner, &old_delegate, &new_delegate);
+        assert_eq!(result, Err(Ok(PermissionError::NotFound)));
+    }
+
+    #[test]
+    fn test_transfer_permission_fails_on_same_delegate() {
+        let env = Env::default();
+        env.mock_all_auths();
+        let owner = Address::generate(&env);
+        let delegate = Address::generate(&env);
+        let merchant = Address::generate(&env);
+
+        let contract_id = env.register(PermissionsContract, ());
+        let client = PermissionsContractClient::new(&env, &contract_id);
+
+        let merchants = Vec::<Address>::new(&env);
+        client.grant(&owner, &delegate, &1000, &100, &merchants, &10000);
+
+        // Attempt to transfer to the same delegate
+        let result = client.try_transfer_permission(&owner, &delegate, &delegate);
+        assert_eq!(result, Err(Ok(PermissionError::InvalidParam)));
+    }
+
+    #[test]
+    fn test_transfer_permission_emits_event() {
+        let env = Env::default();
+        env.mock_all_auths();
+        let owner = Address::generate(&env);
+        let old_delegate = Address::generate(&env);
+        let new_delegate = Address::generate(&env);
+        let merchant = Address::generate(&env);
+
+        let contract_id = env.register(PermissionsContract, ());
+        let client = PermissionsContractClient::new(&env, &contract_id);
+
+        let mut merchants = Vec::<Address>::new(&env);
+        merchants.push_back(merchant.clone());
+
+        client.grant(&owner, &old_delegate, &1000, &100, &merchants, &10000);
+        assert_eq!(client.try_execute_spend(&owner, &old_delegate, &200, &merchant), Ok(Ok(())));
+
+        client.transfer_permission(&owner, &old_delegate, &new_delegate);
+
+        let events = env.events().all();
+        let mut found = false;
+        for event in events.iter() {
+            let (contract, topics, value) = event;
+            if contract != contract_id || topics.len() != 2 {
+                continue;
+            }
+            let t0: soroban_sdk::Symbol = topics.get(0).unwrap().try_into_val(&env).unwrap();
+            let t1: soroban_sdk::Symbol = topics.get(1).unwrap().try_into_val(&env).unwrap();
+            if t0 == soroban_sdk::symbol_short!("perm") && t1 == soroban_sdk::symbol_short!("transf") {
+                let evt: crate::PermissionTransferredEvent = value.try_into_val(&env).unwrap();
+                assert_eq!(evt.owner, owner);
+                assert_eq!(evt.old_delegate, old_delegate);
+                assert_eq!(evt.new_delegate, new_delegate);
+                assert_eq!(evt.remaining_allowance, 800); // 1000 - 200 spent
+                found = true;
+            }
+        }
+        assert!(found, "PermissionTransferredEvent not found in events");
+    }
+
+    #[test]
+    fn test_transfer_permission_fails_if_new_exists() {
+        let env = Env::default();
+        env.mock_all_auths();
+        let owner = Address::generate(&env);
+        let old_delegate = Address::generate(&env);
+        let new_delegate = Address::generate(&env);
+
+        let contract_id = env.register(PermissionsContract, ());
+        let client = PermissionsContractClient::new(&env, &contract_id);
+
+        let merchants = Vec::<Address>::new(&env);
+        client.grant(&owner, &old_delegate, &1000, &100, &merchants, &10000);
+        client.grant(&owner, &new_delegate, &500, &50, &merchants, &5000);
+
+        // Try to transfer old to new when new already exists
+        let result = client.try_transfer_permission(&owner, &old_delegate, &new_delegate);
+        assert_eq!(result, Err(Ok(PermissionError::InvalidParam)));
+    }
+
+    #[test]
+    fn test_transfer_permission_requires_owner_auth() {
+        let env = Env::default();
+        let owner = Address::generate(&env);
+        let unauthorized = Address::generate(&env);
+        let old_delegate = Address::generate(&env);
+        let new_delegate = Address::generate(&env);
+
+        let contract_id = env.register(PermissionsContract, ());
+        let client = PermissionsContractClient::new(&env, &contract_id);
+
+        env.mock_all_auths();
+        let merchants = Vec::<Address>::new(&env);
+        client.grant(&owner, &old_delegate, &1000, &100, &merchants, &10000);
+
+        // Clear auth mocking to test authorization
+        env.mock_all_auths_allowing_non_root_auth();
+        let result = client.try_transfer_permission(&unauthorized, &old_delegate, &new_delegate);
+        assert!(result.is_err());
+    }
     
 }

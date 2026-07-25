@@ -108,6 +108,15 @@ pub struct PermissionRevokedEvent {
     pub delegate: Address,
 }
 
+#[contracttype]
+#[derive(Clone, Debug)]
+pub struct PermissionTransferredEvent {
+    pub owner: Address,
+    pub old_delegate: Address,
+    pub new_delegate: Address,
+    pub remaining_allowance: i128,
+}
+
 /// Emitted after a delegated spend is successfully recorded (issue #99).
 #[contracttype]
 #[derive(Clone, Debug)]
@@ -529,6 +538,104 @@ impl PermissionsContract {
         } else {
             Err(PermissionError::NotFound)
         }
+    }
+
+    /// Transfer a permission from one delegate to another, preserving spending limits and history.
+    /// 
+    /// Atomically:
+    /// 1. Verifies the owner authorizes the transfer
+    /// 2. Checks that the old permission exists and is not revoked
+    /// 3. Creates a new permission with the same limits/spending/merchants
+    /// 4. Revokes the old permission
+    /// 5. Emits PermissionTransferredEvent with remaining allowance
+    /// 
+    /// The new permission starts fresh with the same configuration but preserves
+    /// the spent amount and remaining allowance from the old permission.
+    pub fn transfer_permission(
+        env: Env,
+        owner: Address,
+        old_delegate: Address,
+        new_delegate: Address,
+    ) -> Result<(), PermissionError> {
+        owner.require_auth();
+
+        // Prevent self-transfer
+        if old_delegate == new_delegate {
+            return Err(PermissionError::InvalidParam);
+        }
+
+        // Check self-delegation is allowed if new delegate is owner
+        let allow_self: bool = env
+            .storage()
+            .instance()
+            .get(&DataKey::AllowSelfDelegation)
+            .unwrap_or(false);
+        if !allow_self && owner == new_delegate {
+            return Err(PermissionError::SelfDelegationNotAllowed);
+        }
+
+        // Retrieve the old permission
+        let old_key = DataKey::Permission(owner.clone(), old_delegate.clone());
+        let old_record: PermissionRecord = env
+            .storage()
+            .persistent()
+            .get(&old_key)
+            .ok_or(PermissionError::NotFound)?;
+
+        // Reject if already revoked
+        if old_record.status == PermissionStatus::Revoked {
+            return Err(PermissionError::Unauthorized);
+        }
+
+        // Calculate remaining allowance
+        let remaining_allowance = old_record.limit_total - old_record.spent;
+
+        // Create new permission with same configuration but fresh expiry
+        // Preserve the spent counter to maintain history
+        let new_record = PermissionRecord {
+            owner: owner.clone(),
+            delegate: new_delegate.clone(),
+            limit_total: old_record.limit_total,
+            spent: old_record.spent,
+            limit_per_tx: old_record.limit_per_tx,
+            allowed_merchants: old_record.allowed_merchants.clone(),
+            status: PermissionStatus::Active,
+            expires_at_ledger: old_record.expires_at_ledger,
+            created_at: env.ledger().timestamp(),
+        };
+
+        let new_key = DataKey::Permission(owner.clone(), new_delegate.clone());
+        
+        // Ensure new permission doesn't already exist
+        if env.storage().persistent().has(&new_key) {
+            return Err(PermissionError::InvalidParam);
+        }
+
+        // Store the new permission
+        env.storage().persistent().set(&new_key, &new_record);
+
+        // Revoke the old permission
+        let mut revoked_record = old_record;
+        revoked_record.status = PermissionStatus::Revoked;
+        env.storage().persistent().set(&old_key, &revoked_record);
+        env.storage()
+            .persistent()
+            .remove(&DataKey::PendingDecrement(owner.clone(), old_delegate.clone()));
+
+        // Emit transfer event
+        env.events().publish(
+            (symbol_short!("perm"), symbol_short!("transf")),
+            PermissionTransferredEvent {
+                owner: owner.clone(),
+                old_delegate,
+                new_delegate: new_delegate.clone(),
+                remaining_allowance,
+            },
+        );
+
+        Self::append_audit_log(&env, &owner, &new_delegate, owner.clone(), symbol_short!("transf"));
+
+        Ok(())
     }
 
     /// Renew a permission by extending its TTL without disruption.
