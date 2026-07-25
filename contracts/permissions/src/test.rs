@@ -1,6 +1,6 @@
 #[cfg(test)]
 mod test {
-    use crate::{PermissionError, PermissionsContract, PermissionsContractClient};
+    use crate::{PermissionError, PermissionStatus, PermissionsContract, PermissionsContractClient};
     use soroban_sdk::{
         testutils::{Address as _, Events, Ledger},
         Address, Env, TryIntoVal, Vec,
