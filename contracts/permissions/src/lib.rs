@@ -49,6 +49,8 @@ pub enum PermissionError {
     SelfDelegationNotAllowed = 401,
     /// Admin has not configured an inactivity threshold yet
     InactivityThresholdNotSet = 12,
+    /// Spend rejected: minimum interval between spends has not elapsed
+    VelocityLimitExceeded = 13,
 }
 
 #[contracttype]
@@ -222,6 +224,14 @@ pub struct AllowanceIncreasedEvent {
     pub delegate: Address,
     pub old_limit: i128,
     pub new_limit: i128,
+}
+
+/// Emitted when the admin configures a new spend velocity limit (#324).
+#[contracttype]
+#[derive(Clone, Debug)]
+pub struct VelocityLimitSetEvent {
+    pub min_spend_interval: u32,
+    pub set_by: Address,
 }
 
 /// Read-only preview of a hypothetical spend (issue #XX).
@@ -793,6 +803,26 @@ impl PermissionsContract {
             merchant.clone(),
         )?;
 
+        // #324: Velocity check — reject if min_spend_interval has not yet elapsed
+        // since the last recorded spend ledger for this (owner, delegate) pair.
+        let velocity_key = DataKey::LastSpendLedger(owner.clone(), delegate.clone());
+        if let Some(last_ledger) = env
+            .storage()
+            .persistent()
+            .get::<DataKey, u32>(&velocity_key)
+        {
+            if let Some(min_interval) = env
+                .storage()
+                .instance()
+                .get::<DataKey, u32>(&DataKey::MinSpendInterval)
+            {
+                let current = env.ledger().sequence();
+                if current < last_ledger + min_interval {
+                    return Err(PermissionError::VelocityLimitExceeded);
+                }
+            }
+        }
+
         let key = DataKey::Permission(owner.clone(), delegate.clone());
         let mut record: PermissionRecord = env.storage().persistent().get(&key).unwrap();
 
@@ -803,6 +833,11 @@ impl PermissionsContract {
             _ => None,
         };
         env.storage().persistent().set(&key, &record);
+
+        // Record the current ledger as the last spend ledger for velocity tracking.
+        env.storage()
+            .persistent()
+            .set(&velocity_key, &env.ledger().sequence());
 
         let remaining = record.limit_total - record.spent;
 
@@ -1294,6 +1329,49 @@ impl PermissionsContract {
         Self::append_audit_log(&env, &owner, &delegate, caller, symbol_short!("autorevk"));
 
         Ok(true)
+    }
+
+    /// Configure the minimum number of ledgers that must elapse between successive
+    /// spends for any delegation pair (#324). Admin-only.
+    ///
+    /// Set `interval` to `0` to disable velocity limiting.
+    pub fn set_velocity_limit(
+        env: Env,
+        admin: Address,
+        interval: u32,
+    ) -> Result<(), PermissionError> {
+        admin.require_auth();
+        let stored_admin: Address = env
+            .storage()
+            .instance()
+            .get(&DataKey::Admin)
+            .expect("Admin not set");
+        if admin != stored_admin {
+            return Err(PermissionError::Unauthorized);
+        }
+
+        env.storage()
+            .instance()
+            .set(&DataKey::MinSpendInterval, &interval);
+
+        env.events().publish(
+            (symbol_short!("perm"), symbol_short!("velset")),
+            VelocityLimitSetEvent {
+                min_spend_interval: interval,
+                set_by: admin,
+            },
+        );
+
+        Ok(())
+    }
+
+    /// Returns the currently configured minimum spend interval (in ledgers).
+    /// Returns `0` when no velocity limit has been set.
+    pub fn get_velocity_limit(env: Env) -> u32 {
+        env.storage()
+            .instance()
+            .get(&DataKey::MinSpendInterval)
+            .unwrap_or(0)
     }
 
     /// Returns contract name and semantic version for deployment verification (issue #103).
