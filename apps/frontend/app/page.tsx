@@ -2,7 +2,7 @@ import { Button, Card } from "@delego/ui";
 
 export default function HomePage() {
   return (
-    <main className="container">
+    <div className="settings-page">
       <header className="header">
         <h1>Delego</h1>
         <p>AI commerce with approval and spending controls</p>
@@ -26,6 +26,6 @@ export default function HomePage() {
           <Button variant="secondary">Connect Wallet</Button>
         </Card>
       </section>
-    </main>
+    </div>
   );
 }
