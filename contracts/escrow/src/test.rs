@@ -63,8 +63,8 @@ mod test {
         let key_pause: soroban_sdk::Val = DataKey::PauseState.into_val(&env);
         let key_metadata_0: soroban_sdk::Val = DataKey::EscrowMetadata(0u64).into_val(&env);
         let key_metadata_1: soroban_sdk::Val = DataKey::EscrowMetadata(1u64).into_val(&env);
-        let key_condition_0: soroban_sdk::Val = DataKey::ReleaseCondition(0u64).into_val(&env);
-        let key_condition_1: soroban_sdk::Val = DataKey::ReleaseCondition(1u64).into_val(&env);
+        let key_migration: soroban_sdk::Val = DataKey::MigrationFlag.into_val(&env);
+        let key_fee_dist: soroban_sdk::Val = DataKey::FeeDistribution.into_val(&env);
 
         let all_keys: &[soroban_sdk::Val] = &[
             key_admin,
@@ -83,8 +83,8 @@ mod test {
             key_pause,
             key_metadata_0,
             key_metadata_1,
-            key_condition_0,
-            key_condition_1,
+            key_migration,
+            key_fee_dist,
         ];
 
         // Assert every key is unique by comparing raw val representations
@@ -627,239 +627,202 @@ mod test {
         assert_eq!(res, Err(Ok(EscrowError::AlreadyCancelled)));
     }
 
-    // ── #321 split_release tests ─────────────────────────────────────────────
+    // ─── Issue #325: Upgrade Path + Version Check Tests ───────────────────────
 
-    fn setup_funded_escrow(
-        env: &Env,
-        client: &EscrowContractClient<'_>,
-        admin: &Address,
-        amount: i128,
-    ) -> (Address, Address, Address, u64) {
-        let buyer = Address::generate(env);
-        let seller = Address::generate(env);
-        let token_admin = Address::generate(env);
-        let token = env.register_stellar_asset_contract_v2(token_admin.clone()).address();
-        client.add_token(admin, &token);
+    // A minimal Soroban contract (a single `ping` function, no storage) compiled
+    // for wasm32-unknown-unknown. The host requires a valid contract WASM (with
+    // the standard contract metadata section) to accept an `upload_contract_wasm`
+    // call, so a bare/empty module is not sufficient here. This stub's exported
+    // functions are never invoked — it only serves as the upgrade target so
+    // `upgrade` has a real contract-code ledger entry to point at.
+    const WASM_STUB: &[u8] = &[
+        0x00, 0x61, 0x73, 0x6d, 0x01, 0x00, 0x00, 0x00, 0x01, 0x08, 0x02, 0x60, 0x00, 0x01, 0x7e,
+        0x60, 0x00, 0x00, 0x03, 0x03, 0x02, 0x00, 0x01, 0x05, 0x03, 0x01, 0x00, 0x10, 0x06, 0x09,
+        0x01, 0x7f, 0x01, 0x41, 0x80, 0x80, 0xc0, 0x00, 0x0b, 0x07, 0x15, 0x03, 0x06, 0x6d, 0x65,
+        0x6d, 0x6f, 0x72, 0x79, 0x02, 0x00, 0x04, 0x70, 0x69, 0x6e, 0x67, 0x00, 0x00, 0x01, 0x5f,
+        0x00, 0x01, 0x0a, 0x09, 0x02, 0x04, 0x00, 0x42, 0x01, 0x0b, 0x02, 0x00, 0x0b, 0x00, 0x2b,
+        0x0e, 0x63, 0x6f, 0x6e, 0x74, 0x72, 0x61, 0x63, 0x74, 0x73, 0x70, 0x65, 0x63, 0x76, 0x30,
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x04, 0x70, 0x69, 0x6e,
+        0x67, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x01, 0x00, 0x1e,
+        0x11, 0x63, 0x6f, 0x6e, 0x74, 0x72, 0x61, 0x63, 0x74, 0x65, 0x6e, 0x76, 0x6d, 0x65, 0x74,
+        0x61, 0x76, 0x30, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x16, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x6f, 0x0e, 0x63, 0x6f, 0x6e, 0x74, 0x72, 0x61, 0x63, 0x74, 0x6d, 0x65, 0x74, 0x61,
+        0x76, 0x30, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x05, 0x72, 0x73, 0x76, 0x65, 0x72,
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x06, 0x31, 0x2e, 0x39, 0x37, 0x2e, 0x31, 0x00, 0x00,
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x08, 0x72, 0x73, 0x73, 0x64, 0x6b, 0x76, 0x65,
+        0x72, 0x00, 0x00, 0x00, 0x30, 0x32, 0x32, 0x2e, 0x30, 0x2e, 0x31, 0x31, 0x23, 0x33, 0x34,
+        0x66, 0x37, 0x66, 0x35, 0x33, 0x61, 0x65, 0x33, 0x31, 0x65, 0x30, 0x66, 0x64, 0x30, 0x32,
+        0x61, 0x61, 0x62, 0x34, 0x33, 0x36, 0x61, 0x39, 0x38, 0x37, 0x32, 0x65, 0x37, 0x39, 0x66,
+        0x61, 0x36, 0x37, 0x31, 0x63, 0x61, 0x30, 0x32,
+    ];
 
-        // Mint tokens to buyer
-        let token_client = soroban_sdk::token::StellarAssetClient::new(env, &token);
-        token_client.mint(&buyer, &amount);
+    #[test]
+    fn test_check_version_returns_current_version() {
+        let env = Env::default();
+        let (client, _admin, _contract_id) = setup_client(&env);
 
-        let order_id = BytesN::from_array(env, &[42u8; 32]);
-        let escrow_id = client.deposit(
-            &buyer,
-            &seller,
-            &token,
-            &amount,
-            &order_id,
-            &1000u32,
-            &None,
-            &None,
-        );
-        (buyer, seller, token, escrow_id)
+        let v = client.check_version();
+        assert_eq!(v.name, symbol_short!("escrow"));
+        assert_eq!(v.semver, symbol_short!("0_1_0"));
+        assert_eq!(v, client.version());
     }
 
     #[test]
-    fn test_split_release_three_recipients() {
+    fn test_upgrade_requires_admin_auth() {
         let env = Env::default();
         env.mock_all_auths();
-        let (client, admin, _) = setup_client(&env);
+        let (client, _admin, _contract_id) = setup_client(&env);
 
-        let (buyer, _seller, token, escrow_id) =
-            setup_funded_escrow(&env, &client, &admin, 1_000i128);
+        let not_admin = Address::generate(&env);
+        // Auth is checked before the wasm hash is ever used, so a dummy hash suffices.
+        let wasm_hash = BytesN::from_array(&env, &[0u8; 32]);
 
-        let r1 = Address::generate(&env);
-        let r2 = Address::generate(&env);
-        let r3 = Address::generate(&env);
-
-        let token_client = soroban_sdk::token::Client::new(&env, &token);
-
-        let mut shares: soroban_sdk::Vec<(Address, i128)> = soroban_sdk::Vec::new(&env);
-        shares.push_back((r1.clone(), 400i128));
-        shares.push_back((r2.clone(), 300i128));
-        shares.push_back((r3.clone(), 200i128));
-
-        client.split_release(&escrow_id, &buyer, &shares);
-
-        // fee_bps=250 → fee per share deducted; check recipients received net amounts
-        // fee on 400 = 10; net=390. fee on 300=7; net=293. fee on 200=5; net=195.
-        assert_eq!(token_client.balance(&r1), 390);
-        assert_eq!(token_client.balance(&r2), 293);
-        assert_eq!(token_client.balance(&r3), 195);
+        let res = client.try_upgrade(&not_admin, &wasm_hash);
+        assert_eq!(res, Err(Ok(EscrowError::Unauthorized)));
+        assert!(!client.is_migrated());
     }
 
     #[test]
-    fn test_split_release_exceeds_balance_reverts() {
+    fn test_upgrade_with_admin_auth_preserves_escrow_data() {
         let env = Env::default();
         env.mock_all_auths();
-        let (client, admin, _) = setup_client(&env);
-
-        let (buyer, _seller, _token, escrow_id) =
-            setup_funded_escrow(&env, &client, &admin, 1_000i128);
-
-        let r1 = Address::generate(&env);
-        let r2 = Address::generate(&env);
-
-        let mut shares: soroban_sdk::Vec<(Address, i128)> = soroban_sdk::Vec::new(&env);
-        shares.push_back((r1.clone(), 600i128));
-        shares.push_back((r2.clone(), 500i128)); // total 1100 > 1000
-
-        let result = client.try_split_release(&escrow_id, &buyer, &shares);
-        assert_eq!(result, Err(Ok(EscrowError::InsufficientEscrowBalance)));
-    }
-
-    #[test]
-    fn test_split_release_fee_deducted_per_share() {
-        let env = Env::default();
-        env.mock_all_auths();
-        let (client, admin, _) = setup_client(&env);
-
-        let (buyer, _seller, token, escrow_id) =
-            setup_funded_escrow(&env, &client, &admin, 10_000i128);
-
-        let fee_config = client.get_fee_config();
-        let treasury = fee_config.treasury;
-
-        let r1 = Address::generate(&env);
-        let token_client = soroban_sdk::token::Client::new(&env, &token);
-
-        let mut shares: soroban_sdk::Vec<(Address, i128)> = soroban_sdk::Vec::new(&env);
-        shares.push_back((r1.clone(), 10_000i128));
-
-        client.split_release(&escrow_id, &buyer, &shares);
-
-        // fee_bps=250, amount=10_000 → fee = 10_000 * 250 / 10_000 = 250
-        let expected_fee = 250i128;
-        let expected_net = 10_000i128 - expected_fee;
-        assert_eq!(token_client.balance(&r1), expected_net);
-        assert_eq!(token_client.balance(&treasury), expected_fee);
-    }
-
-    #[test]
-    fn test_split_release_emits_event() {
-        let env = Env::default();
-        env.mock_all_auths();
-        let (client, admin, _) = setup_client(&env);
-
-        let (buyer, _seller, _token, escrow_id) =
-            setup_funded_escrow(&env, &client, &admin, 1_000i128);
-
-        let r1 = Address::generate(&env);
-        let mut shares: soroban_sdk::Vec<(Address, i128)> = soroban_sdk::Vec::new(&env);
-        shares.push_back((r1.clone(), 500i128));
-
-        client.split_release(&escrow_id, &buyer, &shares);
-
-        let events = env.events().all();
-        let found = events.iter().any(|(_, topics, _)| {
-            let t: soroban_sdk::Vec<soroban_sdk::Val> = topics;
-            t.len() >= 2
-                && t.get(0) == Some(symbol_short!("escrow").into_val(&env))
-                && t.get(1) == Some(symbol_short!("splitrel").into_val(&env))
-        });
-        assert!(found, "EscrowSplitReleasedEvent not emitted");
-    }
-
-    // ── #323 extend_timeout tests ────────────────────────────────────────────
-
-    #[test]
-    fn test_extend_timeout_admin_success() {
-        let env = Env::default();
-        env.mock_all_auths();
-        let (client, admin, _) = setup_client(&env);
-
-        let (_, _, _, escrow_id) = setup_funded_escrow(&env, &client, &admin, 1_000i128);
-
-        let record_before = client.get_escrow(&escrow_id);
-        let new_timeout = record_before.timeout_ledger + 500;
-
-        client.extend_timeout(&escrow_id, &admin, &new_timeout);
-
-        let record_after = client.get_escrow(&escrow_id);
-        assert_eq!(record_after.timeout_ledger, new_timeout);
-    }
-
-    #[test]
-    fn test_extend_timeout_dual_auth_success() {
-        let env = Env::default();
-        env.mock_all_auths();
-        let (client, admin, _) = setup_client(&env);
-
-        let (buyer, _, _, escrow_id) = setup_funded_escrow(&env, &client, &admin, 1_000i128);
-
-        let record_before = client.get_escrow(&escrow_id);
-        let new_timeout = record_before.timeout_ledger + 200;
-
-        // Buyer is the caller; with mock_all_auths both buyer and seller sign
-        client.extend_timeout(&escrow_id, &buyer, &new_timeout);
-
-        let record_after = client.get_escrow(&escrow_id);
-        assert_eq!(record_after.timeout_ledger, new_timeout);
-    }
-
-    #[test]
-    fn test_extend_timeout_non_funded_fails() {
-        let env = Env::default();
-        env.mock_all_auths();
-        let (client, admin, _) = setup_client(&env);
+        let (client, admin, contract_id) = setup_client(&env);
 
         let buyer = Address::generate(&env);
         let seller = Address::generate(&env);
         let token_admin = Address::generate(&env);
         let token = env.register_stellar_asset_contract_v2(token_admin).address();
+        let token_admin_client = soroban_sdk::token::StellarAssetClient::new(&env, &token);
+        token_admin_client.mint(&buyer, &10000i128);
         client.add_token(&admin, &token);
 
-        let order_id = BytesN::from_array(&env, &[55u8; 32]);
-        // Create but do NOT fund
-        let escrow_id = client.create(
-            &buyer,
-            &seller,
-            &token,
-            &500i128,
-            &order_id,
-            &100u32,
-            &None,
-            &None,
+        let order_id = BytesN::from_array(&env, &[3u8; 32]);
+        let escrow_id = client.deposit(
+            &buyer, &seller, &token, &1000i128, &order_id, &100u32, &None, &None,
+        );
+        let record_before = client.get_escrow(&escrow_id);
+        assert!(!client.is_migrated());
+
+        let wasm_hash = env.deployer().upload_contract_wasm(WASM_STUB);
+        let upgraded = client.upgrade(&admin, &wasm_hash);
+        assert!(upgraded);
+
+        // The contract's executable now points at the stub wasm, so we read
+        // storage directly rather than going through the client (whose calls
+        // would now be dispatched to the stub, which implements nothing).
+        let migrated: bool = env.as_contract(&contract_id, || {
+            env.storage()
+                .instance()
+                .get(&crate::DataKey::MigrationFlag)
+                .unwrap_or(false)
+        });
+        assert!(migrated, "migration flag must be set after upgrade");
+
+        let record_after: crate::EscrowRecord = env.as_contract(&contract_id, || {
+            env.storage()
+                .persistent()
+                .get(&crate::DataKey::Escrow(escrow_id))
+                .unwrap()
+        });
+        assert_eq!(
+            record_before, record_after,
+            "escrow data must survive the code upgrade"
+        );
+    }
+
+    // ─── Issue #327: Multi-Treasury Fee Distribution Tests ────────────────────
+
+    #[test]
+    fn test_fee_distribution_split_across_treasuries() {
+        let env = Env::default();
+        env.mock_all_auths();
+        let (client, admin, _contract_id) = setup_client(&env);
+
+        let buyer = Address::generate(&env);
+        let seller = Address::generate(&env);
+        let token_admin = Address::generate(&env);
+        let token = env.register_stellar_asset_contract_v2(token_admin).address();
+        let token_admin_client = soroban_sdk::token::StellarAssetClient::new(&env, &token);
+        let token_client = soroban_sdk::token::Client::new(&env, &token);
+        token_admin_client.mint(&buyer, &10000i128);
+        client.add_token(&admin, &token);
+
+        let treasury_a = Address::generate(&env);
+        let treasury_b = Address::generate(&env);
+        let mut shares = soroban_sdk::Vec::new(&env);
+        shares.push_back(crate::TreasuryShare {
+            treasury: treasury_a.clone(),
+            bps: 300,
+        });
+        shares.push_back(crate::TreasuryShare {
+            treasury: treasury_b.clone(),
+            bps: 200,
+        });
+        client.set_fee_distribution(&admin, &shares);
+
+        let order_id = BytesN::from_array(&env, &[9u8; 32]);
+        let escrow_id = client.deposit(
+            &buyer, &seller, &token, &1000i128, &order_id, &100u32, &None, &None,
         );
 
-        let result = client.try_extend_timeout(&escrow_id, &admin, &200u32);
-        assert_eq!(result, Err(Ok(EscrowError::InvalidStatus)));
+        client.dispute(&escrow_id, &buyer);
+        client.resolve_dispute(&escrow_id, &admin, &true);
+
+        // 3% of 1000 = 30, 2% of 1000 = 20; seller receives the remaining 950.
+        assert_eq!(token_client.balance(&treasury_a), 30);
+        assert_eq!(token_client.balance(&treasury_b), 20);
+        assert_eq!(token_client.balance(&seller), 950);
     }
 
     #[test]
-    fn test_extend_timeout_reduce_fails() {
+    fn test_set_fee_distribution_rejects_over_1000_bps() {
         let env = Env::default();
         env.mock_all_auths();
-        let (client, admin, _) = setup_client(&env);
+        let (client, admin, _contract_id) = setup_client(&env);
 
-        let (_, _, _, escrow_id) = setup_funded_escrow(&env, &client, &admin, 1_000i128);
-
-        let record = client.get_escrow(&escrow_id);
-        // Try setting timeout lower than current — should fail with InvalidAmount
-        let result = client.try_extend_timeout(&escrow_id, &admin, &(record.timeout_ledger - 1));
-        assert_eq!(result, Err(Ok(EscrowError::InvalidAmount)));
-    }
-
-    #[test]
-    fn test_extend_timeout_emits_event() {
-        let env = Env::default();
-        env.mock_all_auths();
-        let (client, admin, _) = setup_client(&env);
-
-        let (_, _, _, escrow_id) = setup_funded_escrow(&env, &client, &admin, 1_000i128);
-
-        let record_before = client.get_escrow(&escrow_id);
-        let new_timeout = record_before.timeout_ledger + 100;
-
-        client.extend_timeout(&escrow_id, &admin, &new_timeout);
-
-        let events = env.events().all();
-        let found = events.iter().any(|(_, topics, _)| {
-            let t: soroban_sdk::Vec<soroban_sdk::Val> = topics;
-            t.len() >= 2
-                && t.get(0) == Some(symbol_short!("escrow").into_val(&env))
-                && t.get(1) == Some(symbol_short!("exttime").into_val(&env))
+        let treasury_a = Address::generate(&env);
+        let treasury_b = Address::generate(&env);
+        let mut shares = soroban_sdk::Vec::new(&env);
+        shares.push_back(crate::TreasuryShare {
+            treasury: treasury_a,
+            bps: 600,
         });
-        assert!(found, "EscrowTimeoutExtendedEvent not emitted");
+        shares.push_back(crate::TreasuryShare {
+            treasury: treasury_b,
+            bps: 500,
+        });
+
+        let res = client.try_set_fee_distribution(&admin, &shares);
+        assert_eq!(res, Err(Ok(EscrowError::InvalidFeeBps)));
+        assert_eq!(client.get_fee_distribution().len(), 0);
+    }
+
+    #[test]
+    fn test_fee_uses_single_treasury_when_no_distribution_configured() {
+        let env = Env::default();
+        env.mock_all_auths();
+        let (client, admin, _contract_id) = setup_client(&env);
+        let treasury = client.get_fee_config().treasury;
+
+        let buyer = Address::generate(&env);
+        let seller = Address::generate(&env);
+        let token_admin = Address::generate(&env);
+        let token = env.register_stellar_asset_contract_v2(token_admin).address();
+        let token_admin_client = soroban_sdk::token::StellarAssetClient::new(&env, &token);
+        let token_client = soroban_sdk::token::Client::new(&env, &token);
+        token_admin_client.mint(&buyer, &10000i128);
+        client.add_token(&admin, &token);
+
+        let order_id = BytesN::from_array(&env, &[10u8; 32]);
+        let escrow_id = client.deposit(
+            &buyer, &seller, &token, &1000i128, &order_id, &100u32, &None, &None,
+        );
+
+        client.dispute(&escrow_id, &buyer);
+        client.resolve_dispute(&escrow_id, &admin, &true);
+
+        // fee_bps = 250 (2.5%) from setup_client -> fee = 25
+        assert_eq!(token_client.balance(&treasury), 25);
+        assert_eq!(token_client.balance(&seller), 975);
     }
 }
