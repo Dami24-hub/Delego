@@ -307,6 +307,10 @@ pub enum DataKey {
     /// Child delegate addresses granted under a permission via
     /// `grant_child`, keyed by that permission's own `(owner, delegate)`.
     Children(Address, Address),
+    /// Append-only audit log for a delegation pair (issue #359).
+    AuditLog(Address, Address),
+    /// Admin-configured inactivity threshold in seconds (issue #338).
+    InactivityThreshold,
 }
 
 #[contract]
@@ -612,6 +616,8 @@ impl PermissionsContract {
             status: PermissionStatus::Active,
             expires_at_ledger: old_record.expires_at_ledger,
             created_at: env.ledger().timestamp(),
+            parent_owner: old_record.parent_owner.clone(),
+            parent_delegate: old_record.parent_delegate.clone(),
         };
 
         let new_key = DataKey::Permission(owner.clone(), new_delegate.clone());
@@ -701,7 +707,62 @@ impl PermissionsContract {
         } else {
             Err(PermissionError::NotFound)
         }
-      
+    }
+
+    /// Directly sets a new absolute expiry ledger for a permission (issue #102).
+    ///
+    /// Unlike `renew_permission` (which adds ledgers), this sets the expiry to an
+    /// exact ledger sequence number. Useful for setting a precise deadline rather
+    /// than extending relatively.
+    ///
+    /// # Errors
+    /// - [`PermissionError::NotFound`] if no permission exists for `(owner, delegate)`
+    /// - [`PermissionError::Unauthorized`] if permission is already revoked
+    /// - [`PermissionError::InvalidParam`] if `new_expiry` is not greater than the current ledger
+    pub fn update_expiry(
+        env: Env,
+        owner: Address,
+        delegate: Address,
+        new_expiry: u32,
+    ) -> Result<(), PermissionError> {
+        owner.require_auth();
+
+        // Validate: new_expiry must be strictly in the future
+        if new_expiry <= env.ledger().sequence() {
+            return Err(PermissionError::InvalidParam);
+        }
+
+        let key = DataKey::Permission(owner.clone(), delegate.clone());
+        let mut record: PermissionRecord = env
+            .storage()
+            .persistent()
+            .get(&key)
+            .ok_or(PermissionError::NotFound)?;
+
+        // Cannot update a revoked permission
+        if record.status == PermissionStatus::Revoked {
+            return Err(PermissionError::Unauthorized);
+        }
+
+        let old_expiry = record.expires_at_ledger;
+        record.expires_at_ledger = new_expiry;
+        env.storage().persistent().set(&key, &record);
+
+        env.events().publish(
+            (symbol_short!("perm"), symbol_short!("exp_upd")),
+            PermissionExpiryUpdatedEvent {
+                owner: owner.clone(),
+                delegate: delegate.clone(),
+                old_expiry,
+                new_expiry,
+            },
+        );
+
+        Self::append_audit_log(&env, &owner, &delegate, owner.clone(), symbol_short!("exp_upd"));
+
+        Ok(())
+    }
+
     /// Recursively revokes every child permission granted under
     /// `(owner, delegate)` via `grant_child`.
     fn revoke_children(env: &Env, owner: &Address, delegate: &Address) {
