@@ -5,7 +5,7 @@
 #![no_std]
 use soroban_sdk::{
     contract, contracterror, contractimpl, contracttype, symbol_short, Address, BytesN, Env,
-    InvokeError, Symbol,
+    InvokeError, Symbol, Vec,
 };
 
 #[contracttype]
@@ -36,6 +36,20 @@ impl EscrowTerminalState {
             _ => None,
         }
     }
+}
+
+/// Optional yield accrual configuration for an escrow (issue #331).
+///
+/// References an external lending contract that funds are notionally
+/// deposited with while escrowed, and the annual rate at which yield
+/// accrues for as long as the escrow remains held.
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct YieldConfig {
+    /// Lending contract the escrowed funds notionally earn yield through.
+    pub lending_contract: Address,
+    /// Annual yield rate in basis points (e.g., 500 = 5% APR).
+    pub apr_bps: u32,
 }
 
 #[contracttype]
@@ -122,6 +136,18 @@ pub struct EscrowReleasedEvent {
     pub seller: Address,
     pub amount: i128,
     pub released_by: Address,
+}
+
+/// Emitted alongside the release event when a fully-released escrow had a
+/// `YieldConfig` set, reporting the yield accrued over its holding period
+/// (issue #331).
+#[contracttype]
+#[derive(Clone, Debug)]
+pub struct EscrowYieldAccruedEvent {
+    pub escrow_id: u64,
+    pub seller: Address,
+    pub yield_amount: i128,
+    pub held_seconds: u64,
 }
 
 #[contracttype]
@@ -367,12 +393,8 @@ pub enum EscrowError {
     AlreadyCancelled = 27,
     /// Escrow has already been funded
     AlreadyFunded = 28,
-    /// No release condition has been configured for this escrow
-    ReleaseConditionNotSet = 29,
-    /// The oracle contract call failed, trapped, or returned an unexpected value
-    OracleCallFailed = 30,
-    /// The configured release condition has not been satisfied
-    ConditionNotMet = 31,
+    /// Yield APR exceeds the maximum allowed (10000 bps = 100%)
+    InvalidYieldConfig = 29,
 }
 
 /// Compact receipt returned to buyers after escrow creation via `get_receipt`.
@@ -452,6 +474,34 @@ pub struct EscrowTimeoutView {
     pub current_ledger: u32,
     pub refundable: bool,
 }
+
+/// Complete read-only state snapshot for an escrow, returned by
+/// `get_escrow_snapshot` (issue #329) so off-chain indexers can audit an
+/// escrow's full state in a single call instead of replaying its event
+/// history.
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct EscrowSnapshot {
+    pub record: EscrowRecord,
+    pub fee_config: FeeConfig,
+    pub current_ledger: u32,
+    pub timed_out: bool,
+    pub release_eligible: bool,
+}
+
+/// Read-only view of the yield an escrow has accrued so far, returned by
+/// `get_accrued_yield` (issue #331).
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct EscrowYieldView {
+    pub escrow_id: u64,
+    pub accrued_yield: i128,
+    pub apr_bps: u32,
+}
+
+/// Seconds in a 365-day year, used to prorate `YieldConfig::apr_bps` down to
+/// the actual holding period of an escrow.
+const SECONDS_PER_YEAR: i128 = 31_536_000;
 
 fn check_not_terminal(record: &EscrowRecord) -> Result<(), EscrowError> {
     match record.status {
@@ -1261,6 +1311,25 @@ impl EscrowContract {
             },
         );
 
+        if fully_released {
+            let yield_config: Option<YieldConfig> = env
+                .storage()
+                .persistent()
+                .get(&DataKey::EscrowYieldConfig(escrow_id));
+            if let Some(cfg) = &yield_config {
+                let (yield_amount, held_seconds) = Self::compute_yield(&record, Some(cfg), &env);
+                env.events().publish(
+                    (symbol_short!("escrow"), symbol_short!("yield")),
+                    EscrowYieldAccruedEvent {
+                        escrow_id,
+                        seller: record.seller.clone(),
+                        yield_amount,
+                        held_seconds,
+                    },
+                );
+            }
+        }
+
         Ok(PartialReleaseResult {
             released: release_amount,
             remaining: new_remaining,
@@ -1682,6 +1751,113 @@ impl EscrowContract {
         })
     }
 
+    /// Read-only complete state snapshot of an escrow (issue #329).
+    ///
+    /// Aggregates the full escrow record, the fee configuration applied to
+    /// it, and computed fields (current timeout status and release
+    /// eligibility) in a single call, so off-chain indexers and auditors
+    /// don't have to replay contract events to reconstruct current state.
+    /// Never mutates storage.
+    ///
+    /// # Errors
+    /// Returns [`EscrowError::NotFound`] when no escrow exists for `escrow_id`.
+    pub fn get_escrow_snapshot(env: Env, escrow_id: u64) -> Result<EscrowSnapshot, EscrowError> {
+        let key = DataKey::Escrow(escrow_id);
+        let record: EscrowRecord = env
+            .storage()
+            .persistent()
+            .get(&key)
+            .ok_or(EscrowError::NotFound)?;
+
+        let fee_config: FeeConfig = env.storage().instance().get(&DataKey::FeeConfig).unwrap();
+        let current_ledger = env.ledger().sequence();
+        let timed_out =
+            record.status == EscrowStatus::Funded && current_ledger >= record.timeout_ledger;
+        let release_eligible = Self::release_block_reason(env.clone(), &record).is_none();
+
+        Ok(EscrowSnapshot {
+            record,
+            fee_config,
+            current_ledger,
+            timed_out,
+            release_eligible,
+        })
+    }
+
+    /// Configure optional yield accrual for an escrow (issue #331). Admin-only.
+    ///
+    /// `apr_bps` is the annual yield rate in basis points (max 10000 = 100%).
+    /// Yield is prorated by the actual time the escrow is held and reported
+    /// via [`EscrowYieldAccruedEvent`] when the escrow is fully released.
+    ///
+    /// # Errors
+    /// - [`EscrowError::Unauthorized`] if `admin` is not an escrow admin.
+    /// - [`EscrowError::InvalidYieldConfig`] if `apr_bps` exceeds 10000.
+    /// - [`EscrowError::NotFound`] if `escrow_id` does not exist.
+    /// - Any terminal-state error from [`check_not_terminal`] once the
+    ///   escrow has already been released, refunded, or cancelled.
+    pub fn set_yield_config(
+        env: Env,
+        admin: Address,
+        escrow_id: u64,
+        lending_contract: Address,
+        apr_bps: u32,
+    ) -> Result<bool, EscrowError> {
+        admin.require_auth();
+        if !Self::is_admin(env.clone(), admin.clone()) {
+            return Err(EscrowError::Unauthorized);
+        }
+        if apr_bps > 10_000 {
+            return Err(EscrowError::InvalidYieldConfig);
+        }
+
+        let key = DataKey::Escrow(escrow_id);
+        let record: EscrowRecord = env
+            .storage()
+            .persistent()
+            .get(&key)
+            .ok_or(EscrowError::NotFound)?;
+        check_not_terminal(&record)?;
+
+        env.storage().persistent().set(
+            &DataKey::EscrowYieldConfig(escrow_id),
+            &YieldConfig {
+                lending_contract,
+                apr_bps,
+            },
+        );
+
+        Ok(true)
+    }
+
+    /// Read-only view of the yield an escrow has accrued so far, based on
+    /// the time it has been held (issue #331). Returns zero accrued yield
+    /// when no `YieldConfig` is set. Never mutates storage.
+    ///
+    /// # Errors
+    /// Returns [`EscrowError::NotFound`] when no escrow exists for `escrow_id`.
+    pub fn get_accrued_yield(env: Env, escrow_id: u64) -> Result<EscrowYieldView, EscrowError> {
+        let key = DataKey::Escrow(escrow_id);
+        let record: EscrowRecord = env
+            .storage()
+            .persistent()
+            .get(&key)
+            .ok_or(EscrowError::NotFound)?;
+
+        let yield_config: Option<YieldConfig> = env
+            .storage()
+            .persistent()
+            .get(&DataKey::EscrowYieldConfig(escrow_id));
+        let apr_bps = yield_config.as_ref().map(|c| c.apr_bps).unwrap_or(0);
+        let (accrued_yield, _) = Self::compute_yield(&record, yield_config.as_ref(), &env);
+
+        Ok(EscrowYieldView {
+            escrow_id,
+            accrued_yield,
+            apr_bps,
+        })
+    }
+
     /// Propose a new primary admin. Must be called by current primary admin.
     pub fn propose_admin(
         env: Env,
@@ -2040,6 +2216,21 @@ impl EscrowContract {
         Ok(())
     }
 
+    /// Computes yield accrued on an escrow's principal for the time it has
+    /// been held, based on the given `YieldConfig` APR. Returns
+    /// `(yield_amount, held_seconds)`; `(0, 0)` when no yield config is set.
+    fn compute_yield(record: &EscrowRecord, yield_config: Option<&YieldConfig>, env: &Env) -> (i128, u64) {
+        match yield_config {
+            Some(cfg) => {
+                let held_seconds = env.ledger().timestamp().saturating_sub(record.created_at);
+                let yield_amount = (record.amount * cfg.apr_bps as i128 * held_seconds as i128)
+                    / (10_000i128 * SECONDS_PER_YEAR);
+                (yield_amount, held_seconds)
+            }
+            None => (0, 0),
+        }
+    }
+
     fn release_block_reason(env: Env, record: &EscrowRecord) -> Option<Symbol> {
         match record.status {
             EscrowStatus::Funded => {
@@ -2055,6 +2246,149 @@ impl EscrowContract {
             EscrowStatus::Disputed => Some(symbol_short!("disputed")),
             EscrowStatus::Cancelled => Some(symbol_short!("cancelled")),
         }
+    }
+
+    /// Release escrowed funds split among multiple recipients (#321).
+    ///
+    /// `shares` is a list of `(recipient, amount)` pairs. The sum of all
+    /// amounts must not exceed the remaining escrow balance. A platform fee
+    /// is deducted from each individual share before transfer.
+    /// Only the buyer or an admin may call this.
+    pub fn split_release(
+        env: Env,
+        escrow_id: u64,
+        caller: Address,
+        shares: Vec<(Address, i128)>,
+    ) -> Result<bool, EscrowError> {
+        caller.require_auth();
+
+        let key = DataKey::Escrow(escrow_id);
+        let mut record: EscrowRecord = match env.storage().persistent().get(&key) {
+            Some(rec) => rec,
+            None => return Err(EscrowError::NotFound),
+        };
+
+        if caller != record.buyer && !Self::is_admin(env.clone(), caller.clone()) {
+            return Err(EscrowError::Unauthorized);
+        }
+
+        check_not_terminal(&record)?;
+
+        if record.status != EscrowStatus::Funded {
+            return Err(EscrowError::InvalidStatus);
+        }
+
+        // Validate total split amount
+        let remaining = record.amount - record.released_amount;
+        let mut total: i128 = 0;
+        for (_, amount) in shares.iter() {
+            if amount <= 0 {
+                return Err(EscrowError::InvalidAmount);
+            }
+            total += amount;
+        }
+        if total > remaining {
+            return Err(EscrowError::InsufficientEscrowBalance);
+        }
+
+        let fee_config: FeeConfig = env.storage().instance().get(&DataKey::FeeConfig).unwrap();
+        let token_client = soroban_sdk::token::Client::new(&env, &record.token);
+        let fee_bps = fee_config.fee_bps as i128;
+
+        let mut total_fee: i128 = 0;
+        let mut total_released: i128 = 0;
+
+        for (recipient, amount) in shares.iter() {
+            let fee = (amount / 10_000i128) * fee_bps
+                + ((amount % 10_000i128) * fee_bps) / 10_000i128;
+            let net = amount - fee;
+
+            if fee > 0 {
+                token_client.transfer(
+                    &env.current_contract_address(),
+                    &fee_config.treasury,
+                    &fee,
+                );
+            }
+            token_client.transfer(&env.current_contract_address(), &recipient, &net);
+
+            total_fee += fee;
+            total_released += amount;
+        }
+
+        record.released_amount += total_released;
+        let new_remaining = record.amount - record.released_amount;
+        if new_remaining == 0 {
+            record.status = EscrowStatus::Released;
+        }
+        env.storage().persistent().set(&key, &record);
+
+        env.events().publish(
+            (symbol_short!("escrow"), symbol_short!("splitrel")),
+            EscrowSplitReleasedEvent {
+                escrow_id,
+                recipient_count: shares.len() as u32,
+                total_released,
+                fee_charged: total_fee,
+                released_by: caller,
+            },
+        );
+
+        Ok(true)
+    }
+
+    /// Extend the timeout ledger of a `Funded` escrow (#323).
+    ///
+    /// Requires mutual authentication from both buyer and seller (both must
+    /// sign the transaction), OR unilateral authorization from an admin.
+    /// `new_timeout_ledger` must be strictly greater than the current value.
+    pub fn extend_timeout(
+        env: Env,
+        escrow_id: u64,
+        caller: Address,
+        new_timeout_ledger: u32,
+    ) -> Result<bool, EscrowError> {
+        caller.require_auth();
+
+        let key = DataKey::Escrow(escrow_id);
+        let mut record: EscrowRecord = match env.storage().persistent().get(&key) {
+            Some(rec) => rec,
+            None => return Err(EscrowError::NotFound),
+        };
+
+        if record.status != EscrowStatus::Funded {
+            return Err(EscrowError::InvalidStatus);
+        }
+
+        if new_timeout_ledger <= record.timeout_ledger {
+            return Err(EscrowError::InvalidAmount);
+        }
+
+        // Authorization: admin can do it alone; otherwise both buyer AND seller must sign.
+        if !Self::is_admin(env.clone(), caller.clone()) {
+            // Caller must be either buyer or seller, and both must authenticate.
+            if caller != record.buyer && caller != record.seller {
+                return Err(EscrowError::Unauthorized);
+            }
+            record.buyer.require_auth();
+            record.seller.require_auth();
+        }
+
+        let old_timeout = record.timeout_ledger;
+        record.timeout_ledger = new_timeout_ledger;
+        env.storage().persistent().set(&key, &record);
+
+        env.events().publish(
+            (symbol_short!("escrow"), symbol_short!("exttime")),
+            EscrowTimeoutExtendedEvent {
+                escrow_id,
+                old_timeout_ledger: old_timeout,
+                new_timeout_ledger,
+                extended_by: caller,
+            },
+        );
+
+        Ok(true)
     }
 
     pub fn is_admin(env: Env, address: Address) -> bool {
