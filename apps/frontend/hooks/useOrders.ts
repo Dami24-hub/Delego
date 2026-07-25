@@ -1,13 +1,13 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import type { ApiResponse, Delegation } from "@delego/types";
+import type { ApiResponse, Order } from "@delego/types";
 import { api } from "../lib/api";
 
 /**
- * Fetch the current user's delegations from the Delego API.
+ * Fetch the current user's orders from the Delego API.
  */
-function isDelegationArray(data: unknown): data is Delegation[] {
+function isOrderArray(data: unknown): data is Order[] {
   if (!Array.isArray(data)) return false;
   return data.every(
     (item) =>
@@ -15,14 +15,12 @@ function isDelegationArray(data: unknown): data is Delegation[] {
       item !== null &&
       "id" in item &&
       "userId" in item &&
-      "agentId" in item &&
       "status" in item
   );
 }
 
-/** Fetch user delegations — TODO: Add SWR or React Query */
-export function useDelegations() {
-  const [delegations, setDelegations] = useState<Delegation[]>([]);
+export function useOrders() {
+  const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -30,21 +28,21 @@ export function useDelegations() {
     const controller = new AbortController();
 
     api
-      .getDelegations({ signal: controller.signal })
-      .then((res: ApiResponse<Delegation[]>) => {
+      .getOrders()
+      .then((res: ApiResponse<Order[]>) => {
         if (res.error) {
           setError(res.error.message);
-        } else if (!isDelegationArray(res.data)) {
+        } else if (!isOrderArray(res.data)) {
           setError("Invalid response format");
         } else {
-          setDelegations(res.data);
+          setOrders(res.data);
         }
       })
       .catch((err: unknown) => {
         if (err instanceof DOMException && err.name === "AbortError") {
           return;
         }
-        setError("Failed to fetch delegations");
+        setError("Failed to fetch orders");
       })
       .finally(() => {
         if (!controller.signal.aborted) {
@@ -57,5 +55,5 @@ export function useDelegations() {
     };
   }, []);
 
-  return { delegations, loading, error };
+  return { orders, loading, error };
 }
