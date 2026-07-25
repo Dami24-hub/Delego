@@ -507,3 +507,34 @@ body {
   font-size: 0.875rem;
   font-weight: 500;
 }
+
+/* ---------------------------------------------------------------------------
+   Accessibility: keyboard focus indicators (#403)
+   Ensures keyboard-only users can always see which element is focused,
+   without showing an outline on mouse clicks.
+--------------------------------------------------------------------------- */
+:focus-visible {
+  outline: 2px solid #2563eb;
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+:focus:not(:focus-visible) {
+  outline: none;
+}
+
+/* ---------------------------------------------------------------------------
+   Accessibility: respect prefers-reduced-motion (#404)
+   Disables animations/transitions for users with vestibular disorders or
+   motion sensitivity who have enabled "reduce motion" at the OS level.
+--------------------------------------------------------------------------- */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
