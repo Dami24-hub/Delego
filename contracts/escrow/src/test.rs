@@ -626,4 +626,240 @@ mod test {
         let res = client.try_fund(&escrow_id, &buyer);
         assert_eq!(res, Err(Ok(EscrowError::AlreadyCancelled)));
     }
+
+    // ── #321 split_release tests ─────────────────────────────────────────────
+
+    fn setup_funded_escrow(
+        env: &Env,
+        client: &EscrowContractClient<'_>,
+        admin: &Address,
+        amount: i128,
+    ) -> (Address, Address, Address, u64) {
+        let buyer = Address::generate(env);
+        let seller = Address::generate(env);
+        let token_admin = Address::generate(env);
+        let token = env.register_stellar_asset_contract_v2(token_admin.clone()).address();
+        client.add_token(admin, &token);
+
+        // Mint tokens to buyer
+        let token_client = soroban_sdk::token::StellarAssetClient::new(env, &token);
+        token_client.mint(&buyer, &amount);
+
+        let order_id = BytesN::from_array(env, &[42u8; 32]);
+        let escrow_id = client.deposit(
+            &buyer,
+            &seller,
+            &token,
+            &amount,
+            &order_id,
+            &1000u32,
+            &None,
+            &None,
+        );
+        (buyer, seller, token, escrow_id)
+    }
+
+    #[test]
+    fn test_split_release_three_recipients() {
+        let env = Env::default();
+        env.mock_all_auths();
+        let (client, admin, _) = setup_client(&env);
+
+        let (buyer, _seller, token, escrow_id) =
+            setup_funded_escrow(&env, &client, &admin, 1_000i128);
+
+        let r1 = Address::generate(&env);
+        let r2 = Address::generate(&env);
+        let r3 = Address::generate(&env);
+
+        let token_client = soroban_sdk::token::Client::new(&env, &token);
+
+        let mut shares: soroban_sdk::Vec<(Address, i128)> = soroban_sdk::Vec::new(&env);
+        shares.push_back((r1.clone(), 400i128));
+        shares.push_back((r2.clone(), 300i128));
+        shares.push_back((r3.clone(), 200i128));
+
+        client.split_release(&escrow_id, &buyer, &shares);
+
+        // fee_bps=250 → fee per share deducted; check recipients received net amounts
+        // fee on 400 = 10; net=390. fee on 300=7; net=293. fee on 200=5; net=195.
+        assert_eq!(token_client.balance(&r1), 390);
+        assert_eq!(token_client.balance(&r2), 293);
+        assert_eq!(token_client.balance(&r3), 195);
+    }
+
+    #[test]
+    fn test_split_release_exceeds_balance_reverts() {
+        let env = Env::default();
+        env.mock_all_auths();
+        let (client, admin, _) = setup_client(&env);
+
+        let (buyer, _seller, _token, escrow_id) =
+            setup_funded_escrow(&env, &client, &admin, 1_000i128);
+
+        let r1 = Address::generate(&env);
+        let r2 = Address::generate(&env);
+
+        let mut shares: soroban_sdk::Vec<(Address, i128)> = soroban_sdk::Vec::new(&env);
+        shares.push_back((r1.clone(), 600i128));
+        shares.push_back((r2.clone(), 500i128)); // total 1100 > 1000
+
+        let result = client.try_split_release(&escrow_id, &buyer, &shares);
+        assert_eq!(result, Err(Ok(EscrowError::InsufficientEscrowBalance)));
+    }
+
+    #[test]
+    fn test_split_release_fee_deducted_per_share() {
+        let env = Env::default();
+        env.mock_all_auths();
+        let (client, admin, _) = setup_client(&env);
+
+        let (buyer, _seller, token, escrow_id) =
+            setup_funded_escrow(&env, &client, &admin, 10_000i128);
+
+        let fee_config = client.get_fee_config();
+        let treasury = fee_config.treasury;
+
+        let r1 = Address::generate(&env);
+        let token_client = soroban_sdk::token::Client::new(&env, &token);
+
+        let mut shares: soroban_sdk::Vec<(Address, i128)> = soroban_sdk::Vec::new(&env);
+        shares.push_back((r1.clone(), 10_000i128));
+
+        client.split_release(&escrow_id, &buyer, &shares);
+
+        // fee_bps=250, amount=10_000 → fee = 10_000 * 250 / 10_000 = 250
+        let expected_fee = 250i128;
+        let expected_net = 10_000i128 - expected_fee;
+        assert_eq!(token_client.balance(&r1), expected_net);
+        assert_eq!(token_client.balance(&treasury), expected_fee);
+    }
+
+    #[test]
+    fn test_split_release_emits_event() {
+        let env = Env::default();
+        env.mock_all_auths();
+        let (client, admin, _) = setup_client(&env);
+
+        let (buyer, _seller, _token, escrow_id) =
+            setup_funded_escrow(&env, &client, &admin, 1_000i128);
+
+        let r1 = Address::generate(&env);
+        let mut shares: soroban_sdk::Vec<(Address, i128)> = soroban_sdk::Vec::new(&env);
+        shares.push_back((r1.clone(), 500i128));
+
+        client.split_release(&escrow_id, &buyer, &shares);
+
+        let events = env.events().all();
+        let found = events.iter().any(|(_, topics, _)| {
+            let t: soroban_sdk::Vec<soroban_sdk::Val> = topics;
+            t.len() >= 2
+                && t.get(0) == Some(symbol_short!("escrow").into_val(&env))
+                && t.get(1) == Some(symbol_short!("splitrel").into_val(&env))
+        });
+        assert!(found, "EscrowSplitReleasedEvent not emitted");
+    }
+
+    // ── #323 extend_timeout tests ────────────────────────────────────────────
+
+    #[test]
+    fn test_extend_timeout_admin_success() {
+        let env = Env::default();
+        env.mock_all_auths();
+        let (client, admin, _) = setup_client(&env);
+
+        let (_, _, _, escrow_id) = setup_funded_escrow(&env, &client, &admin, 1_000i128);
+
+        let record_before = client.get_escrow(&escrow_id);
+        let new_timeout = record_before.timeout_ledger + 500;
+
+        client.extend_timeout(&escrow_id, &admin, &new_timeout);
+
+        let record_after = client.get_escrow(&escrow_id);
+        assert_eq!(record_after.timeout_ledger, new_timeout);
+    }
+
+    #[test]
+    fn test_extend_timeout_dual_auth_success() {
+        let env = Env::default();
+        env.mock_all_auths();
+        let (client, admin, _) = setup_client(&env);
+
+        let (buyer, _, _, escrow_id) = setup_funded_escrow(&env, &client, &admin, 1_000i128);
+
+        let record_before = client.get_escrow(&escrow_id);
+        let new_timeout = record_before.timeout_ledger + 200;
+
+        // Buyer is the caller; with mock_all_auths both buyer and seller sign
+        client.extend_timeout(&escrow_id, &buyer, &new_timeout);
+
+        let record_after = client.get_escrow(&escrow_id);
+        assert_eq!(record_after.timeout_ledger, new_timeout);
+    }
+
+    #[test]
+    fn test_extend_timeout_non_funded_fails() {
+        let env = Env::default();
+        env.mock_all_auths();
+        let (client, admin, _) = setup_client(&env);
+
+        let buyer = Address::generate(&env);
+        let seller = Address::generate(&env);
+        let token_admin = Address::generate(&env);
+        let token = env.register_stellar_asset_contract_v2(token_admin).address();
+        client.add_token(&admin, &token);
+
+        let order_id = BytesN::from_array(&env, &[55u8; 32]);
+        // Create but do NOT fund
+        let escrow_id = client.create(
+            &buyer,
+            &seller,
+            &token,
+            &500i128,
+            &order_id,
+            &100u32,
+            &None,
+            &None,
+        );
+
+        let result = client.try_extend_timeout(&escrow_id, &admin, &200u32);
+        assert_eq!(result, Err(Ok(EscrowError::InvalidStatus)));
+    }
+
+    #[test]
+    fn test_extend_timeout_reduce_fails() {
+        let env = Env::default();
+        env.mock_all_auths();
+        let (client, admin, _) = setup_client(&env);
+
+        let (_, _, _, escrow_id) = setup_funded_escrow(&env, &client, &admin, 1_000i128);
+
+        let record = client.get_escrow(&escrow_id);
+        // Try setting timeout lower than current — should fail with InvalidAmount
+        let result = client.try_extend_timeout(&escrow_id, &admin, &(record.timeout_ledger - 1));
+        assert_eq!(result, Err(Ok(EscrowError::InvalidAmount)));
+    }
+
+    #[test]
+    fn test_extend_timeout_emits_event() {
+        let env = Env::default();
+        env.mock_all_auths();
+        let (client, admin, _) = setup_client(&env);
+
+        let (_, _, _, escrow_id) = setup_funded_escrow(&env, &client, &admin, 1_000i128);
+
+        let record_before = client.get_escrow(&escrow_id);
+        let new_timeout = record_before.timeout_ledger + 100;
+
+        client.extend_timeout(&escrow_id, &admin, &new_timeout);
+
+        let events = env.events().all();
+        let found = events.iter().any(|(_, topics, _)| {
+            let t: soroban_sdk::Vec<soroban_sdk::Val> = topics;
+            t.len() >= 2
+                && t.get(0) == Some(symbol_short!("escrow").into_val(&env))
+                && t.get(1) == Some(symbol_short!("exttime").into_val(&env))
+        });
+        assert!(found, "EscrowTimeoutExtendedEvent not emitted");
+    }
 }

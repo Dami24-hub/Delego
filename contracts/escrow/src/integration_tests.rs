@@ -2,7 +2,7 @@
 
 use crate::{EscrowContract, EscrowContractClient, EscrowError, EscrowStatus, EscrowTerminalState};
 use soroban_sdk::{
-    symbol_short, testutils::{Address as _, Ledger, MockAuth, MockAuthInvoke},
+    symbol_short, testutils::{Address as _, Events, Ledger, MockAuth, MockAuthInvoke},
     Address, BytesN, Env, IntoVal,
 };
 

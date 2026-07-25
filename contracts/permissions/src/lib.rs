@@ -51,6 +51,8 @@ pub enum PermissionError {
     SelfDelegationNotAllowed = 401,
     /// Admin has not configured an inactivity threshold yet
     InactivityThresholdNotSet = 12,
+    /// Spend rejected: minimum interval between spends has not elapsed
+    VelocityLimitExceeded = 13,
 }
 
 #[contracttype]
@@ -74,6 +76,14 @@ pub struct PermissionRecord {
     pub status: PermissionStatus,
     pub expires_at_ledger: u32,
     pub created_at: u64,
+    /// Owner half of the parent permission's `(owner, delegate)` key, for
+    /// permissions created via `grant_child`. `None` for top-level grants.
+    pub parent_owner: Option<Address>,
+    /// Delegate half of the parent permission's `(owner, delegate)` key,
+    /// for permissions created via `grant_child`. `None` for top-level
+    /// grants. Together with `parent_owner`, this forms the reference the
+    /// issue describes as `parent_permission`.
+    pub parent_delegate: Option<Address>,
 }
 
 /// Lightweight config for multi-merchant whitelisting and allowance tracking.
@@ -100,6 +110,15 @@ pub struct PermissionGrantedEvent {
 pub struct PermissionRevokedEvent {
     pub owner: Address,
     pub delegate: Address,
+}
+
+#[contracttype]
+#[derive(Clone, Debug)]
+pub struct PermissionTransferredEvent {
+    pub owner: Address,
+    pub old_delegate: Address,
+    pub new_delegate: Address,
+    pub remaining_allowance: i128,
 }
 
 /// Emitted after a delegated spend is successfully recorded (issue #99).
@@ -222,6 +241,14 @@ pub struct AllowanceIncreasedEvent {
     pub delegate: Address,
     pub old_limit: i128,
     pub new_limit: i128,
+}
+
+/// Emitted when the admin configures a new spend velocity limit (#324).
+#[contracttype]
+#[derive(Clone, Debug)]
+pub struct VelocityLimitSetEvent {
+    pub min_spend_interval: u32,
+    pub set_by: Address,
 }
 
 /// Read-only preview of a hypothetical spend (issue #XX).
@@ -358,6 +385,8 @@ impl PermissionsContract {
             status: PermissionStatus::Active,
             expires_at_ledger,
             created_at: env.ledger().timestamp(),
+            parent_owner: None,
+            parent_delegate: None,
         };
 
         env.storage().persistent().set(
@@ -391,6 +420,124 @@ impl PermissionsContract {
         Ok(())
     }
 
+    /// Grants a child permission under an existing permission, for agent
+    /// hierarchies where a delegate needs to sub-delegate part of its own
+    /// allowance to another agent (issue #332).
+    ///
+    /// Must be called by `parent_delegate` — the delegate of the parent
+    /// permission `(parent_owner, parent_delegate)` — acting as the
+    /// "owner" of the new child permission. The child is bounded by the
+    /// parent: its `limit_total` cannot exceed the parent's remaining
+    /// allowance, its `limit_per_tx` cannot exceed the parent's per-tx
+    /// limit, and its expiry is clamped to the parent's expiry.
+    ///
+    /// # Errors
+    /// - [`PermissionError::ParentNotFound`] if the parent permission
+    ///   doesn't exist.
+    /// - [`PermissionError::PermissionPaused`] / [`PermissionError::Expired`]
+    ///   if the parent isn't currently active.
+    /// - [`PermissionError::ExceedsParentLimit`] if the requested child
+    ///   limits exceed what the parent can back.
+    pub fn grant_child(
+        env: Env,
+        parent_owner: Address,
+        parent_delegate: Address,
+        child_delegate: Address,
+        limit_total: i128,
+        limit_per_tx: i128,
+        allowed_merchants: Vec<Address>,
+        ttl_ledgers: u32,
+    ) -> Result<(), PermissionError> {
+        parent_delegate.require_auth();
+
+        if let Some(state) = env
+            .storage()
+            .instance()
+            .get::<DataKey, PermissionPauseState>(&DataKey::GrantPauseState)
+        {
+            if state.grants_paused {
+                return Err(PermissionError::GrantsPaused);
+            }
+        }
+
+        let allow_self: bool = env
+            .storage()
+            .instance()
+            .get(&DataKey::AllowSelfDelegation)
+            .unwrap_or(false);
+        if !allow_self && parent_delegate == child_delegate {
+            return Err(PermissionError::SelfDelegationNotAllowed);
+        }
+
+        if limit_per_tx <= 0 || limit_total < limit_per_tx {
+            return Err(PermissionError::InvalidParam);
+        }
+
+        let parent_key = DataKey::Permission(parent_owner.clone(), parent_delegate.clone());
+        let parent_record: PermissionRecord = env
+            .storage()
+            .persistent()
+            .get(&parent_key)
+            .ok_or(PermissionError::ParentNotFound)?;
+
+        if parent_record.status != PermissionStatus::Active {
+            return Err(PermissionError::PermissionPaused);
+        }
+        if env.ledger().sequence() >= parent_record.expires_at_ledger {
+            return Err(PermissionError::Expired);
+        }
+
+        let parent_remaining = parent_record.limit_total - parent_record.spent;
+        if limit_total > parent_remaining || limit_per_tx > parent_record.limit_per_tx {
+            return Err(PermissionError::ExceedsParentLimit);
+        }
+
+        let requested_expiry = env.ledger().sequence() + ttl_ledgers;
+        let expires_at_ledger = requested_expiry.min(parent_record.expires_at_ledger);
+
+        let record = PermissionRecord {
+            owner: parent_delegate.clone(),
+            delegate: child_delegate.clone(),
+            limit_total,
+            spent: 0,
+            limit_per_tx,
+            allowed_merchants: allowed_merchants.clone(),
+            status: PermissionStatus::Active,
+            expires_at_ledger,
+            created_at: env.ledger().timestamp(),
+            parent_owner: Some(parent_owner.clone()),
+            parent_delegate: Some(parent_delegate.clone()),
+        };
+
+        let child_key = DataKey::Permission(parent_delegate.clone(), child_delegate.clone());
+        env.storage().persistent().set(&child_key, &record);
+
+        let children_key = DataKey::Children(parent_owner, parent_delegate.clone());
+        let mut children: Vec<Address> = env
+            .storage()
+            .persistent()
+            .get(&children_key)
+            .unwrap_or_else(|| Vec::new(&env));
+        if !children.contains(&child_delegate) {
+            children.push_back(child_delegate.clone());
+            env.storage().persistent().set(&children_key, &children);
+        }
+
+        env.events().publish(
+            (symbol_short!("perm"), symbol_short!("granted")),
+            PermissionGrantedEvent {
+                owner: parent_delegate,
+                delegate: child_delegate,
+                per_tx_limit: limit_per_tx,
+                total_limit: limit_total,
+                expires_at_ledger,
+                merchant_count: allowed_merchants.len(),
+            },
+        );
+
+        Ok(())
+    }
+
     pub fn revoke(env: Env, owner: Address, delegate: Address) -> Result<(), PermissionError> {
         owner.require_auth();
 
@@ -414,11 +561,255 @@ impl PermissionsContract {
                 },
             );
 
-            Self::append_audit_log(&env, &owner, &delegate, owner.clone(), symbol_short!("revoked"));
+            // Cascade: revoking a permission also revokes every child
+            // permission granted under it (issue #332).
+            Self::revoke_children(&env, &owner, &delegate);
 
             Ok(())
         } else {
             Err(PermissionError::NotFound)
+        }
+    }
+
+    /// Transfer a permission from one delegate to another, preserving spending limits and history.
+    /// 
+    /// Atomically:
+    /// 1. Verifies the owner authorizes the transfer
+    /// 2. Checks that the old permission exists and is not revoked
+    /// 3. Creates a new permission with the same limits/spending/merchants
+    /// 4. Revokes the old permission
+    /// 5. Emits PermissionTransferredEvent with remaining allowance
+    /// 
+    /// The new permission starts fresh with the same configuration but preserves
+    /// the spent amount and remaining allowance from the old permission.
+    pub fn transfer_permission(
+        env: Env,
+        owner: Address,
+        old_delegate: Address,
+        new_delegate: Address,
+    ) -> Result<(), PermissionError> {
+        owner.require_auth();
+
+        // Prevent self-transfer
+        if old_delegate == new_delegate {
+            return Err(PermissionError::InvalidParam);
+        }
+
+        // Check self-delegation is allowed if new delegate is owner
+        let allow_self: bool = env
+            .storage()
+            .instance()
+            .get(&DataKey::AllowSelfDelegation)
+            .unwrap_or(false);
+        if !allow_self && owner == new_delegate {
+            return Err(PermissionError::SelfDelegationNotAllowed);
+        }
+
+        // Retrieve the old permission
+        let old_key = DataKey::Permission(owner.clone(), old_delegate.clone());
+        let old_record: PermissionRecord = env
+            .storage()
+            .persistent()
+            .get(&old_key)
+            .ok_or(PermissionError::NotFound)?;
+
+        // Reject if already revoked
+        if old_record.status == PermissionStatus::Revoked {
+            return Err(PermissionError::Unauthorized);
+        }
+
+        // Calculate remaining allowance
+        let remaining_allowance = old_record.limit_total - old_record.spent;
+
+        // Create new permission with same configuration but fresh expiry
+        // Preserve the spent counter to maintain history
+        let new_record = PermissionRecord {
+            owner: owner.clone(),
+            delegate: new_delegate.clone(),
+            limit_total: old_record.limit_total,
+            spent: old_record.spent,
+            limit_per_tx: old_record.limit_per_tx,
+            allowed_merchants: old_record.allowed_merchants.clone(),
+            status: PermissionStatus::Active,
+            expires_at_ledger: old_record.expires_at_ledger,
+            created_at: env.ledger().timestamp(),
+            parent_owner: old_record.parent_owner.clone(),
+            parent_delegate: old_record.parent_delegate.clone(),
+        };
+
+        let new_key = DataKey::Permission(owner.clone(), new_delegate.clone());
+        
+        // Ensure new permission doesn't already exist
+        if env.storage().persistent().has(&new_key) {
+            return Err(PermissionError::InvalidParam);
+        }
+
+        // Store the new permission
+        env.storage().persistent().set(&new_key, &new_record);
+
+        // Revoke the old permission
+        let mut revoked_record = old_record;
+        revoked_record.status = PermissionStatus::Revoked;
+        env.storage().persistent().set(&old_key, &revoked_record);
+        env.storage()
+            .persistent()
+            .remove(&DataKey::PendingDecrement(owner.clone(), old_delegate.clone()));
+
+        // Emit transfer event
+        env.events().publish(
+            (symbol_short!("perm"), symbol_short!("transf")),
+            PermissionTransferredEvent {
+                owner: owner.clone(),
+                old_delegate,
+                new_delegate: new_delegate.clone(),
+                remaining_allowance,
+            },
+        );
+
+        Self::append_audit_log(&env, &owner, &new_delegate, owner.clone(), symbol_short!("transf"));
+
+        Ok(())
+    }
+
+    /// Renew a permission by extending its TTL without disruption.
+    /// Owner extends the expiry ledger by the specified additional ledgers.
+    /// Fails if permission is revoked or expired.
+    pub fn renew_permission(
+        env: Env,
+        owner: Address,
+        delegate: Address,
+        additional_ledgers: u32,
+    ) -> Result<(), PermissionError> {
+        owner.require_auth();
+
+        let key = DataKey::Permission(owner.clone(), delegate.clone());
+        if let Some(mut record) = env
+            .storage()
+            .persistent()
+            .get::<DataKey, PermissionRecord>(&key)
+        {
+            // Reject if already revoked
+            if record.status == PermissionStatus::Revoked {
+                return Err(PermissionError::Unauthorized);
+            }
+
+            // Reject if already expired
+            if env.ledger().sequence() >= record.expires_at_ledger {
+                return Err(PermissionError::Expired);
+            }
+
+            // Store old expiry for audit log
+            let old_expires = record.expires_at_ledger;
+
+            // Extend TTL
+            record.expires_at_ledger = record.expires_at_ledger.saturating_add(additional_ledgers);
+
+            // Persist the updated record (spent counter preserved)
+            env.storage().persistent().set(&key, &record);
+
+            // Publish renewal event
+            env.events().publish(
+                (symbol_short!("perm"), symbol_short!("renewed")),
+                (
+                    owner.clone(),
+                    delegate.clone(),
+                    old_expires,
+                    record.expires_at_ledger,
+                ),
+            );
+
+            Self::append_audit_log(&env, &owner, &delegate, owner.clone(), symbol_short!("renewed"));
+
+            Ok(())
+        } else {
+            Err(PermissionError::NotFound)
+        }
+    }
+
+    /// Directly sets a new absolute expiry ledger for a permission (issue #102).
+    ///
+    /// Unlike `renew_permission` (which adds ledgers), this sets the expiry to an
+    /// exact ledger sequence number. Useful for setting a precise deadline rather
+    /// than extending relatively.
+    ///
+    /// # Errors
+    /// - [`PermissionError::NotFound`] if no permission exists for `(owner, delegate)`
+    /// - [`PermissionError::Unauthorized`] if permission is already revoked
+    /// - [`PermissionError::InvalidParam`] if `new_expiry` is not greater than the current ledger
+    pub fn update_expiry(
+        env: Env,
+        owner: Address,
+        delegate: Address,
+        new_expiry: u32,
+    ) -> Result<(), PermissionError> {
+        owner.require_auth();
+
+        // Validate: new_expiry must be strictly in the future
+        if new_expiry <= env.ledger().sequence() {
+            return Err(PermissionError::InvalidParam);
+        }
+
+        let key = DataKey::Permission(owner.clone(), delegate.clone());
+        let mut record: PermissionRecord = env
+            .storage()
+            .persistent()
+            .get(&key)
+            .ok_or(PermissionError::NotFound)?;
+
+        // Cannot update a revoked permission
+        if record.status == PermissionStatus::Revoked {
+            return Err(PermissionError::Unauthorized);
+        }
+
+        let old_expiry = record.expires_at_ledger;
+        record.expires_at_ledger = new_expiry;
+        env.storage().persistent().set(&key, &record);
+
+        env.events().publish(
+            (symbol_short!("perm"), symbol_short!("exp_upd")),
+            PermissionExpiryUpdatedEvent {
+                owner: owner.clone(),
+                delegate: delegate.clone(),
+                old_expiry,
+                new_expiry,
+            },
+        );
+
+        Self::append_audit_log(&env, &owner, &delegate, owner.clone(), symbol_short!("exp_upd"));
+
+        Ok(())
+    }
+
+    /// Recursively revokes every child permission granted under
+    /// `(owner, delegate)` via `grant_child`.
+    fn revoke_children(env: &Env, owner: &Address, delegate: &Address) {
+        let children_key = DataKey::Children(owner.clone(), delegate.clone());
+        let children: Vec<Address> = env
+            .storage()
+            .persistent()
+            .get(&children_key)
+            .unwrap_or_else(|| Vec::new(env));
+
+        for child_delegate in children.iter() {
+            let child_key = DataKey::Permission(delegate.clone(), child_delegate.clone());
+            if let Some(mut child_record) = env
+                .storage()
+                .persistent()
+                .get::<DataKey, PermissionRecord>(&child_key)
+            {
+                if child_record.status != PermissionStatus::Revoked {
+                    child_record.status = PermissionStatus::Revoked;
+                    env.storage().persistent().set(&child_key, &child_record);
+                    env.events().publish(
+                        (symbol_short!("perm"), symbol_short!("revoked")),
+                        PermissionRevokedEvent {
+                            owner: delegate.clone(),
+                            delegate: child_delegate.clone(),
+                        },
+                    );
+                }
+                Self::revoke_children(env, delegate, &child_delegate);
+            }
         }
     }
 
@@ -490,12 +881,42 @@ impl PermissionsContract {
             merchant.clone(),
         )?;
 
+        // #324: Velocity check — reject if min_spend_interval has not yet elapsed
+        // since the last recorded spend ledger for this (owner, delegate) pair.
+        let velocity_key = DataKey::LastSpendLedger(owner.clone(), delegate.clone());
+        if let Some(last_ledger) = env
+            .storage()
+            .persistent()
+            .get::<DataKey, u32>(&velocity_key)
+        {
+            if let Some(min_interval) = env
+                .storage()
+                .instance()
+                .get::<DataKey, u32>(&DataKey::MinSpendInterval)
+            {
+                let current = env.ledger().sequence();
+                if current < last_ledger + min_interval {
+                    return Err(PermissionError::VelocityLimitExceeded);
+                }
+            }
+        }
+
         let key = DataKey::Permission(owner.clone(), delegate.clone());
         let mut record: PermissionRecord = env.storage().persistent().get(&key).unwrap();
 
         record.spent += amount;
+        let mut next_parent = match (record.parent_owner.clone(), record.parent_delegate.clone())
+        {
+            (Some(p_owner), Some(p_delegate)) => Some((p_owner, p_delegate)),
+            _ => None,
+        };
         env.storage().persistent().set(&key, &record);
         Self::record_spend_stats(&env, &owner, &delegate, amount);
+
+        // Record the current ledger as the last spend ledger for velocity tracking.
+        env.storage()
+            .persistent()
+            .set(&velocity_key, &env.ledger().sequence());
 
         let remaining = record.limit_total - record.spent;
 
@@ -510,6 +931,33 @@ impl PermissionsContract {
                 remaining,
             },
         );
+
+        // Walk the parent chain, deducting the same amount from each
+        // ancestor's allowance so a child's spend is also reflected against
+        // the allowance it was carved out of (issue #332).
+        while let Some((p_owner, p_delegate)) = next_parent {
+            let parent_key = DataKey::Permission(p_owner, p_delegate);
+            let mut parent_record: PermissionRecord = env
+                .storage()
+                .persistent()
+                .get(&parent_key)
+                .ok_or(PermissionError::ParentNotFound)?;
+
+            let parent_remaining = parent_record.limit_total - parent_record.spent;
+            if amount > parent_remaining {
+                return Err(PermissionError::ExceedsParentLimit);
+            }
+
+            parent_record.spent += amount;
+            next_parent = match (
+                parent_record.parent_owner.clone(),
+                parent_record.parent_delegate.clone(),
+            ) {
+                (Some(p_owner), Some(p_delegate)) => Some((p_owner, p_delegate)),
+                _ => None,
+            };
+            env.storage().persistent().set(&parent_key, &parent_record);
+        }
 
         Ok(())
     }
@@ -1074,6 +1522,49 @@ impl PermissionsContract {
         Self::append_audit_log(&env, &owner, &delegate, caller, symbol_short!("autorevk"));
 
         Ok(true)
+    }
+
+    /// Configure the minimum number of ledgers that must elapse between successive
+    /// spends for any delegation pair (#324). Admin-only.
+    ///
+    /// Set `interval` to `0` to disable velocity limiting.
+    pub fn set_velocity_limit(
+        env: Env,
+        admin: Address,
+        interval: u32,
+    ) -> Result<(), PermissionError> {
+        admin.require_auth();
+        let stored_admin: Address = env
+            .storage()
+            .instance()
+            .get(&DataKey::Admin)
+            .expect("Admin not set");
+        if admin != stored_admin {
+            return Err(PermissionError::Unauthorized);
+        }
+
+        env.storage()
+            .instance()
+            .set(&DataKey::MinSpendInterval, &interval);
+
+        env.events().publish(
+            (symbol_short!("perm"), symbol_short!("velset")),
+            VelocityLimitSetEvent {
+                min_spend_interval: interval,
+                set_by: admin,
+            },
+        );
+
+        Ok(())
+    }
+
+    /// Returns the currently configured minimum spend interval (in ledgers).
+    /// Returns `0` when no velocity limit has been set.
+    pub fn get_velocity_limit(env: Env) -> u32 {
+        env.storage()
+            .instance()
+            .get(&DataKey::MinSpendInterval)
+            .unwrap_or(0)
     }
 
     /// Returns contract name and semantic version for deployment verification (issue #103).
