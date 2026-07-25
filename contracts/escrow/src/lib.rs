@@ -488,18 +488,18 @@ pub enum EscrowError {
     PoolNotFound = 30,
     /// Liquidity pool balance is insufficient for the requested operation
     InsufficientPoolBalance = 31,
-    /// Release condition not set for escrow
-    ReleaseConditionNotSet = 32,
-    /// Oracle contract call failed
-    OracleCallFailed = 33,
     /// Fee config has not been initialized
     FeeConfigNotSet = 34,
     /// Amount limits have not been initialized
     AmountLimitsNotSet = 35,
+    /// Release condition not set for escrow
+    ReleaseConditionNotSet = 36,
+    /// Oracle contract call failed
+    OracleCallFailed = 37,
     /// Release condition not met
-    ConditionNotMet = 36,
+    ConditionNotMet = 38,
     /// Invalid yield configuration
-    InvalidYieldConfig = 37,
+    InvalidYieldConfig = 39,
 }
 
 /// Compact receipt returned to buyers after escrow creation via `get_receipt`.
