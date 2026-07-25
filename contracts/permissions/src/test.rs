@@ -1888,5 +1888,113 @@ mod test {
         let result = client.try_transfer_permission(&unauthorized, &old_delegate, &new_delegate);
         assert!(result.is_err());
     }
-    
+
+    // -----------------------------------------------------------------------
+    // update_expiry tests (issue #102)
+    // -----------------------------------------------------------------------
+
+    /// Happy path: update_expiry persists the new expiry and emits
+    /// PermissionExpiryUpdatedEvent with correct old/new values.
+    #[test]
+    fn test_update_expiry_emits_event() {
+        use crate::PermissionExpiryUpdatedEvent;
+
+        let env = Env::default();
+        env.mock_all_auths();
+        let owner = Address::generate(&env);
+        let delegate = Address::generate(&env);
+
+        let contract_id = env.register(PermissionsContract, ());
+        let client = PermissionsContractClient::new(&env, &contract_id);
+
+        let merchants = Vec::<Address>::new(&env);
+        // Grant with TTL 10_000 — ledger starts at sequence 0, so the initial
+        // expiry is 10_000.
+        client.grant(&owner, &delegate, &1_000, &100, &merchants, &10_000);
+
+        // Advance the ledger a little so sequence > 0.
+        env.ledger().with_mut(|li| li.sequence_number = 500);
+
+        // Set a new absolute expiry well in the future.
+        let new_expiry: u32 = 20_000;
+        client.update_expiry(&owner, &delegate, &new_expiry);
+
+        // Verify the record was updated.
+        let receipt = client.get_receipt(&owner, &delegate).unwrap();
+        assert_eq!(receipt.expires_at_ledger, new_expiry);
+
+        // Verify the event was emitted.
+        let events = env.events().all();
+        let expiry_events: Vec<_> = events
+            .iter()
+            .filter(|(_contract, topics, _data)| {
+                // Match events whose second topic symbol is "exp_upd".
+                if let Some(second) = topics.get(1) {
+                    second.try_into_val(&env) == Ok(soroban_sdk::symbol_short!("exp_upd"))
+                } else {
+                    false
+                }
+            })
+            .collect();
+        assert!(!expiry_events.is_empty(), "expected PermissionExpiryUpdatedEvent to be emitted");
+
+        // Decode and check the event payload.
+        let (_contract, _topics, data) = expiry_events.last().unwrap();
+        let evt: PermissionExpiryUpdatedEvent = data.try_into_val(&env).unwrap();
+        assert_eq!(evt.old_expiry, 10_000);
+        assert_eq!(evt.new_expiry, new_expiry);
+        assert_eq!(evt.owner, owner);
+        assert_eq!(evt.delegate, delegate);
+    }
+
+    /// Failure path: new_expiry at or before the current ledger sequence
+    /// must be rejected with InvalidParam.
+    #[test]
+    fn test_update_expiry_rejects_past_ledger() {
+        let env = Env::default();
+        env.mock_all_auths();
+        let owner = Address::generate(&env);
+        let delegate = Address::generate(&env);
+
+        let contract_id = env.register(PermissionsContract, ());
+        let client = PermissionsContractClient::new(&env, &contract_id);
+
+        let merchants = Vec::<Address>::new(&env);
+        client.grant(&owner, &delegate, &1_000, &100, &merchants, &10_000);
+
+        // Advance ledger so sequence = 500, then try setting expiry to 500
+        // (equal to current — not strictly in the future).
+        env.ledger().with_mut(|li| li.sequence_number = 500);
+
+        let result = client.try_update_expiry(&owner, &delegate, &500);
+        assert_eq!(result, Err(Ok(PermissionError::InvalidParam)));
+
+        // Also reject a value strictly in the past.
+        let result_past = client.try_update_expiry(&owner, &delegate, &100);
+        assert_eq!(result_past, Err(Ok(PermissionError::InvalidParam)));
+    }
+
+    /// Failure path: calling update_expiry on a revoked permission must
+    /// return Unauthorized.
+    #[test]
+    fn test_update_expiry_rejects_revoked_permission() {
+        let env = Env::default();
+        env.mock_all_auths();
+        let owner = Address::generate(&env);
+        let delegate = Address::generate(&env);
+
+        let contract_id = env.register(PermissionsContract, ());
+        let client = PermissionsContractClient::new(&env, &contract_id);
+
+        let merchants = Vec::<Address>::new(&env);
+        client.grant(&owner, &delegate, &1_000, &100, &merchants, &10_000);
+        client.revoke(&owner, &delegate);
+
+        // Advance ledger so new_expiry (9_000) would be in the future.
+        env.ledger().with_mut(|li| li.sequence_number = 100);
+
+        let result = client.try_update_expiry(&owner, &delegate, &9_000);
+        assert_eq!(result, Err(Ok(PermissionError::Unauthorized)));
+    }
+
 }
