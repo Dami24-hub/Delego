@@ -1,7 +1,13 @@
+"use client";
+
+import { useRouter } from "next/navigation";
 import { Button, Card } from "@delego/ui";
+import { WalletConnectButton } from "../components/wallet/WalletConnectButton";
 
 /** Dashboard landing page for the main Delego experience. */
 export default function HomePage() {
+  const router = useRouter();
+
   return (
     <div className="settings-page">
       <header className="header">
@@ -12,8 +18,9 @@ export default function HomePage() {
       <section className="grid">
         <Card title="Delegations">
           <p>Grant AI agents scoped shopping authority.</p>
-          {/* TODO: List active delegations */}
-          <Button variant="primary">Create Delegation</Button>
+          <Button variant="primary" onClick={() => router.push("/delegations")}>
+            Manage Delegations
+          </Button>
         </Card>
 
         <Card title="Orders">
@@ -23,8 +30,7 @@ export default function HomePage() {
 
         <Card title="Wallet">
           <p>Connect your Stellar wallet.</p>
-          {/* TODO: Wallet connection via Soroban permissions */}
-          <Button variant="secondary">Connect Wallet</Button>
+          <WalletConnectButton showDetails={false} />
         </Card>
       </section>
     </div>

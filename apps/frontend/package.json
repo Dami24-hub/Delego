@@ -15,6 +15,7 @@
     "@delego/sdk": "workspace:*",
     "@delego/types": "workspace:*",
     "@delego/ui": "workspace:*",
+    "@stellar/freighter-api": "^6.0.1",
     "next": "^15.1.0",
     "qrcode": "^1.5.3",
     "react": "^19.0.0",
