@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { GlobalSearch } from "../search/GlobalSearch";
 import { MobileNav } from "./MobileNav";
 
 /**
@@ -24,6 +25,8 @@ export function Header() {
       </button>
 
       <p className="app-header-brand">Delego</p>
+
+      <GlobalSearch />
 
       <div className="app-header-spacer" />
 
