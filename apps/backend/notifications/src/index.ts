@@ -10,6 +10,13 @@ import {
 } from "./dispatcher.js";
 import { getVapidPublicKey } from "../push/index.js";
 import { startPermissionEventListener } from "./permissionEventListener.js";
+import { startEscrowEventListener } from "./escrowEventListener.js";
+import {
+  cancelScheduledNotification,
+  getScheduledNotification,
+  scheduleNotification,
+  scheduleRecurringNotification,
+} from "./scheduler/index.js";
 import type { IncomingMessage, ServerResponse, Server } from "node:http";
 
 const SERVICE_NAME = "notifications";
@@ -53,6 +60,29 @@ if (rpcUrl && permissionsContractId) {
 } else {
   log.info(
     "Permission event listener disabled (set STELLAR_RPC_URL and PERMISSIONS_CONTRACT_ID to enable)"
+  );
+}
+
+// Issue #56 — opt-in escrow event listener.
+// Requires both STELLAR_RPC_URL and ESCROW_CONTRACT_ID to be set.
+const escrowContractId = process.env.ESCROW_CONTRACT_ID ?? "";
+
+let escrowListener: { stop(): Promise<void> } | null = null;
+if (rpcUrl && escrowContractId) {
+  try {
+    escrowListener = startEscrowEventListener(rpcUrl, escrowContractId);
+    log.info("Escrow event listener wired to boot", {
+      rpcUrl,
+      contractId: escrowContractId,
+    });
+  } catch (err) {
+    log.error("Failed to start escrow event listener", {
+      error: err instanceof Error ? err.message : String(err),
+    });
+  }
+} else {
+  log.info(
+    "Escrow event listener disabled (set STELLAR_RPC_URL and ESCROW_CONTRACT_ID to enable)"
   );
 }
 
@@ -156,6 +186,79 @@ const server: Server = startHttpServer({
         json(res, 202, { data: { dispatched: true }, error: null });
       }
     ),
+
+    // Issue #365 — notification scheduling with cron support.
+    route("POST", "/schedule", async (req: IncomingMessage, res: ServerResponse) => {
+      const body = (await readBody(req)) as Record<string, unknown>;
+      const { userId, templateName, payload, runAt, cronExpression } = body;
+
+      if (!userId || !templateName) {
+        json(res, 400, {
+          data: null,
+          error: { code: "BAD_REQUEST", message: "userId and templateName are required" },
+        });
+        return;
+      }
+
+      try {
+        const record =
+          typeof cronExpression === "string" && cronExpression
+            ? await scheduleRecurringNotification({
+                userId: String(userId),
+                templateName: String(templateName),
+                payload: (payload as Record<string, unknown>) ?? {},
+                cronExpression,
+              })
+            : await scheduleNotification({
+                userId: String(userId),
+                templateName: String(templateName),
+                payload: (payload as Record<string, unknown>) ?? {},
+                runAt: String(runAt),
+              });
+
+        json(res, 201, { data: record, error: null });
+      } catch (err) {
+        json(res, 400, {
+          data: null,
+          error: {
+            code: "SCHEDULE_FAILED",
+            message: err instanceof Error ? err.message : "Failed to schedule notification",
+          },
+        });
+      }
+    }),
+
+    route(
+      "GET",
+      "/schedule/:id",
+      async (_req: IncomingMessage, res: ServerResponse, params: Record<string, string>) => {
+        const record = await getScheduledNotification(params.id);
+        if (!record) {
+          json(res, 404, {
+            data: null,
+            error: { code: "NOT_FOUND", message: "Scheduled notification not found" },
+          });
+          return;
+        }
+        json(res, 200, { data: record, error: null });
+      }
+    ),
+
+    route(
+      "DELETE",
+      "/schedule/:id",
+      async (_req: IncomingMessage, res: ServerResponse, params: Record<string, string>) => {
+        const record = await cancelScheduledNotification(params.id);
+        if (!record) {
+          json(res, 404, {
+            data: null,
+            error: { code: "NOT_FOUND", message: "Scheduled notification not found" },
+          });
+          return;
+        }
+        json(res, 200, { data: record, error: null });
+      }
+    ),
   ],
 });
 
@@ -169,6 +272,15 @@ async function gracefulShutdown(signal: NodeJS.Signals): Promise<void> {
       await permissionListener.stop();
     } catch (err) {
       log.error("Failed to stop permission event listener cleanly", {
+        error: err instanceof Error ? err.message : String(err),
+      });
+    }
+  }
+  if (escrowListener) {
+    try {
+      await escrowListener.stop();
+    } catch (err) {
+      log.error("Failed to stop escrow event listener cleanly", {
         error: err instanceof Error ? err.message : String(err),
       });
     }

@@ -8,20 +8,26 @@
     "build": "next build",
     "start": "next start -p ${WEB_PORT:-3001}",
     "typecheck": "tsc --noEmit",
-    "lint": "echo 'TODO: add eslint'"
+    "lint": "echo 'TODO: add eslint'",
+    "test": "vitest run"
   },
   "dependencies": {
     "@delego/sdk": "workspace:*",
     "@delego/types": "workspace:*",
     "@delego/ui": "workspace:*",
     "next": "^15.1.0",
+    "qrcode": "^1.5.3",
     "react": "^19.0.0",
+    "zod": "^3.24.0",
     "react-dom": "^19.0.0"
   },
   "devDependencies": {
+    "@testing-library/react": "^16.0.0",
+    "@testing-library/user-event": "^14.5.0",
     "@types/node": "^22.0.0",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
-    "typescript": "^5.7.0"
+    "typescript": "^5.7.0",
+    "vitest": "^2.0.0"
   }
 }

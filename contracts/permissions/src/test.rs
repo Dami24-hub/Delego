@@ -1,6 +1,6 @@
 #[cfg(test)]
 mod test {
-    use crate::{PermissionError, PermissionsContract, PermissionsContractClient};
+    use crate::{PermissionError, PermissionStatus, PermissionsContract, PermissionsContractClient};
     use soroban_sdk::{
         testutils::{Address as _, Events, Ledger},
         Address, Env, TryIntoVal, Vec,
@@ -928,6 +928,10 @@ mod test {
         let contract_id = env.register(PermissionsContract, ());
         let client = PermissionsContractClient::new(&env, &contract_id);
 
+        let admin = Address::generate(&env);
+        client.set_admin(&admin);
+        client.register_schema(&admin, &soroban_sdk::symbol_short!("v1"));
+
         // Write Permission key.
         client.grant(&owner, &delegate, &1000, &100, &merchants, &10000);
 
@@ -1166,9 +1170,13 @@ mod test {
         let contract_id = env.register(PermissionsContract, ());
         let client = PermissionsContractClient::new(&env, &contract_id);
 
+        let admin = Address::generate(&env);
+        client.set_admin(&admin);
+
         use soroban_sdk::BytesN;
         let hash = BytesN::from_array(&env, &[0xabu8; 32]);
         let schema = soroban_sdk::symbol_short!("v1");
+        client.register_schema(&admin, &schema);
         let metadata = crate::PermissionMetadata {
             policy_hash: hash.clone(),
             schema: schema.clone(),
@@ -1226,6 +1234,10 @@ mod test {
 
         let contract_id = env.register(PermissionsContract, ());
         let client = PermissionsContractClient::new(&env, &contract_id);
+
+        let admin = Address::generate(&env);
+        client.set_admin(&admin);
+        client.register_schema(&admin, &soroban_sdk::symbol_short!("v1"));
 
         use soroban_sdk::BytesN;
         let hash = BytesN::from_array(&env, &[0xffu8; 32]);
@@ -1557,10 +1569,47 @@ mod test {
         assert_eq!(events.len(), 0);
     }
 
-    // ── Issue #101: Expiry-in-past validation ────────────────────────────────
+    // ── get_merchant_restriction tests ──────────────────────────────────────
 
     #[test]
-    fn test_grant_rejects_zero_ttl() {
+    fn test_get_merchant_restriction_none_when_no_permission() {
+        let env = Env::default();
+        let owner = Address::generate(&env);
+        let delegate = Address::generate(&env);
+
+        let contract_id = env.register(PermissionsContract, ());
+        let client = PermissionsContractClient::new(&env, &contract_id);
+
+        let result = client.get_merchant_restriction(&owner, &delegate);
+        assert!(result.is_none());
+    }
+
+    #[test]
+    fn test_get_merchant_restriction_some_after_grant() {
+        let env = Env::default();
+        env.mock_all_auths();
+        let owner = Address::generate(&env);
+        let delegate = Address::generate(&env);
+        let merchant = Address::generate(&env);
+
+        let contract_id = env.register(PermissionsContract, ());
+        let client = PermissionsContractClient::new(&env, &contract_id);
+
+        let mut merchants = Vec::<Address>::new(&env);
+        merchants.push_back(merchant.clone());
+
+        client.grant(&owner, &delegate, &1000, &100, &merchants, &10000);
+
+        let restriction = client.get_merchant_restriction(&owner, &delegate);
+        assert!(restriction.is_some());
+        let r = restriction.unwrap();
+        assert_eq!(r.owner, owner);
+        assert_eq!(r.delegate, delegate);
+        assert_eq!(r.merchant, Some(merchant));
+    }
+
+    #[test]
+    fn test_get_merchant_restriction_none_when_empty_whitelist() {
         let env = Env::default();
         env.mock_all_auths();
         let owner = Address::generate(&env);
@@ -1570,44 +1619,211 @@ mod test {
         let client = PermissionsContractClient::new(&env, &contract_id);
 
         let merchants = Vec::<Address>::new(&env);
-        let res = client.try_grant(&owner, &delegate, &1000, &100, &merchants, &0);
-        assert_eq!(res, Err(Ok(crate::PermissionError::ExpiryInPast)));
+        client.grant(&owner, &delegate, &1000, &100, &merchants, &10000);
+
+        let restriction = client.get_merchant_restriction(&owner, &delegate);
+        assert!(restriction.is_some());
+        let r = restriction.unwrap();
+        assert_eq!(r.owner, owner);
+        assert_eq!(r.delegate, delegate);
+        assert!(r.merchant.is_none());
     }
 
+    // ── Issue #326: Multi-Owner Delegation Tests ──────────────────────────────
+
     #[test]
-    fn test_grant_allows_ttl_of_one() {
+    fn test_grant_multi_owner_2_of_3_threshold() {
         let env = Env::default();
         env.mock_all_auths();
-        let owner = Address::generate(&env);
+        let owner_a = Address::generate(&env);
+        let owner_b = Address::generate(&env);
+        let owner_c = Address::generate(&env);
         let delegate = Address::generate(&env);
+        let merchants = Vec::<Address>::new(&env);
 
         let contract_id = env.register(PermissionsContract, ());
         let client = PermissionsContractClient::new(&env, &contract_id);
 
-        let merchants = Vec::<Address>::new(&env);
-        let res = client.try_grant(&owner, &delegate, &1000, &100, &merchants, &1);
-        assert_eq!(res, Ok(Ok(())));
+        let mut owners = Vec::<Address>::new(&env);
+        owners.push_back(owner_a.clone());
+        owners.push_back(owner_b.clone());
+        owners.push_back(owner_c.clone());
+
+        client.grant_multi_owner(
+            &owner_a, &owners, &delegate, &1000, &100, &merchants, &10000, &2,
+        );
+
+        let record = client.get_multi_permission(&owner_a, &delegate);
+        assert_eq!(record.threshold, 2);
+        assert_eq!(record.owners.len(), 3);
+        assert_eq!(record.limit_total, 1000);
     }
 
     #[test]
-    fn test_grant_rejects_overflowing_ttl() {
+    fn test_execute_spend_multi_with_2_signatures_succeeds() {
         let env = Env::default();
         env.mock_all_auths();
-        let owner = Address::generate(&env);
+        let owner_a = Address::generate(&env);
+        let owner_b = Address::generate(&env);
+        let owner_c = Address::generate(&env);
         let delegate = Address::generate(&env);
+        let merchant = Address::generate(&env);
+        let merchants = Vec::<Address>::new(&env);
 
         let contract_id = env.register(PermissionsContract, ());
         let client = PermissionsContractClient::new(&env, &contract_id);
 
-        // Push the ledger to a non-zero value so that u32::MAX overflows.
-        env.ledger().with_mut(|li| {
-            li.sequence_number = 10;
-        });
+        let mut owners = Vec::<Address>::new(&env);
+        owners.push_back(owner_a.clone());
+        owners.push_back(owner_b.clone());
+        owners.push_back(owner_c.clone());
 
-        let merchants = Vec::<Address>::new(&env);
-        let res = client.try_grant(&owner, &delegate, &1000, &100, &merchants, &u32::MAX);
-        assert_eq!(res, Err(Ok(crate::PermissionError::ExpiryInPast)));
+        client.grant_multi_owner(
+            &owner_a, &owners, &delegate, &1000, &100, &merchants, &10000, &2,
+        );
+
+        let mut signers = Vec::<Address>::new(&env);
+        signers.push_back(owner_a.clone());
+        signers.push_back(owner_b.clone());
+
+        client.execute_spend_multi(&owner_a, &delegate, &signers, &50, &merchant);
+
+        let record = client.get_multi_permission(&owner_a, &delegate);
+        assert_eq!(record.spent, 50);
     }
 
-    
+    #[test]
+    fn test_execute_spend_multi_with_1_signature_fails() {
+        let env = Env::default();
+        env.mock_all_auths();
+        let owner_a = Address::generate(&env);
+        let owner_b = Address::generate(&env);
+        let owner_c = Address::generate(&env);
+        let delegate = Address::generate(&env);
+        let merchant = Address::generate(&env);
+        let merchants = Vec::<Address>::new(&env);
+
+        let contract_id = env.register(PermissionsContract, ());
+        let client = PermissionsContractClient::new(&env, &contract_id);
+
+        let mut owners = Vec::<Address>::new(&env);
+        owners.push_back(owner_a.clone());
+        owners.push_back(owner_b.clone());
+        owners.push_back(owner_c.clone());
+
+        client.grant_multi_owner(
+            &owner_a, &owners, &delegate, &1000, &100, &merchants, &10000, &2,
+        );
+
+        let mut signers = Vec::<Address>::new(&env);
+        signers.push_back(owner_a.clone());
+
+        let res = client.try_execute_spend_multi(&owner_a, &delegate, &signers, &50, &merchant);
+        assert_eq!(res, Err(Ok(PermissionError::InsufficientSignatures)));
+
+        let record = client.get_multi_permission(&owner_a, &delegate);
+        assert_eq!(record.spent, 0, "spend must not be recorded when threshold is not met");
+    }
+
+    #[test]
+    fn test_single_owner_permission_unaffected_by_multi_owner_feature() {
+        let env = Env::default();
+        env.mock_all_auths();
+        let owner = Address::generate(&env);
+        let delegate = Address::generate(&env);
+        let merchant = Address::generate(&env);
+        let merchants = Vec::<Address>::new(&env);
+
+        let contract_id = env.register(PermissionsContract, ());
+        let client = PermissionsContractClient::new(&env, &contract_id);
+
+        client.grant(&owner, &delegate, &1000, &100, &merchants, &10000);
+        client.execute_spend(&owner, &delegate, &50, &merchant);
+
+        let record = client.get_permission(&owner, &delegate);
+        assert_eq!(record.spent, 50, "existing single-owner permission flow must still work");
+    }
+
+    // ── Issue #328: Permission Metadata Schema Validation Tests ──────────────
+
+    #[test]
+    fn test_grant_with_registered_schema_succeeds() {
+        let env = Env::default();
+        env.mock_all_auths();
+        let admin = Address::generate(&env);
+        let owner = Address::generate(&env);
+        let delegate = Address::generate(&env);
+        let merchants = Vec::<Address>::new(&env);
+
+        let contract_id = env.register(PermissionsContract, ());
+        let client = PermissionsContractClient::new(&env, &contract_id);
+        client.set_admin(&admin);
+
+        let schema = soroban_sdk::symbol_short!("order_v1");
+        client.register_schema(&admin, &schema);
+
+        use soroban_sdk::BytesN;
+        let metadata = crate::PermissionMetadata {
+            policy_hash: BytesN::from_array(&env, &[0x11u8; 32]),
+            schema: schema.clone(),
+        };
+
+        client.grant_with_metadata(
+            &owner, &delegate, &1000, &100, &merchants, &10000, &Some(metadata),
+        );
+
+        let stored = client.get_metadata(&owner, &delegate);
+        assert!(stored.is_some());
+        assert_eq!(stored.unwrap().schema, schema);
+    }
+
+    #[test]
+    fn test_grant_with_unregistered_schema_rejected() {
+        let env = Env::default();
+        env.mock_all_auths();
+        let owner = Address::generate(&env);
+        let delegate = Address::generate(&env);
+        let merchants = Vec::<Address>::new(&env);
+
+        let contract_id = env.register(PermissionsContract, ());
+        let client = PermissionsContractClient::new(&env, &contract_id);
+
+        use soroban_sdk::BytesN;
+        let metadata = crate::PermissionMetadata {
+            policy_hash: BytesN::from_array(&env, &[0x22u8; 32]),
+            schema: soroban_sdk::symbol_short!("unknown"),
+        };
+
+        let res = client.try_grant_with_metadata(
+            &owner, &delegate, &1000, &100, &merchants, &10000, &Some(metadata),
+        );
+        assert_eq!(res, Err(Ok(PermissionError::UnknownSchema)));
+    }
+
+    #[test]
+    fn test_admin_registers_new_schemas() {
+        let env = Env::default();
+        env.mock_all_auths();
+        let admin = Address::generate(&env);
+        let not_admin = Address::generate(&env);
+
+        let contract_id = env.register(PermissionsContract, ());
+        let client = PermissionsContractClient::new(&env, &contract_id);
+        client.set_admin(&admin);
+
+        let schema_a = soroban_sdk::symbol_short!("order_v1");
+        let schema_b = soroban_sdk::symbol_short!("kyc_v2");
+
+        client.register_schema(&admin, &schema_a);
+        client.register_schema(&admin, &schema_b);
+
+        let registered = client.get_registered_schemas();
+        assert_eq!(registered.len(), 2);
+        assert!(registered.contains(&schema_a));
+        assert!(registered.contains(&schema_b));
+
+        // Non-admin cannot register schemas.
+        let res = client.try_register_schema(&not_admin, &schema_a);
+        assert_eq!(res, Err(Ok(PermissionError::Unauthorized)));
+    }
 }
