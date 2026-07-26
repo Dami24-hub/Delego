@@ -29,10 +29,7 @@ export function Header() {
 
       {/* TODO: wallet status / user avatar menu */}
 
-      <MobileNav
-        open={mobileNavOpen}
-        onClose={() => setMobileNavOpen(false)}
-      />
+      <MobileNav open={mobileNavOpen} onClose={() => setMobileNavOpen(false)} />
     </header>
   );
 }

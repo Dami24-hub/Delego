@@ -24,7 +24,8 @@ function isProtectedRoute(pathname: string): boolean {
 
 function isPublicRoute(pathname: string): boolean {
   return PUBLIC_ROUTES.some(
-    (route) => pathname === route || (route !== "/" && pathname.startsWith(`${route}/`))
+    (route) =>
+      pathname === route || (route !== "/" && pathname.startsWith(`${route}/`))
   );
 }
 
@@ -46,5 +47,10 @@ export function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/delegations/:path*", "/orders/:path*", "/wallet/:path*", "/settings/:path*"],
+  matcher: [
+    "/delegations/:path*",
+    "/orders/:path*",
+    "/wallet/:path*",
+    "/settings/:path*",
+  ],
 };

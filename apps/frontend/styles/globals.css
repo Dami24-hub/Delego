@@ -59,7 +59,10 @@
 
 body {
   margin: 0;
-  font-family: system-ui, -apple-system, sans-serif;
+  font-family:
+    system-ui,
+    -apple-system,
+    sans-serif;
   background: var(--color-bg-primary);
   color: var(--color-text-primary);
 }
@@ -154,7 +157,9 @@ body {
   text-decoration: none;
   font-size: 0.9375rem;
   font-weight: 500;
-  transition: background 0.15s ease-in-out, color 0.15s ease-in-out;
+  transition:
+    background 0.15s ease-in-out,
+    color 0.15s ease-in-out;
 }
 
 .nav-link:hover {
@@ -217,7 +222,9 @@ body {
   z-index: 40;
   opacity: 0;
   visibility: hidden;
-  transition: opacity 0.2s ease-in-out, visibility 0.2s ease-in-out;
+  transition:
+    opacity 0.2s ease-in-out,
+    visibility 0.2s ease-in-out;
 }
 
 .mobile-nav-overlay.open {
@@ -362,7 +369,12 @@ body {
 .skeleton-text,
 .skeleton-button,
 .skeleton-input {
-  background: linear-gradient(90deg, var(--color-bg-subtle) 25%, var(--color-border) 50%, var(--color-bg-subtle) 75%);
+  background: linear-gradient(
+    90deg,
+    var(--color-bg-subtle) 25%,
+    var(--color-border) 50%,
+    var(--color-bg-subtle) 75%
+  );
   background-size: 200% 100%;
   animation: skeleton-loading 1.5s infinite;
   border-radius: 0.25rem;
@@ -551,7 +563,11 @@ body {
 
 .utilization-bar-fill {
   height: 100%;
-  background: linear-gradient(90deg, var(--color-chart-blue), var(--color-chart-purple));
+  background: linear-gradient(
+    90deg,
+    var(--color-chart-blue),
+    var(--color-chart-purple)
+  );
   border-radius: 6px;
   transition: width 0.3s ease;
 }
