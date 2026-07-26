@@ -53,6 +53,14 @@ pub enum PermissionError {
     InsufficientSignatures = 402,
     /// Metadata schema is not in the approved schema registry
     UnknownSchema = 403,
+    /// Referenced parent permission was not found
+    ParentNotFound = 404,
+    /// Child limits exceed what the parent permission can back
+    ExceedsParentLimit = 405,
+    /// Spend rejected because the velocity (min interval) limit has not elapsed
+    VelocityLimitExceeded = 406,
+    /// sweep_inactive called before admin has configured an inactivity threshold
+    InactivityThresholdNotSet = 407,
 }
 
 #[contracttype]
@@ -300,7 +308,42 @@ pub struct VelocityLimitSetEvent {
     pub set_by: Address,
 }
 
-/// Read-only preview of a hypothetical spend (issue #XX).
+/// Emitted when the expiry of a permission is updated via `update_expiry` (issue #102).
+#[contracttype]
+#[derive(Clone, Debug)]
+pub struct PermissionExpiryUpdatedEvent {
+    pub owner: Address,
+    pub delegate: Address,
+    pub old_expiry: u32,
+    pub new_expiry: u32,
+}
+
+/// A single entry in the on-chain audit log for a (owner, delegate) pair.
+/// Stored as a `Vec<AuditLogEntry>` under `DataKey::AuditLog(owner, delegate)`.
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct AuditLogEntry {
+    pub action: Symbol,
+    pub actor: Address,
+    pub timestamp: u64,
+}
+
+/// Compact read-only status view for a single delegation (issue #100).
+///
+/// `active`    – true only when the delegate can currently spend.
+/// `reason`    – short code describing the state:
+///               `"active"`, `"revoked"`, `"expired"`, `"exhausted"`, `"paused"`,
+///               `"not_found"`.
+/// `remaining` – remaining allowance (0 when not active).
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct DelegateStatusView {
+    pub active: bool,
+    pub reason: Symbol,
+    pub remaining: i128,
+}
+
+
 ///
 /// `allowed`       – true when all validation rules would pass.
 /// `reason`        – short code describing the outcome:
@@ -381,6 +424,16 @@ pub enum DataKey {
     MultiPermission(Address, Address),
     /// Instance-level list of approved `PermissionMetadata.schema` identifiers.
     SchemaRegistry,
+    /// List of child delegates granted under a (owner, delegate) pair via `grant_child`.
+    Children(Address, Address),
+    /// Instance-level inactivity threshold in seconds used by `sweep_inactive`.
+    InactivityThreshold,
+    /// Instance-level minimum number of ledgers between successive spends (velocity limit).
+    MinSpendInterval,
+    /// Last ledger on which a spend was executed for a (owner, delegate) pair.
+    LastSpendLedger(Address, Address),
+    /// Append-only audit log for a (owner, delegate) pair.
+    AuditLog(Address, Address),
 }
 
 #[contract]
@@ -1103,6 +1156,32 @@ impl PermissionsContract {
             env.clone(),
             owner.clone(),
             delegate.clone(),
+            amount,
+            merchant.clone(),
+        )?;
+
+        let perm_key = DataKey::Permission(owner.clone(), delegate.clone());
+        let mut record: PermissionRecord = env.storage().persistent().get(&perm_key).unwrap();
+        record.spent += amount;
+        env.storage().persistent().set(&perm_key, &record);
+        env.storage().persistent().set(&nonce_key, &(nonce + 1));
+        Self::record_spend_stats(&env, &owner, &delegate, amount);
+
+        let remaining = record.limit_total - record.spent;
+        env.events().publish(
+            (symbol_short!("perm"), symbol_short!("relayed")),
+            PermissionSpendEvent {
+                owner,
+                delegate,
+                merchant,
+                amount,
+                remaining,
+            },
+        );
+
+        Ok(())
+    }
+
     /// Grant a delegation jointly controlled by multiple owners (issue #326).
     ///
     /// `owners` must be non-empty and contain no duplicates. `threshold` is
@@ -1265,18 +1344,6 @@ impl PermissionsContract {
             merchant.clone(),
         )?;
 
-        let perm_key = DataKey::Permission(owner.clone(), delegate.clone());
-        let mut record: PermissionRecord = env.storage().persistent().get(&perm_key).unwrap();
-        record.spent += amount;
-        env.storage().persistent().set(&perm_key, &record);
-        env.storage().persistent().set(&nonce_key, &(nonce + 1));
-        Self::record_spend_stats(&env, &owner, &delegate, amount);
-
-        let remaining = record.limit_total - record.spent;
-        env.events().publish(
-            (symbol_short!("perm"), symbol_short!("relayed")),
-            PermissionSpendEvent {
-                owner,
         let key = DataKey::MultiPermission(primary_owner.clone(), delegate.clone());
         let mut record: MultiOwnerPermission = env.storage().persistent().get(&key).unwrap();
 
@@ -1300,7 +1367,7 @@ impl PermissionsContract {
         Ok(())
     }
 
-    /// Read-only getter for a multi-owner permission record.
+        /// Read-only getter for a multi-owner permission record.
     pub fn get_multi_permission(
         env: Env,
         primary_owner: Address,
@@ -1999,7 +2066,126 @@ impl PermissionsContract {
             })
     }
 
-    /// Updates the (owner, delegate) pair's usage stats after a successful
+    /// Returns a compact status view for a delegate: whether they can currently
+    /// spend, why not if blocked, and how much allowance remains (issue #100).
+    ///
+    /// This is a **pure read-only** getter — it never mutates renewal counters,
+    /// spend counters, or any other state.
+    ///
+    /// # Reason codes
+    /// | `reason`     | meaning                                              |
+    /// |--------------|------------------------------------------------------|
+    /// | `"active"`   | delegate can spend right now                         |
+    /// | `"not_found"`| no permission record exists for this pair            |
+    /// | `"revoked"`  | permission was explicitly revoked                    |
+    /// | `"expired"`  | permission TTL has elapsed                           |
+    /// | `"exhausted"`| remaining allowance is zero or negative              |
+    /// | `"paused"`   | permission is temporarily paused                    |
+    pub fn get_delegate_status(
+        env: Env,
+        owner: Address,
+        delegate: Address,
+    ) -> DelegateStatusView {
+        let key = DataKey::Permission(owner, delegate);
+        let record: PermissionRecord = match env.storage().persistent().get(&key) {
+            Some(r) => r,
+            None => {
+                return DelegateStatusView {
+                    active: false,
+                    reason: Symbol::new(&env, "not_found"),
+                    remaining: 0,
+                }
+            }
+        };
+
+        let remaining = {
+            let raw = record.limit_total - record.spent;
+            if raw < 0 { 0 } else { raw }
+        };
+
+        // Check status field first (handles Revoked and Paused).
+        match record.status {
+            PermissionStatus::Revoked => {
+                return DelegateStatusView {
+                    active: false,
+                    reason: Symbol::new(&env, "revoked"),
+                    remaining: 0,
+                }
+            }
+            PermissionStatus::Paused => {
+                return DelegateStatusView {
+                    active: false,
+                    reason: Symbol::new(&env, "paused"),
+                    remaining,
+                }
+            }
+            PermissionStatus::Active | PermissionStatus::Expired => {}
+        }
+
+        // Check ledger-based expiry.
+        if env.ledger().sequence() >= record.expires_at_ledger {
+            return DelegateStatusView {
+                active: false,
+                reason: Symbol::new(&env, "expired"),
+                remaining,
+            };
+        }
+
+        // Check allowance exhaustion.
+        if remaining == 0 {
+            return DelegateStatusView {
+                active: false,
+                reason: Symbol::new(&env, "exhausted"),
+                remaining: 0,
+            };
+        }
+
+        DelegateStatusView {
+            active: true,
+            reason: Symbol::new(&env, "active"),
+            remaining,
+        }
+    }
+
+    /// Returns the audit log for a (owner, delegate) pair, or an empty vec
+    /// when no actions have been recorded yet.
+    pub fn get_audit_log(
+        env: Env,
+        owner: Address,
+        delegate: Address,
+    ) -> Vec<AuditLogEntry> {
+        env.storage()
+            .persistent()
+            .get(&DataKey::AuditLog(owner, delegate))
+            .unwrap_or_else(|| Vec::new(&env))
+    }
+
+    /// Appends an `AuditLogEntry` to the persistent log for `(owner, delegate)`.
+    /// Called internally after any state-changing operation.
+    fn append_audit_log(
+        env: &Env,
+        owner: &Address,
+        delegate: &Address,
+        actor: Address,
+        action: Symbol,
+    ) {
+        let key = DataKey::AuditLog(owner.clone(), delegate.clone());
+        let mut log: Vec<AuditLogEntry> = env
+            .storage()
+            .persistent()
+            .get(&key)
+            .unwrap_or_else(|| Vec::new(env));
+
+        log.push_back(AuditLogEntry {
+            action,
+            actor,
+            timestamp: env.ledger().timestamp(),
+        });
+
+        env.storage().persistent().set(&key, &log);
+    }
+
+
     /// spend. Called from both `execute_spend` and `execute_spend_via_relayer`
     /// so relayed spends are reflected in the same analytics.
     fn record_spend_stats(env: &Env, owner: &Address, delegate: &Address, amount: i128) {
