@@ -30,10 +30,7 @@ export function Header() {
 
       <WalletConnectButton />
 
-      <MobileNav
-        open={mobileNavOpen}
-        onClose={() => setMobileNavOpen(false)}
-      />
+      <MobileNav open={mobileNavOpen} onClose={() => setMobileNavOpen(false)} />
     </header>
   );
 }

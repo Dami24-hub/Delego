@@ -1,12 +1,15 @@
 "use client";
 
-import { useRouter } from "next/navigation";
 import { Button, Card } from "@delego/ui";
-import { WalletConnectButton } from "../components/wallet/WalletConnectButton";
+import { DelegationSkeleton } from "../components/DelegationSkeleton";
+import { OrderSkeleton } from "../components/OrderSkeleton";
+import { useDelegations } from "../hooks/useDelegations";
+import { useOrders } from "../hooks/useOrders";
 
 /** Dashboard landing page for the main Delego experience. */
 export default function HomePage() {
-  const router = useRouter();
+  const { delegations, loading: delegationsLoading } = useDelegations();
+  const { orders, loading: ordersLoading } = useOrders();
 
   return (
     <div className="settings-page">
@@ -18,14 +21,37 @@ export default function HomePage() {
       <section className="grid">
         <Card title="Delegations">
           <p>Grant AI agents scoped shopping authority.</p>
-          <Button variant="primary" onClick={() => router.push("/delegations")}>
-            Manage Delegations
-          </Button>
+          {delegationsLoading ? (
+            <DelegationSkeleton />
+          ) : delegations.length > 0 ? (
+            <ul className="nav-list">
+              {delegations.map((delegation) => (
+                <li key={delegation.id}>
+                  {delegation.agentId} — {delegation.status}
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="stat-label">No delegations yet.</p>
+          )}
+          <Button variant="primary">Create Delegation</Button>
         </Card>
 
         <Card title="Orders">
           <p>Track purchases initiated by your agents.</p>
-          {/* TODO: List recent orders */}
+          {ordersLoading ? (
+            <OrderSkeleton />
+          ) : orders.length > 0 ? (
+            <ul className="nav-list">
+              {orders.map((order) => (
+                <li key={order.id}>
+                  {order.merchantId} — {order.status}
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="stat-label">No orders yet.</p>
+          )}
         </Card>
 
         <Card title="Wallet">
