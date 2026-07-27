@@ -99,13 +99,17 @@ pub enum DataKey {
     DelegationHistory(u64),
 }
 
-/// Emitted for each delegation transitioned to `Expired` by `sweep_expired`.
 #[contracttype]
-#[derive(Clone, Debug)]
-pub struct DelegationExpiredEvent {
-    pub delegation_id: u64,
-    pub owner: Address,
-    pub agent_id: BytesN<32>,
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum DelegationError {
+    NotFound,
+    NotActive,
+    NotPaused,
+    Expired,
+    AlreadyInitialized,
+    InvalidVersion,
+    VersionNotLower,
+    SnapshotNotFound,
 }
 
 #[contract]
@@ -490,7 +494,8 @@ impl DelegationRegistry {
                         DelegationExpiredEvent {
                             delegation_id: id,
                             owner: record.owner.clone(),
-                            agent_id: record.agent_id.clone(),
+                            agent: record.agent_id.clone(),
+                            timestamp: env.ledger().timestamp(),
                         },
                     );
 
