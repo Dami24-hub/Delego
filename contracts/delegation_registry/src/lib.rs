@@ -1,6 +1,6 @@
 #![no_std]
 use soroban_sdk::{
-    contract, contractimpl, contracttype, symbol_short, Address, BytesN, Env, Symbol, Vec,
+    contract, contracterror, contractimpl, contracttype, symbol_short, Address, BytesN, Env, Symbol, Vec,
 };
 
 #[contracttype]
@@ -99,7 +99,7 @@ pub enum DataKey {
     DelegationHistory(u64),
 }
 
-#[contracttype]
+#[contracterror]
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum DelegationError {
     NotFound,
@@ -537,6 +537,40 @@ impl DelegationRegistry {
             }
         }
         expired
+    }
+    fn increment_version(env: &Env, delegation_id: u64) -> u32 {
+        let version: u32 = env
+            .storage()
+            .persistent()
+            .get(&DataKey::DelegationVersion(delegation_id))
+            .unwrap_or(1);
+        let new_version = version + 1;
+        env.storage()
+            .persistent()
+            .set(&DataKey::DelegationVersion(delegation_id), &new_version);
+        new_version
+    }
+
+    fn store_snapshot(env: &Env, delegation_id: u64, record: &DelegationRecord) {
+        let version: u32 = env
+            .storage()
+            .persistent()
+            .get(&DataKey::DelegationVersion(delegation_id))
+            .unwrap_or(1);
+        let snapshot = DelegationSnapshot {
+            version,
+            snapshot_ledger: env.ledger().sequence(),
+            record: record.clone(),
+        };
+        let mut history: Vec<DelegationSnapshot> = env
+            .storage()
+            .persistent()
+            .get(&DataKey::DelegationHistory(delegation_id))
+            .unwrap_or(Vec::new(env));
+        history.push_back(snapshot);
+        env.storage()
+            .persistent()
+            .set(&DataKey::DelegationHistory(delegation_id), &history);
     }
 }
 

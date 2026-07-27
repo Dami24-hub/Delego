@@ -4,7 +4,7 @@ use super::*;
 use soroban_sdk::{
     symbol_short,
     testutils::{Address as _, Events, Ledger},
-    Address, BytesN, Env, IntoVal, Symbol, TryFromVal,
+    Address, BytesN, Env, Symbol, TryFromVal,
 };
 
 fn setup() -> (
