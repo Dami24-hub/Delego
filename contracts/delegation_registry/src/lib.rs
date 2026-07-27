@@ -100,16 +100,17 @@ pub enum DataKey {
 }
 
 #[contracterror]
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+#[repr(u32)]
 pub enum DelegationError {
-    NotFound,
-    NotActive,
-    NotPaused,
-    Expired,
-    AlreadyInitialized,
-    InvalidVersion,
-    VersionNotLower,
-    SnapshotNotFound,
+    NotFound = 1,
+    NotActive = 2,
+    NotPaused = 3,
+    Expired = 4,
+    AlreadyInitialized = 5,
+    InvalidVersion = 6,
+    VersionNotLower = 7,
+    SnapshotNotFound = 8,
 }
 
 #[contract]
