@@ -4,6 +4,8 @@ import { useState } from "react";
 import { GlobalSearch } from "../search/GlobalSearch";
 import { MobileNav } from "./MobileNav";
 import { WalletConnectButton } from "../wallet/WalletConnectButton";
+import { NetworkToggle } from "../network/NetworkToggle";
+import { NotificationBell } from "../notifications/NotificationBell";
 
 /**
  * Top application bar.
@@ -30,6 +32,10 @@ export function Header() {
       <GlobalSearch />
 
       <div className="app-header-spacer" />
+
+      <NetworkToggle />
+
+      <NotificationBell />
 
       <WalletConnectButton />
 
