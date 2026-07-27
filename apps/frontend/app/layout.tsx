@@ -3,6 +3,7 @@ import { StrictMode } from "react";
 import "../styles/globals.css";
 import { Sidebar } from "../components/layout/Sidebar";
 import { Header } from "../components/layout/Header";
+import { AppProviders } from "../components/providers/AppProviders";
 
 export const metadata: Metadata = {
   title: "Delego",
@@ -18,13 +19,15 @@ export default function RootLayout({
     <html lang="en">
       <body>
         <StrictMode>
-          <div className="app-shell">
-            <Sidebar />
-            <div className="app-main">
-              <Header />
-              <main className="app-content">{children}</main>
+          <AppProviders>
+            <div className="app-shell">
+              <Sidebar />
+              <div className="app-main">
+                <Header />
+                <main className="app-content">{children}</main>
+              </div>
             </div>
-          </div>
+          </AppProviders>
         </StrictMode>
       </body>
     </html>
