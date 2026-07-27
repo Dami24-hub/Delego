@@ -1826,4 +1826,156 @@ mod test {
         let res = client.try_register_schema(&not_admin, &schema_a);
         assert_eq!(res, Err(Ok(PermissionError::Unauthorized)));
     }
+
+    // ── Issue #100: DelegateStatusView getter tests ───────────────────────────
+
+    /// Status is `not_found` when no permission record exists.
+    #[test]
+    fn test_get_delegate_status_not_found() {
+        let env = Env::default();
+        env.mock_all_auths();
+        let owner = Address::generate(&env);
+        let delegate = Address::generate(&env);
+
+        let contract_id = env.register(PermissionsContract, ());
+        let client = PermissionsContractClient::new(&env, &contract_id);
+
+        let status = client.get_delegate_status(&owner, &delegate);
+        assert!(!status.active);
+        assert_eq!(status.reason, soroban_sdk::Symbol::new(&env, "not_found"));
+        assert_eq!(status.remaining, 0);
+    }
+
+    /// Status is `active` for a freshly granted, unspent permission.
+    #[test]
+    fn test_get_delegate_status_active() {
+        let env = Env::default();
+        env.mock_all_auths();
+        let owner = Address::generate(&env);
+        let delegate = Address::generate(&env);
+
+        let contract_id = env.register(PermissionsContract, ());
+        let client = PermissionsContractClient::new(&env, &contract_id);
+
+        let merchants = Vec::<Address>::new(&env);
+        client.grant(&owner, &delegate, &1000, &100, &merchants, &10000);
+
+        let status = client.get_delegate_status(&owner, &delegate);
+        assert!(status.active);
+        assert_eq!(status.reason, soroban_sdk::Symbol::new(&env, "active"));
+        assert_eq!(status.remaining, 1000);
+    }
+
+    /// Status is `revoked` after owner calls `revoke`.
+    #[test]
+    fn test_get_delegate_status_revoked() {
+        let env = Env::default();
+        env.mock_all_auths();
+        let owner = Address::generate(&env);
+        let delegate = Address::generate(&env);
+
+        let contract_id = env.register(PermissionsContract, ());
+        let client = PermissionsContractClient::new(&env, &contract_id);
+
+        let merchants = Vec::<Address>::new(&env);
+        client.grant(&owner, &delegate, &1000, &100, &merchants, &10000);
+        client.revoke(&owner, &delegate);
+
+        let status = client.get_delegate_status(&owner, &delegate);
+        assert!(!status.active);
+        assert_eq!(status.reason, soroban_sdk::Symbol::new(&env, "revoked"));
+        assert_eq!(status.remaining, 0);
+    }
+
+    /// Status is `expired` when the ledger has advanced past `expires_at_ledger`.
+    #[test]
+    fn test_get_delegate_status_expired() {
+        let env = Env::default();
+        env.mock_all_auths();
+        let owner = Address::generate(&env);
+        let delegate = Address::generate(&env);
+
+        let contract_id = env.register(PermissionsContract, ());
+        let client = PermissionsContractClient::new(&env, &contract_id);
+
+        let merchants = Vec::<Address>::new(&env);
+        // Grant with a very short TTL then advance past it.
+        client.grant(&owner, &delegate, &1000, &100, &merchants, &5);
+        env.ledger().with_mut(|li| {
+            li.sequence_number += 10;
+        });
+
+        let status = client.get_delegate_status(&owner, &delegate);
+        assert!(!status.active);
+        assert_eq!(status.reason, soroban_sdk::Symbol::new(&env, "expired"));
+    }
+
+    /// Status is `exhausted` when the full allowance has been spent.
+    #[test]
+    fn test_get_delegate_status_exhausted() {
+        let env = Env::default();
+        env.mock_all_auths();
+        let owner = Address::generate(&env);
+        let delegate = Address::generate(&env);
+        let merchant = Address::generate(&env);
+
+        let contract_id = env.register(PermissionsContract, ());
+        let client = PermissionsContractClient::new(&env, &contract_id);
+
+        let merchants = Vec::<Address>::new(&env);
+        // Grant exactly 100 with a 100 per-tx limit so a single spend exhausts it.
+        client.grant(&owner, &delegate, &100, &100, &merchants, &10000);
+        client.execute_spend(&owner, &delegate, &100, &merchant);
+
+        let status = client.get_delegate_status(&owner, &delegate);
+        assert!(!status.active);
+        assert_eq!(status.reason, soroban_sdk::Symbol::new(&env, "exhausted"));
+        assert_eq!(status.remaining, 0);
+    }
+
+    /// Status is `paused` after owner calls `pause`.
+    #[test]
+    fn test_get_delegate_status_paused() {
+        let env = Env::default();
+        env.mock_all_auths();
+        let owner = Address::generate(&env);
+        let delegate = Address::generate(&env);
+
+        let contract_id = env.register(PermissionsContract, ());
+        let client = PermissionsContractClient::new(&env, &contract_id);
+
+        let merchants = Vec::<Address>::new(&env);
+        client.grant(&owner, &delegate, &1000, &100, &merchants, &10000);
+        client.pause(&owner, &delegate);
+
+        let status = client.get_delegate_status(&owner, &delegate);
+        assert!(!status.active);
+        assert_eq!(status.reason, soroban_sdk::Symbol::new(&env, "paused"));
+        // Remaining is still reported when paused (allowance is intact).
+        assert_eq!(status.remaining, 1000);
+    }
+
+    /// get_delegate_status does not mutate any state (remaining unchanged after call).
+    #[test]
+    fn test_get_delegate_status_does_not_mutate() {
+        let env = Env::default();
+        env.mock_all_auths();
+        let owner = Address::generate(&env);
+        let delegate = Address::generate(&env);
+        let merchant = Address::generate(&env);
+
+        let contract_id = env.register(PermissionsContract, ());
+        let client = PermissionsContractClient::new(&env, &contract_id);
+
+        let merchants = Vec::<Address>::new(&env);
+        client.grant(&owner, &delegate, &500, &100, &merchants, &10000);
+
+        // Call get_delegate_status twice.
+        client.get_delegate_status(&owner, &delegate);
+        client.get_delegate_status(&owner, &delegate);
+
+        // Actual spend should still see the full unmodified allowance.
+        client.execute_spend(&owner, &delegate, &100, &merchant);
+        assert_eq!(client.get_remaining_allowance(&owner, &delegate), 400);
+    }
 }

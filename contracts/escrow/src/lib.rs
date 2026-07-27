@@ -216,6 +216,7 @@ pub struct EscrowPauseState {
     pub create_paused: bool,
     pub updated_by: Address,
     pub updated_at_ledger: u32,
+    pub expires_at_ledger: Option<u32>,
 }
 
 /// Emitted when the contract is upgraded to new wasm code (issue #325).
@@ -351,6 +352,27 @@ pub struct TimeoutExtendedEvent {
     pub extension_ledgers: u32,
 }
 
+/// Emitted when escrow funds are split among multiple recipients (issue #321).
+#[contracttype]
+#[derive(Clone, Debug)]
+pub struct EscrowSplitReleasedEvent {
+    pub escrow_id: u64,
+    pub recipient_count: u32,
+    pub total_released: i128,
+    pub fee_charged: i128,
+    pub released_by: Address,
+}
+
+/// Emitted when an escrow's timeout is extended directly (issue #323).
+#[contracttype]
+#[derive(Clone, Debug)]
+pub struct EscrowTimeoutExtendedEvent {
+    pub escrow_id: u64,
+    pub old_timeout_ledger: u32,
+    pub new_timeout_ledger: u32,
+    pub extended_by: Address,
+}
+
 /// Contract version information for deployment scripts and runtime compatibility checks.
 ///
 /// # When to bump
@@ -388,6 +410,10 @@ pub enum DataKey {
     MigrationFlag,
     /// Optional multi-treasury fee split configured via `set_fee_distribution`.
     FeeDistribution,
+    /// Optional yield configuration for an escrow.
+    EscrowYieldConfig(u64),
+    /// Release condition for an escrow.
+    ReleaseCondition(u64),
 }
 
 #[contracterror]
@@ -412,6 +438,10 @@ pub enum EscrowError {
     NotDisputed = 8,
     /// Invalid amount (zero or negative)
     InvalidAmount = 9,
+    /// Address is zero or otherwise invalid for this contract action
+    InvalidAddress = 32,
+    /// Buyer and seller must be distinct parties
+    InvalidEscrowParticipants = 33,
     /// Token is not approved for escrow deposits
     TokenNotWhitelisted = 10,
     /// Release amount exceeds remaining escrow balance
@@ -458,6 +488,18 @@ pub enum EscrowError {
     PoolNotFound = 30,
     /// Liquidity pool balance is insufficient for the requested operation
     InsufficientPoolBalance = 31,
+    /// Fee config has not been initialized
+    FeeConfigNotSet = 34,
+    /// Amount limits have not been initialized
+    AmountLimitsNotSet = 35,
+    /// Release condition not set for escrow
+    ReleaseConditionNotSet = 36,
+    /// Oracle contract call failed
+    OracleCallFailed = 37,
+    /// Release condition not met
+    ConditionNotMet = 38,
+    /// Invalid yield configuration
+    InvalidYieldConfig = 39,
 }
 
 /// Compact receipt returned to buyers after escrow creation via `get_receipt`.
@@ -575,6 +617,15 @@ fn check_not_terminal(record: &EscrowRecord) -> Result<(), EscrowError> {
     }
 }
 
+const ZERO_ACCOUNT_STRKEY: &str = "GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWHF";
+const ZERO_CONTRACT_STRKEY: &str = "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABSC4";
+
+fn is_zero_address(env: &Env, address: &Address) -> bool {
+    let zero_account = Address::from_str(env, ZERO_ACCOUNT_STRKEY);
+    let zero_contract = Address::from_str(env, ZERO_CONTRACT_STRKEY);
+    address == &zero_account || address == &zero_contract
+}
+
 #[contract]
 pub struct EscrowContract;
 
@@ -597,6 +648,9 @@ impl EscrowContract {
         }
         if min_amount <= 0 || max_amount < min_amount {
             return Err(EscrowError::InvalidLimits);
+        }
+        if is_zero_address(&env, &treasury) {
+            return Err(EscrowError::InvalidAddress);
         }
         env.storage().instance().set(&DataKey::Admin, &admin);
         env.storage().instance().set(&DataKey::LastEscrowId, &0u64);
@@ -692,11 +746,15 @@ impl EscrowContract {
     }
 
     /// Get the current escrow amount limits.
-    pub fn get_limits(env: Env) -> EscrowAmountLimits {
+    ///
+    /// # Errors
+    /// Returns [`EscrowError::AmountLimitsNotSet`] when the contract has not
+    /// been initialized with amount limits yet.
+    pub fn get_limits(env: Env) -> Result<EscrowAmountLimits, EscrowError> {
         env.storage()
             .instance()
             .get(&DataKey::AmountLimits)
-            .unwrap()
+            .ok_or(EscrowError::AmountLimitsNotSet)
     }
 
     /// Set the quorum configuration for dispute resolution. Admin-only.
@@ -848,7 +906,7 @@ impl EscrowContract {
 
         let token_client = soroban_sdk::token::Client::new(&env, &record.token);
         if release_to_seller {
-            let fee = Self::distribute_fee(&env, &token_client, record.amount);
+            let fee = Self::distribute_fee(&env, &token_client, record.amount)?;
             let seller_amount = record.amount - fee;
 
             token_client.transfer(
@@ -986,7 +1044,7 @@ impl EscrowContract {
         if new_fee_bps > 1000 {
             return Err(EscrowError::InvalidFeeBps);
         }
-        let mut fee_config: FeeConfig = env.storage().instance().get(&DataKey::FeeConfig).unwrap();
+        let mut fee_config: FeeConfig = Self::get_fee_config(env.clone())?;
         fee_config.fee_bps = new_fee_bps;
         env.storage()
             .instance()
@@ -995,8 +1053,15 @@ impl EscrowContract {
     }
 
     /// Get the current fee configuration.
-    pub fn get_fee_config(env: Env) -> FeeConfig {
-        env.storage().instance().get(&DataKey::FeeConfig).unwrap()
+    ///
+    /// # Errors
+    /// Returns [`EscrowError::FeeConfigNotSet`] when the contract has not
+    /// been initialized with fee configuration yet.
+    pub fn get_fee_config(env: Env) -> Result<FeeConfig, EscrowError> {
+        env.storage()
+            .instance()
+            .get(&DataKey::FeeConfig)
+            .ok_or(EscrowError::FeeConfigNotSet)
     }
 
     /// Configure the release fee to be split across multiple treasuries. Admin-only.
@@ -1058,7 +1123,7 @@ impl EscrowContract {
         env: &Env,
         token_client: &soroban_sdk::token::Client,
         amount: i128,
-    ) -> i128 {
+    ) -> Result<i128, EscrowError> {
         let shares: soroban_sdk::Vec<TreasuryShare> = env
             .storage()
             .instance()
@@ -1076,16 +1141,16 @@ impl EscrowContract {
                     total_fee += fee;
                 }
             }
-            total_fee
+            Ok(total_fee)
         } else {
-            let fee_config: FeeConfig = env.storage().instance().get(&DataKey::FeeConfig).unwrap();
+            let fee_config: FeeConfig = Self::get_fee_config(env.clone())?;
             let fee_bps = fee_config.fee_bps as i128;
             let fee = (amount / 10_000i128) * fee_bps
                 + ((amount % 10_000i128) * fee_bps) / 10_000i128;
             if fee > 0 {
                 token_client.transfer(&env.current_contract_address(), &fee_config.treasury, &fee);
             }
-            fee
+            Ok(fee)
         }
     }
 
@@ -1336,6 +1401,12 @@ impl EscrowContract {
     ///
     /// Optional metadata parameters (order_hash and schema) can be provided to store
     /// a hash of off-chain order details for later verification.
+    ///
+    /// # Errors
+    /// Returns [`EscrowError::InvalidAddress`] when buyer, seller, token, or
+    /// treasury are the zero address, and
+    /// [`EscrowError::InvalidEscrowParticipants`] when buyer and seller are
+    /// the same address.
     pub fn create(
         env: Env,
         buyer: Address,
@@ -1347,6 +1418,16 @@ impl EscrowContract {
         order_hash: Option<BytesN<32>>,
         schema: Option<Symbol>,
     ) -> Result<u64, EscrowError> {
+        if is_zero_address(&env, &buyer)
+            || is_zero_address(&env, &seller)
+            || is_zero_address(&env, &token)
+        {
+            return Err(EscrowError::InvalidAddress);
+        }
+        if buyer == seller {
+            return Err(EscrowError::InvalidEscrowParticipants);
+        }
+
         buyer.require_auth();
 
         if let Some(pause_state) = env
@@ -1366,11 +1447,7 @@ impl EscrowContract {
         if amount <= 0 {
             return Err(EscrowError::InvalidAmount);
         }
-        let limits: EscrowAmountLimits = env
-            .storage()
-            .instance()
-            .get(&DataKey::AmountLimits)
-            .unwrap();
+        let limits: EscrowAmountLimits = Self::get_limits(env.clone())?;
         if amount < limits.min_amount {
             return Err(EscrowError::AmountBelowMin);
         }
@@ -1950,7 +2027,7 @@ impl EscrowContract {
 
         let token_client = soroban_sdk::token::Client::new(&env, &record.token);
         if release_to_seller {
-            let fee = Self::distribute_fee(&env, &token_client, record.amount);
+            let fee = Self::distribute_fee(&env, &token_client, record.amount)?;
             let seller_amount = record.amount - fee;
 
             token_client.transfer(
@@ -2096,7 +2173,7 @@ impl EscrowContract {
             .get(&key)
             .ok_or(EscrowError::NotFound)?;
 
-        let fee_config: FeeConfig = env.storage().instance().get(&DataKey::FeeConfig).unwrap();
+        let fee_config: FeeConfig = Self::get_fee_config(env.clone())?;
         let current_ledger = env.ledger().sequence();
         let timed_out =
             record.status == EscrowStatus::Funded && current_ledger >= record.timeout_ledger;
@@ -2341,6 +2418,7 @@ impl EscrowContract {
             create_paused: paused,
             updated_by: admin.clone(),
             updated_at_ledger: env.ledger().sequence(),
+            expires_at_ledger: None,
         };
         env.storage()
             .instance()
@@ -2356,12 +2434,57 @@ impl EscrowContract {
         Ok(true)
     }
 
+    /// Set an emergency pause with automatic expiry after specified duration in ledgers.
+    /// Admin-only. The pause auto-expires after `duration_ledgers` ledgers.
+    pub fn set_emergency_pause(
+        env: Env,
+        admin: Address,
+        paused: bool,
+        duration_ledgers: u32,
+    ) -> Result<bool, EscrowError> {
+        admin.require_auth();
+        if !Self::is_admin(env.clone(), admin.clone()) {
+            return Err(EscrowError::Unauthorized);
+        }
+        let current_ledger = env.ledger().sequence();
+        let expires_at = if paused && duration_ledgers > 0 {
+            Some(current_ledger.saturating_add(duration_ledgers))
+        } else {
+            None
+        };
+        let pause_state = EscrowPauseState {
+            create_paused: paused,
+            updated_by: admin.clone(),
+            updated_at_ledger: current_ledger,
+            expires_at_ledger: expires_at,
+        };
+        env.storage()
+            .instance()
+            .set(&DataKey::PauseState, &pause_state);
+        env.events().publish(
+            (symbol_short!("escrow"), symbol_short!("paused")),
+            EscrowPauseChangedEvent {
+                paused,
+                admin,
+                ledger: current_ledger,
+            },
+        );
+        Ok(true)
+    }
+
     /// Get the current escrow creation pause state.
+    /// Returns false if pause has expired.
     pub fn get_create_paused(env: Env) -> bool {
         env.storage()
             .instance()
             .get::<DataKey, EscrowPauseState>(&DataKey::PauseState)
-            .map(|s| s.create_paused)
+            .map(|s| {
+                if let Some(expires_at) = s.expires_at_ledger {
+                    s.create_paused && env.ledger().sequence() < expires_at
+                } else {
+                    s.create_paused
+                }
+            })
             .unwrap_or(false)
     }
 
@@ -2618,7 +2741,7 @@ impl EscrowContract {
             return Err(EscrowError::InsufficientEscrowBalance);
         }
 
-        let fee_config: FeeConfig = env.storage().instance().get(&DataKey::FeeConfig).unwrap();
+        let fee_config: FeeConfig = Self::get_fee_config(env.clone())?;
         let token_client = soroban_sdk::token::Client::new(&env, &record.token);
         let fee_bps = fee_config.fee_bps as i128;
 

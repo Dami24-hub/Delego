@@ -16,7 +16,9 @@ export default defineConfig({
   },
 
 export default defineConfig({
-    test: {
-        environment: "jsdom",
-    },
+  plugins: [react()],
+  test: {
+    environment: "jsdom",
+    setupFiles: ["./vitest.setup.ts"],
+  },
 });

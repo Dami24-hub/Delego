@@ -5,7 +5,7 @@ mod test {
     };
     use soroban_sdk::{
         symbol_short,
-        testutils::{Address as _, Events},
+        testutils::{Address as _, Events, Ledger},
         Address, BytesN, Env, IntoVal, TryIntoVal,
     };
 
@@ -16,6 +16,17 @@ mod test {
         let treasury = Address::generate(env);
         client.initialize(&admin, &250u32, &treasury, &100i128, &1_000_000i128);
         (client, admin, contract_id)
+    }
+
+    const ZERO_ACCOUNT_STRKEY: &str = "GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWHF";
+    const ZERO_CONTRACT_STRKEY: &str = "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABSC4";
+
+    fn zero_account(env: &Env) -> Address {
+        Address::from_str(env, ZERO_ACCOUNT_STRKEY)
+    }
+
+    fn zero_contract(env: &Env) -> Address {
+        Address::from_str(env, ZERO_CONTRACT_STRKEY)
     }
 
     #[test]
@@ -34,6 +45,107 @@ mod test {
 
         let res_try = client.try_initialize(&admin, &fee_bps, &treasury, &min_amount, &max_amount);
         assert_eq!(res_try, Err(Ok(EscrowError::AlreadyInitialized)));
+    }
+
+    #[test]
+    fn test_initialize_rejects_zero_treasury() {
+        let env = Env::default();
+        let contract_id = env.register(EscrowContract, ());
+        let client = EscrowContractClient::new(&env, &contract_id);
+        let admin = Address::generate(&env);
+        let treasury = zero_account(&env);
+
+        let res = client.try_initialize(&admin, &250u32, &treasury, &100i128, &1_000_000i128);
+        assert_eq!(res, Err(Ok(EscrowError::InvalidAddress)));
+    }
+
+    #[test]
+    fn test_getters_return_errors_before_initialization() {
+        let env = Env::default();
+        let contract_id = env.register(EscrowContract, ());
+        let client = EscrowContractClient::new(&env, &contract_id);
+
+        assert_eq!(
+            client.try_get_fee_config(),
+            Err(Ok(EscrowError::FeeConfigNotSet))
+        );
+        assert_eq!(
+            client.try_get_limits(),
+            Err(Ok(EscrowError::AmountLimitsNotSet))
+        );
+    }
+
+    #[test]
+    fn test_create_rejects_zero_addresses() {
+        let env = Env::default();
+        let (client, _admin, _contract_id) = setup_client(&env);
+
+        let buyer = Address::generate(&env);
+        let seller = Address::generate(&env);
+        let token = zero_contract(&env);
+        let order_id = BytesN::from_array(&env, &[1u8; 32]);
+
+        let buyer_zero = client.try_create(
+            &zero_account(&env),
+            &seller,
+            &token,
+            &1000i128,
+            &order_id,
+            &100u32,
+            &None,
+            &None,
+        );
+        assert_eq!(buyer_zero, Err(Ok(EscrowError::InvalidAddress)));
+
+        let seller_zero = client.try_create(
+            &buyer,
+            &zero_account(&env),
+            &token,
+            &1000i128,
+            &order_id,
+            &100u32,
+            &None,
+            &None,
+        );
+        assert_eq!(seller_zero, Err(Ok(EscrowError::InvalidAddress)));
+
+        let token_zero = client.try_create(
+            &buyer,
+            &seller,
+            &zero_contract(&env),
+            &1000i128,
+            &order_id,
+            &100u32,
+            &None,
+            &None,
+        );
+        assert_eq!(token_zero, Err(Ok(EscrowError::InvalidAddress)));
+    }
+
+    #[test]
+    fn test_create_rejects_same_buyer_and_seller() {
+        let env = Env::default();
+        env.mock_all_auths();
+        let (client, admin, _contract_id) = setup_client(&env);
+
+        let party = Address::generate(&env);
+        let token_admin = Address::generate(&env);
+        let token = env.register_stellar_asset_contract_v2(token_admin).address();
+        client.add_token(&admin, &token);
+
+        let order_id = BytesN::from_array(&env, &[2u8; 32]);
+
+        let res = client.try_create(
+            &party,
+            &party,
+            &token,
+            &1000i128,
+            &order_id,
+            &100u32,
+            &None,
+            &None,
+        );
+        assert_eq!(res, Err(Ok(EscrowError::InvalidEscrowParticipants)));
     }
 
     // ─── Issue #179: Storage Key Namespace Tests ───────────────────────────────
@@ -824,5 +936,98 @@ mod test {
         // fee_bps = 250 (2.5%) from setup_client -> fee = 25
         assert_eq!(token_client.balance(&treasury), 25);
         assert_eq!(token_client.balance(&seller), 975);
+    }
+
+    // ─── Issue #319: Time-Locked Emergency Pause Tests ──────────────────────────
+
+    #[test]
+    fn test_emergency_pause_auto_expires() {
+        let env = Env::default();
+        env.mock_all_auths();
+        let (client, admin, _contract_id) = setup_client(&env);
+
+        assert!(!client.get_create_paused());
+
+        // Set emergency pause for 10 ledgers
+        let res = client.set_emergency_pause(&admin, &true, &10u32);
+        assert!(res);
+        assert!(client.get_create_paused());
+
+        // Advance 9 ledgers - still paused
+        env.ledger().with_mut(|li| {
+            li.sequence_number = 9;
+        });
+        assert!(client.get_create_paused());
+
+        // Advance to expiry - should auto-unpause
+        env.ledger().with_mut(|li| {
+            li.sequence_number = 10;
+        });
+        assert!(!client.get_create_paused());
+    }
+
+    #[test]
+    fn test_manual_unpause_before_expiry() {
+        let env = Env::default();
+        env.mock_all_auths();
+        let (client, admin, _contract_id) = setup_client(&env);
+
+        // Set emergency pause for 100 ledgers
+        client.set_emergency_pause(&admin, &true, &100u32);
+        assert!(client.get_create_paused());
+
+        // Manually unpause before expiry
+        client.set_create_paused(&admin, &false);
+        assert!(!client.get_create_paused());
+    }
+
+    #[test]
+    fn test_get_create_paused_respects_expiry() {
+        let env = Env::default();
+        env.mock_all_auths();
+        let (client, admin, _contract_id) = setup_client(&env);
+
+        // Set emergency pause for 5 ledgers
+        client.set_emergency_pause(&admin, &true, &5u32);
+
+        // Before expiry - paused
+        env.ledger().with_mut(|li| {
+            li.sequence_number = 4;
+        });
+        assert!(client.get_create_paused());
+
+        // After expiry - unpaused
+        env.ledger().with_mut(|li| {
+            li.sequence_number = 5;
+        });
+        assert!(!client.get_create_paused());
+    }
+
+    #[test]
+    fn test_emergency_pause_unauthorized() {
+        let env = Env::default();
+        env.mock_all_auths();
+        let (client, _admin, _contract_id) = setup_client(&env);
+        let non_admin = Address::generate(&env);
+
+        let res = client.try_set_emergency_pause(&non_admin, &true, &10u32);
+        assert_eq!(res, Err(Ok(EscrowError::Unauthorized)));
+    }
+
+    #[test]
+    fn test_set_emergency_pause_zero_duration_is_permanent() {
+        let env = Env::default();
+        env.mock_all_auths();
+        let (client, admin, _contract_id) = setup_client(&env);
+
+        // Set emergency pause with 0 duration (permanent)
+        client.set_emergency_pause(&admin, &true, &0u32);
+        assert!(client.get_create_paused());
+
+        // Advance many ledgers - still paused
+        env.ledger().with_mut(|li| {
+            li.sequence_number = 1000;
+        });
+        assert!(client.get_create_paused());
     }
 }
