@@ -745,3 +745,86 @@ body {
     scroll-behavior: auto !important;
   }
 }
+
+/* Onboarding */
+.onboarding-page {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-height: 100vh;
+  padding: 48px 24px;
+  background: var(--color-bg);
+}
+
+.step-indicator {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 32px;
+}
+
+.step-indicator-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--color-border, #d1d5db);
+  transition: background 0.2s;
+}
+
+.step-indicator-dot--active {
+  background: var(--color-primary, #2563eb);
+  width: 28px;
+  border-radius: 5px;
+}
+
+.step-indicator-dot--completed {
+  background: var(--color-primary, #2563eb);
+}
+
+.onboarding-step {
+  width: 100%;
+  max-width: 480px;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.onboarding-step-header {
+  text-align: center;
+}
+
+.onboarding-step-counter {
+  font-size: 13px;
+  color: var(--color-text-secondary, #6b7280);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.onboarding-step-title {
+  font-size: 24px;
+  font-weight: 700;
+  color: var(--color-text, #111827);
+  margin: 8px 0 4px;
+}
+
+.onboarding-step-description {
+  font-size: 14px;
+  color: var(--color-text-secondary, #6b7280);
+  margin: 0;
+}
+
+.onboarding-step-content {
+  padding: 24px;
+}
+
+.onboarding-step-content p {
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--color-text, #374151);
+  margin: 0 0 16px;
+}
+
+.onboarding-step-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+}
