@@ -56,8 +56,7 @@ export default function HomePage() {
 
         <Card title="Wallet">
           <p>Connect your Stellar wallet.</p>
-          {/* TODO: Wallet connection via Soroban permissions */}
-          <Button variant="secondary">Connect Wallet</Button>
+          <WalletConnectButton showDetails={false} />
         </Card>
       </section>
     </div>

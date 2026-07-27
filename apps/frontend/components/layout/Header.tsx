@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { MobileNav } from "./MobileNav";
+import { WalletConnectButton } from "../wallet/WalletConnectButton";
 
 /**
  * Top application bar.
@@ -27,7 +28,7 @@ export function Header() {
 
       <div className="app-header-spacer" />
 
-      {/* TODO: wallet status / user avatar menu */}
+      <WalletConnectButton />
 
       <MobileNav open={mobileNavOpen} onClose={() => setMobileNavOpen(false)} />
     </header>
