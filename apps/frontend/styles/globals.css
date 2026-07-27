@@ -828,3 +828,360 @@ body {
   justify-content: flex-end;
   gap: 12px;
 }
+
+/* ---------------------------------------------------------------------------
+   Orders: transaction history, approvals, and tracking
+--------------------------------------------------------------------------- */
+
+/* Order status badges — map the eight order states onto themed pills. */
+.order-status-draft {
+  background: var(--color-bg-subtle);
+  color: var(--color-text-muted);
+}
+
+.order-status-pending_approval {
+  background: var(--color-status-paused-bg);
+  color: var(--color-status-paused-text);
+}
+
+.order-status-approved {
+  background: var(--color-status-pending-bg);
+  color: var(--color-status-pending-text);
+}
+
+.order-status-escrowed {
+  background: var(--color-accent-bg);
+  color: var(--color-accent);
+}
+
+.order-status-fulfilled {
+  background: var(--color-status-active-bg);
+  color: var(--color-status-active-text);
+}
+
+.order-status-settled {
+  background: var(--color-success-bg);
+  color: var(--color-success-text);
+}
+
+.order-status-cancelled {
+  background: var(--color-status-expired-bg);
+  color: var(--color-status-expired-text);
+}
+
+.order-status-disputed {
+  background: var(--color-error-bg);
+  color: var(--color-error-text);
+}
+
+/* Filters */
+.order-filters {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.order-filters-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  align-items: flex-end;
+}
+
+.order-search {
+  flex: 1 1 260px;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--color-border);
+  border-radius: 0.375rem;
+  background: var(--color-bg-surface);
+  color: var(--color-text-primary);
+  font-size: 0.9375rem;
+}
+
+.order-sort {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.order-sort-label {
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.order-sort select {
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--color-border);
+  border-radius: 0.375rem;
+  background: var(--color-bg-surface);
+  color: var(--color-text-primary);
+  font-size: 0.9375rem;
+}
+
+.order-status-filter {
+  border: none;
+  padding: 0;
+  margin: 0;
+}
+
+.order-status-filter-legend {
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  margin-bottom: 0.5rem;
+  padding: 0;
+}
+
+.order-status-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.order-chip {
+  padding: 0.3125rem 0.75rem;
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+  background: var(--color-bg-surface);
+  color: var(--color-text-secondary);
+  font-size: 0.8125rem;
+  cursor: pointer;
+  transition: all 0.15s ease-in-out;
+}
+
+.order-chip:hover {
+  background: var(--color-bg-subtle);
+}
+
+.order-chip--active {
+  background: var(--color-accent-bg);
+  border-color: var(--color-accent);
+  color: var(--color-accent);
+  font-weight: 500;
+}
+
+/* Table */
+.order-table .order-id {
+  font-family: ui-monospace, "SFMono-Regular", Menlo, monospace;
+  font-size: 0.8125rem;
+}
+
+.order-amount {
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/* Pagination */
+.pagination {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-top: 1rem;
+}
+
+.pagination-summary {
+  font-size: 0.875rem;
+  color: var(--color-text-muted);
+}
+
+.pagination-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.pagination-status {
+  font-size: 0.875rem;
+  color: var(--color-text-secondary);
+}
+
+/* Approvals */
+.approval-card-header {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 0.75rem;
+}
+
+.approval-flag {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--color-stat-neutral);
+}
+
+.approval-line-items {
+  margin: 0.75rem 0;
+  overflow-x: auto;
+}
+
+.approval-total {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  padding: 0.75rem 0;
+  border-top: 1px solid var(--color-border);
+  margin-top: 0.5rem;
+}
+
+.approval-total strong {
+  font-size: 1.125rem;
+}
+
+.approval-reject {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+
+.approval-reject-label {
+  font-size: 0.875rem;
+  color: var(--color-text-secondary);
+}
+
+.approval-reject-input {
+  width: 100%;
+  padding: 0.5rem;
+  border: 1px solid var(--color-border);
+  border-radius: 0.375rem;
+  background: var(--color-bg-surface);
+  color: var(--color-text-primary);
+  font: inherit;
+  resize: vertical;
+}
+
+/* Tracking */
+.tracking-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 1.5rem;
+}
+
+.tracking-live {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.875rem;
+  color: var(--color-text-muted);
+}
+
+.tracking-live-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--color-stat-positive);
+  box-shadow: 0 0 0 0 var(--color-stat-positive);
+  animation: tracking-pulse 2s infinite;
+}
+
+@keyframes tracking-pulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(5, 150, 105, 0.5);
+  }
+  70% {
+    box-shadow: 0 0 0 6px rgba(5, 150, 105, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(5, 150, 105, 0);
+  }
+}
+
+.tracking-completed {
+  margin-top: 1.5rem;
+}
+
+/* Order lifecycle timeline */
+.order-timeline {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+  list-style: none;
+  padding: 0;
+  margin: 0 0 1rem;
+}
+
+.order-timeline-step {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.375rem;
+  flex: 1 1 0;
+  min-width: 56px;
+  position: relative;
+  text-align: center;
+}
+
+.order-timeline-step::before {
+  content: "";
+  position: absolute;
+  top: 12px;
+  left: -50%;
+  width: 100%;
+  height: 2px;
+  background: var(--color-border);
+  z-index: 0;
+}
+
+.order-timeline-step:first-child::before {
+  display: none;
+}
+
+.order-timeline-step.is-complete::before,
+.order-timeline-step.is-current::before {
+  background: var(--color-accent);
+}
+
+.order-timeline-dot {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  font-size: 0.75rem;
+  font-weight: 600;
+  background: var(--color-bg-subtle);
+  color: var(--color-text-muted);
+  border: 2px solid var(--color-border);
+}
+
+.order-timeline-step.is-complete .order-timeline-dot {
+  background: var(--color-accent);
+  color: #fff;
+  border-color: var(--color-accent);
+}
+
+.order-timeline-step.is-current .order-timeline-dot {
+  background: var(--color-bg-surface);
+  color: var(--color-accent);
+  border-color: var(--color-accent);
+}
+
+.order-timeline-label {
+  font-size: 0.6875rem;
+  color: var(--color-text-muted);
+  line-height: 1.2;
+}
+
+.order-timeline-step.is-current .order-timeline-label {
+  color: var(--color-text-primary);
+  font-weight: 600;
+}
+
+.order-timeline-offpath {
+  padding: 0.5rem 0.75rem;
+  border-radius: 0.375rem;
+  font-weight: 600;
+  text-align: center;
+  margin-bottom: 1rem;
+}
