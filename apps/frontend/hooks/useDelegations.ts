@@ -128,6 +128,102 @@ export function useDelegations(): UseDelegationsResult {
     }
   }, []);
 
+  const createDelegation = useCallback(
+    async (input: CreateDelegationInput): Promise<Delegation | null> => {
+      const tempId = createTempId();
+      const optimistic = toOptimisticDelegation(input, tempId);
+      setPending(tempId, true);
+      setDelegations((prev) => [...prev, optimistic]);
+      try {
+        const res: ApiResponse<Delegation> = await api.createDelegation(input);
+        if (res.error || !res.data) {
+          setDelegations((prev) => prev.filter((d) => d.id !== tempId));
+          setError(res.error?.message ?? "Failed to create delegation");
+          setPending(tempId, false);
+          return null;
+        }
+        const created = res.data;
+        setDelegations((prev) =>
+          prev.map((d) => (d.id === tempId ? created : d))
+        );
+        setPending(tempId, false);
+        return created;
+      } catch (err) {
+        setDelegations((prev) => prev.filter((d) => d.id !== tempId));
+        setError(err instanceof Error ? err.message : "Failed to create delegation");
+        setPending(tempId, false);
+        return null;
+      }
+    },
+    []
+  );
+
+  const updateDelegation = useCallback(
+    async (
+      id: string,
+      input: UpdateDelegationInput
+    ): Promise<Delegation | null> => {
+      const original = delegations.find((d) => d.id === id);
+      if (!original) {
+        setError("Delegation not found");
+        return null;
+      }
+      setPending(id, true);
+      setDelegations((prev) =>
+        prev.map((d) => (d.id === id ? applyOptimisticUpdate(original, input) : d))
+      );
+      try {
+        const res: ApiResponse<Delegation> = await api.updateDelegation(id, input);
+        if (res.error || !res.data) {
+          setError(res.error?.message ?? "Failed to update delegation");
+          setDelegations((prev) =>
+            prev.map((d) => (d.id === id ? original : d))
+          );
+          setPending(id, false);
+          return null;
+        }
+        const updated = res.data;
+        setDelegations((prev) => prev.map((d) => (d.id === id ? updated : d)));
+        setPending(id, false);
+        return updated;
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Failed to update delegation");
+        setDelegations((prev) =>
+          prev.map((d) => (d.id === id ? original : d))
+        );
+        setPending(id, false);
+        return null;
+      }
+    },
+    [delegations]
+  );
+
+  const revokeDelegation = useCallback(
+    async (id: string): Promise<boolean> => {
+      const original = delegations;
+      setPending(id, true);
+      setDelegations((prev) => prev.filter((d) => d.id !== id));
+      try {
+        const res: ApiResponse<{ id: string; status: string }> =
+          await api.revokeDelegation(id);
+        if (res.error || !res.data) {
+          setError(res.error?.message ?? "Failed to revoke delegation");
+          setDelegations(original);
+          setPending(id, false);
+          return false;
+        }
+        setPending(id, false);
+        return true;
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Failed to revoke delegation");
+        setDelegations(original);
+        setPending(id, false);
+        return false;
+      }
+    },
+    [delegations]
+  );
+
   useEffect(() => {
     const controller = new AbortController();
 
