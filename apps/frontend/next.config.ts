@@ -86,7 +86,11 @@ const nextConfig: NextConfig = {
   transpilePackages: ["@delego/ui", "@delego/sdk", "@delego/types"],
   poweredByHeader: false,
   images: {
-    remotePatterns: [{ protocol: "https", hostname: "**.stellar.org" }],
+    remotePatterns: [
+      { protocol: "https", hostname: "**.stellar.org" },
+      { protocol: "https", hostname: "images.unsplash.com" },
+    ],
+    formats: ["image/avif", "image/webp"],
   },
   async headers() {
     return [
