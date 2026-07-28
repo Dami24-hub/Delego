@@ -6,7 +6,10 @@ import { Header } from "../components/layout/Header";
 import { AppProviders } from "../components/providers/AppProviders";
 
 export const metadata: Metadata = {
-  title: "Delego",
+  title: {
+    default: "Delego",
+    template: "%s | Delego",
+  },
   description: "Delegate shopping to AI agents with spending controls",
 };
 
