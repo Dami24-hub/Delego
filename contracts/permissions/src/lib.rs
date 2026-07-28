@@ -15,6 +15,11 @@ const _PENDING_DEC: Symbol = symbol_short!("PEND_DEC");
 pub const CONTRACT_NAME: &str = "delego_perms";
 pub const CONTRACT_SEMVER: &str = "0_1_0";
 
+/// Maximum number of merchant addresses allowed in a permission's whitelist.
+/// Prevents overly large merchant lists from increasing storage and execution
+/// costs unexpectedly.
+pub const MAX_MERCHANTS_PER_PERMISSION: u32 = 25;
+
 #[contracterror]
 #[derive(Copy, Clone, Debug, Eq, PartialEq, PartialOrd, Ord)]
 #[repr(u32)]
@@ -479,6 +484,9 @@ impl PermissionsContract {
             return Err(PermissionError::InvalidParam);
         }
 
+        // Validate merchant whitelist bounds and uniqueness.
+        Self::validate_merchant_list(&env, &allowed_merchants)?;
+
         let expires_at_ledger = env.ledger().sequence() + ttl_ledgers;
 
         let record = PermissionRecord {
@@ -578,6 +586,9 @@ impl PermissionsContract {
         if limit_per_tx <= 0 || limit_total < limit_per_tx {
             return Err(PermissionError::InvalidParam);
         }
+
+        // Validate merchant whitelist bounds and uniqueness.
+        Self::validate_merchant_list(&env, &allowed_merchants)?;
 
         let parent_key = DataKey::Permission(parent_owner.clone(), parent_delegate.clone());
         let parent_record: PermissionRecord = env
@@ -883,6 +894,26 @@ impl PermissionsContract {
 
         Self::append_audit_log(&env, &owner, &delegate, owner.clone(), symbol_short!("exp_upd"));
 
+        Ok(())
+    }
+
+    /// Validates the merchant whitelist:
+    /// - Must not exceed `MAX_MERCHANTS_PER_PERMISSION` entries.
+    /// - Must not contain duplicate addresses.
+    fn validate_merchant_list(
+        env: &Env,
+        merchants: &Vec<Address>,
+    ) -> Result<(), PermissionError> {
+        if merchants.len() > MAX_MERCHANTS_PER_PERMISSION {
+            return Err(PermissionError::InvalidParam);
+        }
+        let mut seen: Vec<Address> = Vec::new(env);
+        for m in merchants.iter() {
+            if seen.contains(&m) {
+                return Err(PermissionError::InvalidParam);
+            }
+            seen.push_back(m);
+        }
         Ok(())
     }
 
@@ -1210,6 +1241,9 @@ impl PermissionsContract {
         if limit_per_tx <= 0 || limit_total < limit_per_tx {
             return Err(PermissionError::InvalidParam);
         }
+
+        // Validate merchant whitelist bounds and uniqueness.
+        Self::validate_merchant_list(&env, &allowed_merchants)?;
 
         let mut unique_owners: Vec<Address> = Vec::new(&env);
         for owner in owners.iter() {

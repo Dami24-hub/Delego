@@ -1519,6 +1519,129 @@ mod test {
     }
 
      #[test]
+    fn test_merchant_list_exceeds_max_rejected() {
+        let env = Env::default();
+        env.mock_all_auths();
+        let owner = Address::generate(&env);
+        let delegate = Address::generate(&env);
+
+        let contract_id = env.register(PermissionsContract, ());
+        let client = PermissionsContractClient::new(&env, &contract_id);
+
+        let mut merchants = Vec::<Address>::new(&env);
+        for _ in 0..crate::MAX_MERCHANTS_PER_PERMISSION + 1 {
+            merchants.push_back(Address::generate(&env));
+        }
+
+        assert_eq!(
+            client.try_grant(&owner, &delegate, &1000, &100, &merchants, &10000),
+            Err(Ok(PermissionError::InvalidParam))
+        );
+    }
+
+    #[test]
+    fn test_merchant_list_at_max_allowed() {
+        let env = Env::default();
+        env.mock_all_auths();
+        let owner = Address::generate(&env);
+        let delegate = Address::generate(&env);
+
+        let contract_id = env.register(PermissionsContract, ());
+        let client = PermissionsContractClient::new(&env, &contract_id);
+
+        let mut merchants = Vec::<Address>::new(&env);
+        for _ in 0..crate::MAX_MERCHANTS_PER_PERMISSION {
+            merchants.push_back(Address::generate(&env));
+        }
+
+        assert_eq!(
+            client.try_grant(&owner, &delegate, &1000, &100, &merchants, &10000),
+            Ok(Ok(()))
+        );
+    }
+
+    #[test]
+    fn test_merchant_list_duplicates_rejected() {
+        let env = Env::default();
+        env.mock_all_auths();
+        let owner = Address::generate(&env);
+        let delegate = Address::generate(&env);
+        let merchant = Address::generate(&env);
+
+        let contract_id = env.register(PermissionsContract, ());
+        let client = PermissionsContractClient::new(&env, &contract_id);
+
+        let mut merchants = Vec::<Address>::new(&env);
+        merchants.push_back(merchant.clone());
+        merchants.push_back(merchant.clone());
+
+        assert_eq!(
+            client.try_grant(&owner, &delegate, &1000, &100, &merchants, &10000),
+            Err(Ok(PermissionError::InvalidParam))
+        );
+    }
+
+    #[test]
+    fn test_grant_child_merchant_list_exceeds_max_rejected() {
+        let env = Env::default();
+        env.mock_all_auths();
+        let parent_owner = Address::generate(&env);
+        let parent_delegate = Address::generate(&env);
+        let child_delegate = Address::generate(&env);
+
+        let contract_id = env.register(PermissionsContract, ());
+        let client = PermissionsContractClient::new(&env, &contract_id);
+
+        let merchants = Vec::<Address>::new(&env);
+        // Set up a parent permission first.
+        client.grant(&parent_owner, &parent_delegate, &10_000, &1000, &merchants, &10000);
+
+        let mut child_merchants = Vec::<Address>::new(&env);
+        for _ in 0..crate::MAX_MERCHANTS_PER_PERMISSION + 1 {
+            child_merchants.push_back(Address::generate(&env));
+        }
+
+        assert_eq!(
+            client.try_grant_child(
+                &parent_owner,
+                &parent_delegate,
+                &child_delegate,
+                &1000,
+                &100,
+                &child_merchants,
+                &10000,
+            ),
+            Err(Ok(PermissionError::InvalidParam))
+        );
+    }
+
+    #[test]
+    fn test_grant_multi_owner_merchant_list_exceeds_max_rejected() {
+        let env = Env::default();
+        env.mock_all_auths();
+        let owner = Address::generate(&env);
+        let delegate = Address::generate(&env);
+
+        let contract_id = env.register(PermissionsContract, ());
+        let client = PermissionsContractClient::new(&env, &contract_id);
+
+        let mut owners = Vec::<Address>::new(&env);
+        owners.push_back(owner.clone());
+
+        let mut merchants = Vec::<Address>::new(&env);
+        for _ in 0..crate::MAX_MERCHANTS_PER_PERMISSION + 1 {
+            merchants.push_back(Address::generate(&env));
+        }
+
+        assert_eq!(
+            client.try_grant_multi_owner(
+                &owner, &owners, &delegate, &1000, &100, &merchants, &10000, &1,
+            ),
+            Err(Ok(PermissionError::InvalidParam))
+        );
+    }
+
+    #[test]
     fn test_merchant_list_event() {
         let env = Env::default();
         env.mock_all_auths();
