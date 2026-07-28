@@ -6,6 +6,7 @@ import { MobileNav } from "./MobileNav";
 import { WalletConnectButton } from "../wallet/WalletConnectButton";
 import { NetworkToggle } from "../network/NetworkToggle";
 import { NotificationBell } from "../notifications/NotificationBell";
+import { ThemeToggle } from "./ThemeToggle";
 
 /**
  * Top application bar.
@@ -32,6 +33,8 @@ export function Header() {
       <GlobalSearch />
 
       <div className="app-header-spacer" />
+
+      <ThemeToggle />
 
       <NetworkToggle />
 
