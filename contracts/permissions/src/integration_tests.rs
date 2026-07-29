@@ -1,13 +1,14 @@
 #![cfg(test)]
 
 use crate::{
-    PermissionError, PermissionsContract, PermissionsContractClient, RelayedSpendMessage,
+    PermissionError, PermissionStatus, PermissionsContract, PermissionsContractClient,
+    RelayedSpendMessage,
 };
 use ed25519_dalek::{Signer, SigningKey};
 use soroban_sdk::{
     testutils::{Address as _, Events, Ledger},
     xdr::ToXdr,
-    Address, BytesN, Env, TryIntoVal, Vec,
+    Address, BytesN, Env, Symbol, TryIntoVal, Vec,
 };
 
 /// Deterministic test keypair plus its raw ed25519 public key bytes.
@@ -741,4 +742,118 @@ fn test_usage_stats_include_relayed_spends() {
     assert_eq!(stats.total_spends, 1);
     assert_eq!(stats.total_spent, 250);
     assert_eq!(stats.largest_spend, 250);
+}
+
+// --- transfer_permission (issue #318) ---
+
+#[test]
+fn test_transfer_permission_preserves_remaining_allowance() {
+    let t = TestEnv::setup();
+    let client = PermissionsContractClient::new(&t.env, &t.permissions_contract_id);
+    let new_agent = Address::generate(&t.env);
+
+    let mut merchants = Vec::<Address>::new(&t.env);
+    merchants.push_back(t.seller.clone());
+    client.grant(&t.buyer, &t.agent, &100, &50, &merchants, &3600u32);
+
+    client.execute_spend(&t.buyer, &t.agent, &40, &t.seller);
+    let remaining_before = client.get_remaining_allowance(&t.buyer, &t.agent);
+    assert_eq!(remaining_before, 60);
+
+    client.transfer_permission(&t.buyer, &t.agent, &new_agent);
+
+    let new_record = client.get_permission(&t.buyer, &new_agent);
+    assert_eq!(new_record.spent, 40);
+    assert_eq!(new_record.limit_total, 100);
+    assert_eq!(new_record.status, PermissionStatus::Active);
+    assert_eq!(client.get_remaining_allowance(&t.buyer, &new_agent), 60);
+
+    // New permission preserves the same merchant whitelist.
+    assert_eq!(new_record.allowed_merchants.len(), 1);
+    assert_eq!(new_record.allowed_merchants.get(0).unwrap(), t.seller);
+}
+
+#[test]
+fn test_transfer_permission_revokes_old_and_emits_events() {
+    let t = TestEnv::setup();
+    let client = PermissionsContractClient::new(&t.env, &t.permissions_contract_id);
+    let new_agent = Address::generate(&t.env);
+
+    let merchants = Vec::<Address>::new(&t.env);
+    client.grant(&t.buyer, &t.agent, &1000, &500, &merchants, &3600u32);
+
+    client.transfer_permission(&t.buyer, &t.agent, &new_agent);
+
+    let events = t.env.events().all();
+    let mut found = false;
+    for event in events.iter() {
+        let (contract, topics, _value) = event;
+        if contract != t.permissions_contract_id || topics.len() != 2 {
+            continue;
+        }
+        let t0: Symbol = topics.get(0).unwrap().try_into_val(&t.env).unwrap();
+        let t1: Symbol = topics.get(1).unwrap().try_into_val(&t.env).unwrap();
+        if t0 == soroban_sdk::symbol_short!("perm") && t1 == soroban_sdk::symbol_short!("transf") {
+            found = true;
+            break;
+        }
+    }
+    assert!(found, "expected a PermissionTransferredEvent to be emitted");
+
+    let old_record = client.get_permission(&t.buyer, &t.agent);
+    assert_eq!(old_record.status, PermissionStatus::Revoked);
+
+    // Old delegate can no longer spend.
+    assert_eq!(
+        client.try_can_spend(&t.buyer, &t.agent, &50, &t.seller),
+        Err(Ok(PermissionError::Unauthorized))
+    );
+
+    // New delegate can spend against the transferred allowance.
+    assert_eq!(
+        client.try_can_spend(&t.buyer, &new_agent, &50, &t.seller),
+        Ok(Ok(()))
+    );
+}
+
+#[test]
+fn test_transfer_permission_fails_if_old_permission_not_found() {
+    let t = TestEnv::setup();
+    let client = PermissionsContractClient::new(&t.env, &t.permissions_contract_id);
+    let new_agent = Address::generate(&t.env);
+
+    assert_eq!(
+        client.try_transfer_permission(&t.buyer, &t.agent, &new_agent),
+        Err(Ok(PermissionError::PermissionNotFound))
+    );
+}
+
+#[test]
+fn test_transfer_permission_fails_for_self_transfer() {
+    let t = TestEnv::setup();
+    let client = PermissionsContractClient::new(&t.env, &t.permissions_contract_id);
+
+    let merchants = Vec::<Address>::new(&t.env);
+    client.grant(&t.buyer, &t.agent, &1000, &500, &merchants, &3600u32);
+
+    assert_eq!(
+        client.try_transfer_permission(&t.buyer, &t.agent, &t.agent),
+        Err(Ok(PermissionError::InvalidParam))
+    );
+}
+
+#[test]
+fn test_transfer_permission_fails_if_new_delegate_already_has_permission() {
+    let t = TestEnv::setup();
+    let client = PermissionsContractClient::new(&t.env, &t.permissions_contract_id);
+    let new_agent = Address::generate(&t.env);
+
+    let merchants = Vec::<Address>::new(&t.env);
+    client.grant(&t.buyer, &t.agent, &1000, &500, &merchants, &3600u32);
+    client.grant(&t.buyer, &new_agent, &1000, &500, &merchants, &3600u32);
+
+    assert_eq!(
+        client.try_transfer_permission(&t.buyer, &t.agent, &new_agent),
+        Err(Ok(PermissionError::InvalidParam))
+    );
 }

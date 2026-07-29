@@ -1,6 +1,6 @@
 #[cfg(test)]
 mod test {
-    use crate::{PermissionError, PermissionStatus, PermissionsContract, PermissionsContractClient};
+    use crate::{PermissionError, PermissionsContract, PermissionsContractClient};
     use soroban_sdk::{
         testutils::{Address as _, Events, Ledger, MockAuth, MockAuthInvoke},
         Address, Env, IntoVal, TryIntoVal, Vec,
@@ -2282,8 +2282,6 @@ mod test {
         }
         assert_eq!(seen.len(), 21, "expected 21 distinct error variants");
     }
-}
-}
 
     // --- PermissionUsage & get_permission_usage tests ---
 
