@@ -2202,6 +2202,87 @@ mod test {
         client.execute_spend(&owner, &delegate, &100, &merchant);
         assert_eq!(client.get_remaining_allowance(&owner, &delegate), 400);
     }
+
+    // ── Error discriminant uniqueness tests ──────────────────────────────────
+
+    #[test]
+    fn test_error_variants_have_unique_discriminants() {
+        let variants: std::vec::Vec<u32> = vec![
+            PermissionError::NotFound as u32,
+            PermissionError::Expired as u32,
+            PermissionError::ExceedsPerTxLimit as u32,
+            PermissionError::ExceedsTotalLimit as u32,
+            PermissionError::MerchantNotAllowed as u32,
+            PermissionError::Unauthorized as u32,
+            PermissionError::InvalidParam as u32,
+            PermissionError::PermissionPaused as u32,
+            PermissionError::AlreadyPaused as u32,
+            PermissionError::AlreadyActive as u32,
+            PermissionError::GrantsPaused as u32,
+            PermissionError::RelayerKeyNotSet as u32,
+            PermissionError::InvalidNonce as u32,
+            PermissionError::SignatureExpired as u32,
+            PermissionError::SelfDelegationNotAllowed as u32,
+            PermissionError::InsufficientSignatures as u32,
+            PermissionError::UnknownSchema as u32,
+            PermissionError::ParentNotFound as u32,
+            PermissionError::ExceedsParentLimit as u32,
+            PermissionError::VelocityLimitExceeded as u32,
+            PermissionError::InactivityThresholdNotSet as u32,
+        ];
+
+        let mut seen = std::vec::Vec::<u32>::new();
+        for &val in variants.iter() {
+            assert!(
+                !seen.contains(&val),
+                "Duplicate discriminant {} found in PermissionError enum",
+                val
+            );
+            seen.push(val);
+        }
+        assert_eq!(seen.len(), 21, "expected 21 distinct error discriminants");
+    }
+
+    #[test]
+    fn test_error_serialization_produces_distinct_values() {
+        let variants = [
+            PermissionError::NotFound,
+            PermissionError::Expired,
+            PermissionError::ExceedsPerTxLimit,
+            PermissionError::ExceedsTotalLimit,
+            PermissionError::MerchantNotAllowed,
+            PermissionError::Unauthorized,
+            PermissionError::InvalidParam,
+            PermissionError::PermissionPaused,
+            PermissionError::AlreadyPaused,
+            PermissionError::AlreadyActive,
+            PermissionError::GrantsPaused,
+            PermissionError::RelayerKeyNotSet,
+            PermissionError::InvalidNonce,
+            PermissionError::SignatureExpired,
+            PermissionError::SelfDelegationNotAllowed,
+            PermissionError::InsufficientSignatures,
+            PermissionError::UnknownSchema,
+            PermissionError::ParentNotFound,
+            PermissionError::ExceedsParentLimit,
+            PermissionError::VelocityLimitExceeded,
+            PermissionError::InactivityThresholdNotSet,
+        ];
+
+        let mut seen = std::vec::Vec::<u32>::new();
+        for variant in variants.iter() {
+            let serialized = *variant as u32;
+            assert!(
+                !seen.contains(&serialized),
+                "Duplicate serialized value {} for {:?}",
+                serialized,
+                variant
+            );
+            seen.push(serialized);
+        }
+        assert_eq!(seen.len(), 21, "expected 21 distinct error variants");
+    }
+}
 }
 
     // --- PermissionUsage & get_permission_usage tests ---
