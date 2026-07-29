@@ -2202,6 +2202,7 @@ mod test {
         client.execute_spend(&owner, &delegate, &100, &merchant);
         assert_eq!(client.get_remaining_allowance(&owner, &delegate), 400);
     }
+}
 
     // --- PermissionUsage & get_permission_usage tests ---
 

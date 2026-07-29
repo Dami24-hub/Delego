@@ -219,7 +219,7 @@ pub struct MerchantWhitelistChangedEvent {
 }
 
 #[contracttype]
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct PendingAllowanceDecrement {
     pub amount: i128,
     pub execution_time: u64,
@@ -416,6 +416,15 @@ pub struct MerchantRestriction {
     pub owner: Address,
     pub delegate: Address,
     pub merchant: Option<Address>,
+}
+
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct ChildPermission {
+    pub delegate: Address,
+    pub limit_total: i128,
+    pub limit_per_tx: i128,
+    pub created_at: u64,
 }
 
 #[contracttype]
