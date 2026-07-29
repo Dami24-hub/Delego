@@ -1599,6 +1599,8 @@ impl PermissionsContract {
     }
 
     pub fn execute_decrease_allowance(env: Env, owner: Address, delegate: Address) -> bool {
+        owner.require_auth();
+
         let pend_key = DataKey::PendingDecrement(owner.clone(), delegate.clone());
         let pending: PendingAllowanceDecrement = env.storage().persistent().get(&pend_key).unwrap();
 
