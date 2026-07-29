@@ -2101,4 +2101,76 @@ mod test {
         client.execute_spend(&owner, &delegate, &100, &merchant);
         assert_eq!(client.get_remaining_allowance(&owner, &delegate), 400);
     }
+
+    // --- PermissionUsage & get_permission_usage tests ---
+
+    #[test]
+    fn test_permission_usage_initial_and_post_spend() {
+        let env = Env::default();
+        env.mock_all_auths();
+        let owner = Address::generate(&env);
+        let delegate = Address::generate(&env);
+        let merchant = Address::generate(&env);
+
+        let contract_id = env.register(PermissionsContract, ());
+        let client = PermissionsContractClient::new(&env, &contract_id);
+
+        let merchants = Vec::<Address>::new(&env);
+        client.grant(&owner, &delegate, &1000, &100, &merchants, &10000);
+
+        // Initial state before any spend
+        let usage = client.get_permission_usage(&owner, &delegate);
+        assert_eq!(usage.spent, 0);
+        assert_eq!(usage.last_spend_ledger, None);
+
+        // Advance ledger and execute a spend
+        env.ledger().with_mut(|li| {
+            li.sequence_number = 50;
+        });
+        client.execute_spend(&owner, &delegate, &40, &merchant);
+
+        let usage_after = client.get_permission_usage(&owner, &delegate);
+        assert_eq!(usage_after.spent, 40);
+        assert_eq!(usage_after.last_spend_ledger, Some(50));
+
+        // Advance ledger again and execute another spend
+        env.ledger().with_mut(|li| {
+            li.sequence_number = 65;
+        });
+        client.execute_spend(&owner, &delegate, &30, &merchant);
+
+        let usage_after_second = client.get_permission_usage(&owner, &delegate);
+        assert_eq!(usage_after_second.spent, 70);
+        assert_eq!(usage_after_second.last_spend_ledger, Some(65));
+    }
+
+    #[test]
+    fn test_permission_usage_not_found_and_failed_spend() {
+        let env = Env::default();
+        env.mock_all_auths();
+        let owner = Address::generate(&env);
+        let delegate = Address::generate(&env);
+        let merchant = Address::generate(&env);
+
+        let contract_id = env.register(PermissionsContract, ());
+        let client = PermissionsContractClient::new(&env, &contract_id);
+
+        // Non-existent permission record returns 0 spent and None last_spend_ledger
+        let usage_not_found = client.get_permission_usage(&owner, &delegate);
+        assert_eq!(usage_not_found.spent, 0);
+        assert_eq!(usage_not_found.last_spend_ledger, None);
+
+        // Grant permission
+        let merchants = Vec::<Address>::new(&env);
+        client.grant(&owner, &delegate, &500, &50, &merchants, &10000);
+
+        // Attempt a spend exceeding per-tx limit (fails)
+        let res = client.try_execute_spend(&owner, &delegate, &100, &merchant);
+        assert_eq!(res, Err(Ok(PermissionError::ExceedsPerTxLimit)));
+
+        // Verification: Failed spend does not record spend or last_spend_ledger
+        let usage_failed = client.get_permission_usage(&owner, &delegate);
+        assert_eq!(usage_failed.spent, 0);
+        assert_eq!(usage_failed.last_spend_ledger, None);
+    }
 }
