@@ -108,7 +108,7 @@ mod test {
 
         assert_eq!(
             client.try_revoke(&owner, &delegate),
-            Err(Ok(PermissionError::NotFound))
+            Err(Ok(PermissionError::PermissionNotFound))
         );
     }
 
@@ -250,7 +250,53 @@ mod test {
         let client = PermissionsContractClient::new(&env, &contract_id);
 
         let result = client.try_get_allowance_detail(&owner, &delegate);
-        assert!(result.is_err());
+        assert_eq!(result, Err(Ok(PermissionError::PermissionNotFound)));
+    }
+
+    #[test]
+    fn test_getter_missing_permission_returns_error() {
+        let env = Env::default();
+        env.mock_all_auths();
+        let owner = Address::generate(&env);
+        let delegate = Address::generate(&env);
+
+        let contract_id = env.register(PermissionsContract, ());
+        let client = PermissionsContractClient::new(&env, &contract_id);
+
+        // get_permission panics on missing (existing behavior), but get_allowance_detail returns typed error.
+        let result = client.try_get_allowance_detail(&owner, &delegate);
+        assert_eq!(result, Err(Ok(PermissionError::PermissionNotFound)));
+    }
+
+    #[test]
+    fn test_spend_check_missing_permission_returns_error() {
+        let env = Env::default();
+        env.mock_all_auths();
+        let owner = Address::generate(&env);
+        let delegate = Address::generate(&env);
+        let merchant = Address::generate(&env);
+
+        let contract_id = env.register(PermissionsContract, ());
+        let client = PermissionsContractClient::new(&env, &contract_id);
+
+        let result = client.try_can_spend(&owner, &delegate, &50, &merchant);
+        assert_eq!(result, Err(Ok(PermissionError::PermissionNotFound)));
+    }
+
+    #[test]
+    fn test_revoke_missing_permission_returns_error() {
+        let env = Env::default();
+        env.mock_all_auths();
+        let owner = Address::generate(&env);
+        let delegate = Address::generate(&env);
+
+        let contract_id = env.register(PermissionsContract, ());
+        let client = PermissionsContractClient::new(&env, &contract_id);
+
+        assert_eq!(
+            client.try_revoke(&owner, &delegate),
+            Err(Ok(PermissionError::PermissionNotFound))
+        );
     }
 
     // --- Issue #99: PermissionSpendEvent snapshot tests ---
@@ -898,7 +944,7 @@ mod test {
         let client = PermissionsContractClient::new(&env, &contract_id);
 
         let res = client.try_increase_allowance(&owner, &delegate, &100);
-        assert_eq!(res, Err(Ok(PermissionError::NotFound)));
+        assert_eq!(res, Err(Ok(PermissionError::PermissionNotFound)));
 
         for event in env.events().all().iter() {
             let (contract, topics, _value) = event;
@@ -988,7 +1034,7 @@ mod test {
         let result = client.try_get_receipt(&b, &a);
         assert_eq!(
             result,
-            Err(Ok(crate::PermissionError::NotFound)),
+            Err(Ok(crate::PermissionError::PermissionNotFound)),
             "Permission(A,B) and Permission(B,A) must occupy distinct storage slots"
         );
 
@@ -1154,7 +1200,7 @@ mod test {
         let client = PermissionsContractClient::new(&env, &contract_id);
 
         let result = client.try_get_receipt(&owner, &delegate);
-        assert_eq!(result, Err(Ok(crate::PermissionError::NotFound)));
+        assert_eq!(result, Err(Ok(crate::PermissionError::PermissionNotFound)));
     }
 
     // ── Issue #181: Permission Metadata Hash ─────────────────────────────────
