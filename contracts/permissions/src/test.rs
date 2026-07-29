@@ -2,8 +2,8 @@
 mod test {
     use crate::{PermissionError, PermissionStatus, PermissionsContract, PermissionsContractClient};
     use soroban_sdk::{
-        testutils::{Address as _, Events, Ledger},
-        Address, Env, TryIntoVal, Vec,
+        testutils::{Address as _, Events, Ledger, MockAuth, MockAuthInvoke},
+        Address, Env, IntoVal, TryIntoVal, Vec,
     };
 
     #[test]
@@ -108,7 +108,7 @@ mod test {
 
         assert_eq!(
             client.try_revoke(&owner, &delegate),
-            Err(Ok(PermissionError::NotFound))
+            Err(Ok(PermissionError::PermissionNotFound))
         );
     }
 
@@ -250,7 +250,53 @@ mod test {
         let client = PermissionsContractClient::new(&env, &contract_id);
 
         let result = client.try_get_allowance_detail(&owner, &delegate);
-        assert!(result.is_err());
+        assert_eq!(result, Err(Ok(PermissionError::PermissionNotFound)));
+    }
+
+    #[test]
+    fn test_getter_missing_permission_returns_error() {
+        let env = Env::default();
+        env.mock_all_auths();
+        let owner = Address::generate(&env);
+        let delegate = Address::generate(&env);
+
+        let contract_id = env.register(PermissionsContract, ());
+        let client = PermissionsContractClient::new(&env, &contract_id);
+
+        // get_permission panics on missing (existing behavior), but get_allowance_detail returns typed error.
+        let result = client.try_get_allowance_detail(&owner, &delegate);
+        assert_eq!(result, Err(Ok(PermissionError::PermissionNotFound)));
+    }
+
+    #[test]
+    fn test_spend_check_missing_permission_returns_error() {
+        let env = Env::default();
+        env.mock_all_auths();
+        let owner = Address::generate(&env);
+        let delegate = Address::generate(&env);
+        let merchant = Address::generate(&env);
+
+        let contract_id = env.register(PermissionsContract, ());
+        let client = PermissionsContractClient::new(&env, &contract_id);
+
+        let result = client.try_can_spend(&owner, &delegate, &50, &merchant);
+        assert_eq!(result, Err(Ok(PermissionError::PermissionNotFound)));
+    }
+
+    #[test]
+    fn test_revoke_missing_permission_returns_error() {
+        let env = Env::default();
+        env.mock_all_auths();
+        let owner = Address::generate(&env);
+        let delegate = Address::generate(&env);
+
+        let contract_id = env.register(PermissionsContract, ());
+        let client = PermissionsContractClient::new(&env, &contract_id);
+
+        assert_eq!(
+            client.try_revoke(&owner, &delegate),
+            Err(Ok(PermissionError::PermissionNotFound))
+        );
     }
 
     // --- Issue #99: PermissionSpendEvent snapshot tests ---
@@ -857,6 +903,61 @@ mod test {
     }
 
     #[test]
+    fn test_execute_decrease_allowance_unauthorized() {
+        let env = Env::default();
+        let owner = Address::generate(&env);
+        let delegate = Address::generate(&env);
+
+        let contract_id = env.register(PermissionsContract, ());
+        let client = PermissionsContractClient::new(&env, &contract_id);
+
+        let merchants = Vec::<Address>::new(&env);
+
+        // Set up permission with owner auth
+        client
+            .mock_auths(&[MockAuth {
+                address: &owner,
+                invoke: &MockAuthInvoke {
+                    contract: &contract_id,
+                    fn_name: "grant",
+                    args: (
+                        owner.clone(),
+                        delegate.clone(),
+                        1000i128,
+                        100i128,
+                        merchants.clone(),
+                        10000u32,
+                    )
+                        .into_val(&env),
+                    sub_invokes: &[],
+                },
+            }])
+            .grant(&owner, &delegate, &1000, &100, &merchants, &10000);
+
+        // Queue decrease with owner auth
+        client
+            .mock_auths(&[MockAuth {
+                address: &owner,
+                invoke: &MockAuthInvoke {
+                    contract: &contract_id,
+                    fn_name: "decrease_allowance",
+                    args: (owner.clone(), delegate.clone(), 200i128).into_val(&env),
+                    sub_invokes: &[],
+                },
+            }])
+            .decrease_allowance(&owner, &delegate, &200);
+
+        // Advance past timelock
+        env.ledger().with_mut(|li| {
+            li.timestamp += 86401;
+        });
+
+        // Try to execute without owner auth - should fail
+        let res = client.try_execute_decrease_allowance(&owner, &delegate);
+        assert!(res.is_err());
+    }
+
+    #[test]
     fn test_allowance_increased_event_not_emitted_on_unchanged_limit() {
         let env = Env::default();
         env.mock_all_auths();
@@ -898,7 +999,7 @@ mod test {
         let client = PermissionsContractClient::new(&env, &contract_id);
 
         let res = client.try_increase_allowance(&owner, &delegate, &100);
-        assert_eq!(res, Err(Ok(PermissionError::NotFound)));
+        assert_eq!(res, Err(Ok(PermissionError::PermissionNotFound)));
 
         for event in env.events().all().iter() {
             let (contract, topics, _value) = event;
@@ -988,7 +1089,7 @@ mod test {
         let result = client.try_get_receipt(&b, &a);
         assert_eq!(
             result,
-            Err(Ok(crate::PermissionError::NotFound)),
+            Err(Ok(crate::PermissionError::PermissionNotFound)),
             "Permission(A,B) and Permission(B,A) must occupy distinct storage slots"
         );
 
@@ -1154,7 +1255,7 @@ mod test {
         let client = PermissionsContractClient::new(&env, &contract_id);
 
         let result = client.try_get_receipt(&owner, &delegate);
-        assert_eq!(result, Err(Ok(crate::PermissionError::NotFound)));
+        assert_eq!(result, Err(Ok(crate::PermissionError::PermissionNotFound)));
     }
 
     // ── Issue #181: Permission Metadata Hash ─────────────────────────────────
@@ -2100,5 +2201,78 @@ mod test {
         // Actual spend should still see the full unmodified allowance.
         client.execute_spend(&owner, &delegate, &100, &merchant);
         assert_eq!(client.get_remaining_allowance(&owner, &delegate), 400);
+    }
+}
+
+    // --- PermissionUsage & get_permission_usage tests ---
+
+    #[test]
+    fn test_permission_usage_initial_and_post_spend() {
+        let env = Env::default();
+        env.mock_all_auths();
+        let owner = Address::generate(&env);
+        let delegate = Address::generate(&env);
+        let merchant = Address::generate(&env);
+
+        let contract_id = env.register(PermissionsContract, ());
+        let client = PermissionsContractClient::new(&env, &contract_id);
+
+        let merchants = Vec::<Address>::new(&env);
+        client.grant(&owner, &delegate, &1000, &100, &merchants, &10000);
+
+        // Initial state before any spend
+        let usage = client.get_permission_usage(&owner, &delegate);
+        assert_eq!(usage.spent, 0);
+        assert_eq!(usage.last_spend_ledger, None);
+
+        // Advance ledger and execute a spend
+        env.ledger().with_mut(|li| {
+            li.sequence_number = 50;
+        });
+        client.execute_spend(&owner, &delegate, &40, &merchant);
+
+        let usage_after = client.get_permission_usage(&owner, &delegate);
+        assert_eq!(usage_after.spent, 40);
+        assert_eq!(usage_after.last_spend_ledger, Some(50));
+
+        // Advance ledger again and execute another spend
+        env.ledger().with_mut(|li| {
+            li.sequence_number = 65;
+        });
+        client.execute_spend(&owner, &delegate, &30, &merchant);
+
+        let usage_after_second = client.get_permission_usage(&owner, &delegate);
+        assert_eq!(usage_after_second.spent, 70);
+        assert_eq!(usage_after_second.last_spend_ledger, Some(65));
+    }
+
+    #[test]
+    fn test_permission_usage_not_found_and_failed_spend() {
+        let env = Env::default();
+        env.mock_all_auths();
+        let owner = Address::generate(&env);
+        let delegate = Address::generate(&env);
+        let merchant = Address::generate(&env);
+
+        let contract_id = env.register(PermissionsContract, ());
+        let client = PermissionsContractClient::new(&env, &contract_id);
+
+        // Non-existent permission record returns 0 spent and None last_spend_ledger
+        let usage_not_found = client.get_permission_usage(&owner, &delegate);
+        assert_eq!(usage_not_found.spent, 0);
+        assert_eq!(usage_not_found.last_spend_ledger, None);
+
+        // Grant permission
+        let merchants = Vec::<Address>::new(&env);
+        client.grant(&owner, &delegate, &500, &50, &merchants, &10000);
+
+        // Attempt a spend exceeding per-tx limit (fails)
+        let res = client.try_execute_spend(&owner, &delegate, &100, &merchant);
+        assert_eq!(res, Err(Ok(PermissionError::ExceedsPerTxLimit)));
+
+        // Verification: Failed spend does not record spend or last_spend_ledger
+        let usage_failed = client.get_permission_usage(&owner, &delegate);
+        assert_eq!(usage_failed.spent, 0);
+        assert_eq!(usage_failed.last_spend_ledger, None);
     }
 }
