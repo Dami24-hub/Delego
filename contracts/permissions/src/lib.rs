@@ -399,6 +399,14 @@ pub struct PermissionUsageStats {
     pub last_spend_ledger: u32,
 }
 
+/// Tracks the total spent amount and most recent spend ledger for audit and freshness checks.
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct PermissionUsage {
+    pub spent: i128,
+    pub last_spend_ledger: Option<u32>,
+}
+
 /// Read-only view of the merchant restriction configured under a delegation
 /// permission. `None` when the delegation pair has no permission record or
 /// the whitelist is empty.
@@ -1199,6 +1207,11 @@ impl PermissionsContract {
         env.storage().persistent().set(&nonce_key, &(nonce + 1));
         Self::record_spend_stats(&env, &owner, &delegate, amount);
 
+        let velocity_key = DataKey::LastSpendLedger(owner.clone(), delegate.clone());
+        env.storage()
+            .persistent()
+            .set(&velocity_key, &env.ledger().sequence());
+
         let remaining = record.limit_total - record.spent;
         env.events().publish(
             (symbol_short!("perm"), symbol_short!("relayed")),
@@ -1587,6 +1600,8 @@ impl PermissionsContract {
     }
 
     pub fn execute_decrease_allowance(env: Env, owner: Address, delegate: Address) -> bool {
+        owner.require_auth();
+
         let pend_key = DataKey::PendingDecrement(owner.clone(), delegate.clone());
         let pending: PendingAllowanceDecrement = env.storage().persistent().get(&pend_key).unwrap();
 
@@ -2099,6 +2114,35 @@ impl PermissionsContract {
                 first_spend_ledger: 0,
                 last_spend_ledger: 0,
             })
+    }
+
+    /// Returns the total spent amount and the ledger sequence of the most
+    /// recent delegated spend for a (owner, delegate) pair.
+    pub fn get_permission_usage(
+        env: Env,
+        owner: Address,
+        delegate: Address,
+    ) -> PermissionUsage {
+        let key = DataKey::Permission(owner.clone(), delegate.clone());
+        let spent = if let Some(record) = env
+            .storage()
+            .persistent()
+            .get::<DataKey, PermissionRecord>(&key)
+        {
+            record.spent
+        } else {
+            0
+        };
+
+        let last_spend_ledger = env
+            .storage()
+            .persistent()
+            .get::<DataKey, u32>(&DataKey::LastSpendLedger(owner, delegate));
+
+        PermissionUsage {
+            spent,
+            last_spend_ledger,
+        }
     }
 
     /// Returns a compact status view for a delegate: whether they can currently
