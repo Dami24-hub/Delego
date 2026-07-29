@@ -433,6 +433,7 @@ pub enum DataKey {
     PendingDecrement(Address, Address),
     PauseMetadata(Address, Address),
     Admin,
+    PendingAdmin,
     GrantPauseState,
     Metadata(Address, Address),
     /// Instance-level flag: when true, grant() allows owner == delegate.
@@ -1721,6 +1722,46 @@ impl PermissionsContract {
         env.storage().instance().set(&DataKey::Admin, &admin);
     }
 
+    /// Propose a new admin as part of a two-step admin transfer.
+    /// Only the current admin can propose. Stores the proposed address
+    /// until `accept_admin` is called by that address.
+    pub fn propose_admin(
+        env: Env,
+        caller: Address,
+        new_admin: Address,
+    ) -> Result<(), PermissionError> {
+        caller.require_auth();
+        let stored_admin: Address = env
+            .storage()
+            .instance()
+            .get(&DataKey::Admin)
+            .ok_or(PermissionError::NotFound)?;
+        if caller != stored_admin {
+            return Err(PermissionError::Unauthorized);
+        }
+        env.storage()
+            .instance()
+            .set(&DataKey::PendingAdmin, &new_admin);
+        Ok(())
+    }
+
+    /// Accept a previously proposed admin role.
+    /// Only the address stored by `propose_admin` may call this.
+    pub fn accept_admin(env: Env, caller: Address) -> Result<(), PermissionError> {
+        caller.require_auth();
+        let pending: Address = env
+            .storage()
+            .instance()
+            .get(&DataKey::PendingAdmin)
+            .ok_or(PermissionError::NotFound)?;
+        if caller != pending {
+            return Err(PermissionError::Unauthorized);
+        }
+        env.storage().instance().set(&DataKey::Admin, &caller);
+        env.storage().instance().remove(&DataKey::PendingAdmin);
+        Ok(())
+    }
+
     /// Pause new grant creation. Admin-only.
     pub fn pause_grants(env: Env, admin: Address) -> Result<(), PermissionError> {
         admin.require_auth();
@@ -2233,6 +2274,20 @@ impl PermissionsContract {
             reason: Symbol::new(&env, "active"),
             remaining,
         }
+    }
+
+    /// Quick-check whether a permission is currently active (exists, has
+    /// `Active` status, and has not expired).
+    pub fn is_active(env: Env, owner: Address, delegate: Address) -> bool {
+        let key = DataKey::Permission(owner, delegate);
+        let record: PermissionRecord = match env.storage().persistent().get(&key) {
+            Some(r) => r,
+            None => return false,
+        };
+        if record.status != PermissionStatus::Active {
+            return false;
+        }
+        env.ledger().sequence() < record.expires_at_ledger
     }
 
     /// Returns the audit log for a (owner, delegate) pair, or an empty vec
