@@ -2354,4 +2354,143 @@ mod test {
         assert_eq!(usage_failed.spent, 0);
         assert_eq!(usage_failed.last_spend_ledger, None);
     }
+
+    // --- Issue #424: is_active quick-check getter ---
+
+    #[test]
+    fn test_is_active_returns_true_for_active_non_expired() {
+        let env = Env::default();
+        env.mock_all_auths();
+        let owner = Address::generate(&env);
+        let delegate = Address::generate(&env);
+
+        let contract_id = env.register(PermissionsContract, ());
+        let client = PermissionsContractClient::new(&env, &contract_id);
+
+        let merchants = Vec::<Address>::new(&env);
+        client.grant(&owner, &delegate, &1000, &100, &merchants, &10000);
+
+        assert!(client.is_active(&owner, &delegate));
+    }
+
+    #[test]
+    fn test_is_active_returns_false_for_revoked() {
+        let env = Env::default();
+        env.mock_all_auths();
+        let owner = Address::generate(&env);
+        let delegate = Address::generate(&env);
+
+        let contract_id = env.register(PermissionsContract, ());
+        let client = PermissionsContractClient::new(&env, &contract_id);
+
+        let merchants = Vec::<Address>::new(&env);
+        client.grant(&owner, &delegate, &1000, &100, &merchants, &10000);
+        client.revoke(&owner, &delegate);
+
+        assert!(!client.is_active(&owner, &delegate));
+    }
+
+    #[test]
+    fn test_is_active_returns_false_for_expired() {
+        let env = Env::default();
+        env.mock_all_auths();
+        let owner = Address::generate(&env);
+        let delegate = Address::generate(&env);
+
+        let contract_id = env.register(PermissionsContract, ());
+        let client = PermissionsContractClient::new(&env, &contract_id);
+
+        let merchants = Vec::<Address>::new(&env);
+        // TTL of 1 — expires at ledger 1
+        client.grant(&owner, &delegate, &1000, &100, &merchants, &1);
+
+        // Still active at ledger 0
+        assert!(client.is_active(&owner, &delegate));
+
+        // Advance past expiry
+        env.ledger().with_mut(|li| {
+            li.sequence_number = 2;
+        });
+
+        assert!(!client.is_active(&owner, &delegate));
+    }
+
+    #[test]
+    fn test_is_active_returns_false_for_non_existent() {
+        let env = Env::default();
+        env.mock_all_auths();
+        let owner = Address::generate(&env);
+        let delegate = Address::generate(&env);
+
+        let contract_id = env.register(PermissionsContract, ());
+        let client = PermissionsContractClient::new(&env, &contract_id);
+
+        assert!(!client.is_active(&owner, &delegate));
+    }
+
+    // --- Issue #425: Two-step admin transfer ---
+
+    #[test]
+    fn test_propose_admin_succeeds_for_current_admin() {
+        let env = Env::default();
+        env.mock_all_auths();
+        let admin = Address::generate(&env);
+        let new_admin = Address::generate(&env);
+
+        let contract_id = env.register(PermissionsContract, ());
+        let client = PermissionsContractClient::new(&env, &contract_id);
+
+        client.set_admin(&admin);
+        let res = client.try_propose_admin(&admin, &new_admin);
+        assert_eq!(res, Ok(Ok(())));
+    }
+
+    #[test]
+    fn test_propose_admin_fails_for_non_admin() {
+        let env = Env::default();
+        env.mock_all_auths();
+        let admin = Address::generate(&env);
+        let non_admin = Address::generate(&env);
+        let new_admin = Address::generate(&env);
+
+        let contract_id = env.register(PermissionsContract, ());
+        let client = PermissionsContractClient::new(&env, &contract_id);
+
+        client.set_admin(&admin);
+        let res = client.try_propose_admin(&non_admin, &new_admin);
+        assert_eq!(res, Err(Ok(PermissionError::Unauthorized)));
+    }
+
+    #[test]
+    fn test_accept_admin_succeeds_for_proposed_address() {
+        let env = Env::default();
+        env.mock_all_auths();
+        let admin = Address::generate(&env);
+        let new_admin = Address::generate(&env);
+
+        let contract_id = env.register(PermissionsContract, ());
+        let client = PermissionsContractClient::new(&env, &contract_id);
+
+        client.set_admin(&admin);
+        client.propose_admin(&admin, &new_admin);
+        let res = client.try_accept_admin(&new_admin);
+        assert_eq!(res, Ok(Ok(())));
+    }
+
+    #[test]
+    fn test_accept_admin_fails_for_non_proposed_address() {
+        let env = Env::default();
+        env.mock_all_auths();
+        let admin = Address::generate(&env);
+        let new_admin = Address::generate(&env);
+        let other = Address::generate(&env);
+
+        let contract_id = env.register(PermissionsContract, ());
+        let client = PermissionsContractClient::new(&env, &contract_id);
+
+        client.set_admin(&admin);
+        client.propose_admin(&admin, &new_admin);
+        let res = client.try_accept_admin(&other);
+        assert_eq!(res, Err(Ok(PermissionError::Unauthorized)));
+    }
 }
