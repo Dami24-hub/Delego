@@ -287,6 +287,36 @@ pub struct EscrowAmountLimits {
     pub max_amount: i128,
 }
 
+/// One order's parameters for `batch_deposit` (issue #317). The buyer is
+/// supplied once for the whole batch (see `batch_deposit`), not per order.
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct BatchDepositParams {
+    pub seller: Address,
+    pub token: Address,
+    pub amount: i128,
+    pub order_id: BytesN<32>,
+    pub timeout_ledgers: u32,
+    pub order_hash: Option<BytesN<32>>,
+    pub schema: Option<Symbol>,
+}
+
+/// One escrow's release request for `batch_release` (issue #317).
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct BatchReleaseParams {
+    pub escrow_id: u64,
+    pub release_amount: i128,
+}
+
+/// One escrow's refund request for `batch_refund` (issue #317).
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct BatchRefundParams {
+    pub escrow_id: u64,
+    pub refund_amount: i128,
+}
+
 /// Shared liquidity reserve for a single token, used to instantly settle
 /// funded escrows without waiting on the ordinary buyer/admin release flow
 /// (issue #335).
@@ -1462,7 +1492,28 @@ impl EscrowContract {
         }
 
         buyer.require_auth();
+        Self::create_internal(
+            env, buyer, seller, token, amount, order_id, timeout_ledgers, order_hash, schema,
+        )
+    }
 
+    /// Shared `create` logic used by both `create` and `batch_deposit`.
+    /// Callers are responsible for their own validation and
+    /// `buyer.require_auth()` — batch callers authorize the buyer once for
+    /// the whole batch instead of once per order, since Soroban's auth
+    /// tracker only matches one invocation of `require_auth` per address per
+    /// top-level call.
+    fn create_internal(
+        env: Env,
+        buyer: Address,
+        seller: Address,
+        token: Address,
+        amount: i128,
+        order_id: BytesN<32>,
+        timeout_ledgers: u32,
+        order_hash: Option<BytesN<32>>,
+        schema: Option<Symbol>,
+    ) -> Result<u64, EscrowError> {
         if let Some(pause_state) = env
             .storage()
             .instance()
@@ -1647,7 +1698,37 @@ impl EscrowContract {
         order_hash: Option<BytesN<32>>,
         schema: Option<Symbol>,
     ) -> Result<u64, EscrowError> {
-        let escrow_id = Self::create(
+        if is_zero_address(&env, &buyer)
+            || is_zero_address(&env, &seller)
+            || is_zero_address(&env, &token)
+        {
+            return Err(EscrowError::InvalidAddress);
+        }
+        if buyer == seller {
+            return Err(EscrowError::InvalidEscrowParticipants);
+        }
+
+        buyer.require_auth();
+        Self::deposit_internal(
+            env, buyer, seller, token, amount, order_id, timeout_ledgers, order_hash, schema,
+        )
+    }
+
+    /// Shared `deposit` logic used by both `deposit` and `batch_deposit`.
+    /// Callers are responsible for their own validation and
+    /// `buyer.require_auth()`.
+    fn deposit_internal(
+        env: Env,
+        buyer: Address,
+        seller: Address,
+        token: Address,
+        amount: i128,
+        order_id: BytesN<32>,
+        timeout_ledgers: u32,
+        order_hash: Option<BytesN<32>>,
+        schema: Option<Symbol>,
+    ) -> Result<u64, EscrowError> {
+        let escrow_id = Self::create_internal(
             env.clone(),
             buyer.clone(),
             seller,
@@ -1671,6 +1752,103 @@ impl EscrowContract {
         Ok(escrow_id)
     }
 
+    /// Deposit multiple orders for a single buyer into escrow in one call
+    /// (issue #317). Reduces the per-order transaction overhead of calling
+    /// `deposit` separately for each order.
+    ///
+    /// The buyer authorizes the whole batch once; each order may specify a
+    /// different seller, token, and amount. Because a Soroban contract
+    /// invocation is atomic, an error on any entry aborts the whole call —
+    /// every escrow created earlier in the batch is rolled back along with
+    /// it, so callers never observe a partial batch. Each successfully
+    /// created escrow still emits its own `EscrowCreatedEvent` (and
+    /// `EscrowMetadataEvent` when metadata is supplied), exactly as a
+    /// standalone `deposit` call would.
+    pub fn batch_deposit(
+        env: Env,
+        buyer: Address,
+        orders: Vec<BatchDepositParams>,
+    ) -> Result<Vec<u64>, EscrowError> {
+        if is_zero_address(&env, &buyer) {
+            return Err(EscrowError::InvalidAddress);
+        }
+        buyer.require_auth();
+
+        let mut escrow_ids = Vec::new(&env);
+        for order in orders.iter() {
+            if is_zero_address(&env, &order.seller) || is_zero_address(&env, &order.token) {
+                return Err(EscrowError::InvalidAddress);
+            }
+            if buyer == order.seller {
+                return Err(EscrowError::InvalidEscrowParticipants);
+            }
+            let escrow_id = Self::deposit_internal(
+                env.clone(),
+                buyer.clone(),
+                order.seller,
+                order.token,
+                order.amount,
+                order.order_id,
+                order.timeout_ledgers,
+                order.order_hash,
+                order.schema,
+            )?;
+            escrow_ids.push_back(escrow_id);
+        }
+        Ok(escrow_ids)
+    }
+
+    /// Release funds for multiple escrows in a single call (issue #317).
+    ///
+    /// Each entry is released exactly as `partial_release` would (buyer or
+    /// admin only), in order. An error on any entry aborts and reverts the
+    /// entire batch. Each release still emits its own `EscrowReleasedEvent`.
+    pub fn batch_release(
+        env: Env,
+        caller: Address,
+        releases: Vec<BatchReleaseParams>,
+    ) -> Result<Vec<PartialReleaseResult>, EscrowError> {
+        caller.require_auth();
+
+        let mut results = Vec::new(&env);
+        for item in releases.iter() {
+            let result = Self::partial_release_internal(
+                env.clone(),
+                item.escrow_id,
+                caller.clone(),
+                item.release_amount,
+            )?;
+            results.push_back(result);
+        }
+        Ok(results)
+    }
+
+    /// Refund funds for multiple escrows in a single call (issue #317).
+    ///
+    /// Each entry is refunded exactly as `partial_refund` would (seller/admin
+    /// any time, buyer after timeout), in order. An error on any entry aborts
+    /// and reverts the entire batch. Each refund still emits its own
+    /// `EscrowRefundedEvent`.
+    pub fn batch_refund(
+        env: Env,
+        caller: Address,
+        refunds: Vec<BatchRefundParams>,
+    ) -> Result<Vec<PartialRefundResult>, EscrowError> {
+        caller.require_auth();
+
+        let mut results = Vec::new(&env);
+        for item in refunds.iter() {
+            let result = Self::partial_refund_internal(
+                env.clone(),
+                item.escrow_id,
+                caller.clone(),
+                item.refund_amount,
+            )?;
+            results.push_back(result);
+        }
+        Ok(results)
+    }
+
     /// Release a partial amount to the seller.
     /// `release_amount` must be <= (record.amount - record.released_amount).
     /// If release_amount equals the remaining balance, set status to Released.
@@ -1681,7 +1859,18 @@ impl EscrowContract {
         release_amount: i128,
     ) -> Result<PartialReleaseResult, EscrowError> {
         caller.require_auth();
+        Self::partial_release_internal(env, escrow_id, caller, release_amount)
+    }
 
+    /// Shared `partial_release` logic used by both `partial_release` and
+    /// `batch_release`. Callers are responsible for their own
+    /// `caller.require_auth()`.
+    fn partial_release_internal(
+        env: Env,
+        escrow_id: u64,
+        caller: Address,
+        release_amount: i128,
+    ) -> Result<PartialReleaseResult, EscrowError> {
         let key = DataKey::Escrow(escrow_id);
         let record: EscrowRecord = match env.storage().persistent().get(&key) {
             Some(rec) => rec,
@@ -1823,7 +2012,18 @@ impl EscrowContract {
         refund_amount: i128,
     ) -> Result<PartialRefundResult, EscrowError> {
         caller.require_auth();
+        Self::partial_refund_internal(env, escrow_id, caller, refund_amount)
+    }
 
+    /// Shared `partial_refund` logic used by both `partial_refund` and
+    /// `batch_refund`. Callers are responsible for their own
+    /// `caller.require_auth()`.
+    fn partial_refund_internal(
+        env: Env,
+        escrow_id: u64,
+        caller: Address,
+        refund_amount: i128,
+    ) -> Result<PartialRefundResult, EscrowError> {
         let key = DataKey::Escrow(escrow_id);
         let mut record: EscrowRecord = match env.storage().persistent().get(&key) {
             Some(rec) => rec,
