@@ -635,6 +635,42 @@ fn test_remove_co_admin() {
 }
 
 #[test]
+fn test_remove_whitelisted_token_returns_true() {
+    let t = TestEnv::setup();
+    let escrow_client = EscrowContractClient::new(&t.env, &t.escrow_contract_id);
+    let token = Address::generate(&t.env);
+
+    assert!(escrow_client.add_token(&t.admin, &token));
+
+    assert!(escrow_client.remove_token(&t.admin, &token));
+
+    // Removing again should now return false since it's no longer whitelisted.
+    assert!(!escrow_client.remove_token(&t.admin, &token));
+}
+
+#[test]
+fn test_remove_non_whitelisted_token_returns_false() {
+    let t = TestEnv::setup();
+    let escrow_client = EscrowContractClient::new(&t.env, &t.escrow_contract_id);
+    let token = Address::generate(&t.env);
+
+    // Token was never whitelisted.
+    assert!(!escrow_client.remove_token(&t.admin, &token));
+}
+
+#[test]
+fn test_remove_token_requires_admin() {
+    let t = TestEnv::setup();
+    let escrow_client = EscrowContractClient::new(&t.env, &t.escrow_contract_id);
+    let token = Address::generate(&t.env);
+
+    assert!(escrow_client.add_token(&t.admin, &token));
+
+    let res = escrow_client.try_remove_token(&t.agent, &token);
+    assert_eq!(res, Err(Ok(EscrowError::Unauthorized)));
+}
+
+#[test]
 fn test_co_admin_accepts_primary_admin() {
     let t = TestEnv::setup();
     let escrow_client = EscrowContractClient::new(&t.env, &t.escrow_contract_id);

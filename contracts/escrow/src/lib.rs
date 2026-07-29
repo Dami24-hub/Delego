@@ -78,6 +78,7 @@ pub enum DataKey {
     LastEscrowId,
     PendingAdmin,
     AdminList,
+    TokenWhitelist,
 }
 
 #[contracterror]
@@ -477,6 +478,52 @@ impl EscrowContract {
             .get(&DataKey::AdminList)
             .unwrap_or_else(|| soroban_sdk::Vec::new(&env));
         admin_list.contains(&address)
+    }
+
+    fn require_admin_or_co_admin(env: &Env, caller: &Address) -> Result<(), EscrowError> {
+        caller.require_auth();
+        if !Self::is_admin(env.clone(), caller.clone()) {
+            return Err(EscrowError::Unauthorized);
+        }
+        Ok(())
+    }
+
+    /// Add a token to the whitelist. Must be called by the primary admin or a co-admin.
+    pub fn add_token(env: Env, caller: Address, token: Address) -> Result<bool, EscrowError> {
+        Self::require_admin_or_co_admin(&env, &caller)?;
+        let mut tokens: soroban_sdk::Vec<Address> = env
+            .storage()
+            .instance()
+            .get(&DataKey::TokenWhitelist)
+            .unwrap_or_else(|| soroban_sdk::Vec::new(&env));
+        if !tokens.contains(&token) {
+            tokens.push_back(token);
+            env.storage().instance().set(&DataKey::TokenWhitelist, &tokens);
+        }
+        Ok(true)
+    }
+
+    /// Remove a token from the whitelist. Must be called by the primary admin or a co-admin.
+    /// Returns whether the token was actually present in the whitelist.
+    pub fn remove_token(env: Env, caller: Address, token: Address) -> Result<bool, EscrowError> {
+        Self::require_admin_or_co_admin(&env, &caller)?;
+        let mut tokens: soroban_sdk::Vec<Address> = env
+            .storage()
+            .instance()
+            .get(&DataKey::TokenWhitelist)
+            .unwrap_or_else(|| soroban_sdk::Vec::new(&env));
+        let mut found = false;
+        for i in 0..tokens.len() {
+            if tokens.get(i).unwrap() == token {
+                tokens.remove(i);
+                found = true;
+                break;
+            }
+        }
+        if found {
+            env.storage().instance().set(&DataKey::TokenWhitelist, &tokens);
+        }
+        Ok(found)
     }
 }
 

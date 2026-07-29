@@ -58,7 +58,7 @@ pub struct SpendExecutedEvent {
 }
 
 #[contracttype]
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct PendingAllowanceDecrement {
     pub amount: i128,
     pub execution_time: u64,
@@ -74,9 +74,20 @@ pub struct DecrementExecutedEvent {
 }
 
 #[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct ChildPermission {
+    pub delegate: Address,
+    pub limit_total: i128,
+    pub limit_per_tx: i128,
+    pub created_at: u64,
+}
+
+#[contracttype]
 pub enum DataKey {
     Permission(Address, Address),
     PendingDecrement(Address, Address),
+    Children(Address, Address),
+    Admin,
 }
 
 #[contract]
@@ -310,6 +321,79 @@ impl PermissionsContract {
         );
 
         true
+    }
+
+    pub fn get_pending_decrement(
+        env: Env,
+        owner: Address,
+        delegate: Address,
+    ) -> Option<PendingAllowanceDecrement> {
+        env.storage()
+            .persistent()
+            .get::<DataKey, PendingAllowanceDecrement>(&DataKey::PendingDecrement(owner, delegate))
+    }
+
+    /// Sets the contract admin. Can only be called once.
+    pub fn set_admin(env: Env, admin: Address) -> bool {
+        if env.storage().instance().has(&DataKey::Admin) {
+            panic!("Admin already set");
+        }
+        env.storage().instance().set(&DataKey::Admin, &admin);
+        true
+    }
+
+    pub fn get_admin(env: Env) -> Address {
+        env.storage()
+            .instance()
+            .get::<DataKey, Address>(&DataKey::Admin)
+            .expect("Admin not set")
+    }
+
+    /// Grants a sub-delegation of an existing permission to a child delegate.
+    /// Must be called by the delegate that holds the parent permission.
+    pub fn grant_child(
+        env: Env,
+        parent_owner: Address,
+        parent_delegate: Address,
+        child_delegate: Address,
+        limit_total: i128,
+        limit_per_tx: i128,
+    ) -> bool {
+        parent_delegate.require_auth();
+
+        let perm_key = DataKey::Permission(parent_owner.clone(), parent_delegate.clone());
+        if !env.storage().persistent().has(&perm_key) {
+            panic!("Parent permission does not exist");
+        }
+
+        let child = ChildPermission {
+            delegate: child_delegate,
+            limit_total,
+            limit_per_tx,
+            created_at: env.ledger().timestamp(),
+        };
+
+        let key = DataKey::Children(parent_owner, parent_delegate);
+        let mut children: Vec<ChildPermission> = env
+            .storage()
+            .persistent()
+            .get(&key)
+            .unwrap_or_else(|| Vec::new(&env));
+        children.push_back(child);
+        env.storage().persistent().set(&key, &children);
+
+        true
+    }
+
+    pub fn get_children(
+        env: Env,
+        parent_owner: Address,
+        parent_delegate: Address,
+    ) -> Vec<ChildPermission> {
+        env.storage()
+            .persistent()
+            .get::<DataKey, Vec<ChildPermission>>(&DataKey::Children(parent_owner, parent_delegate))
+            .unwrap_or_else(|| Vec::new(&env))
     }
 }
 
