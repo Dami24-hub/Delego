@@ -25,6 +25,7 @@ pub const MAX_MERCHANTS_PER_PERMISSION: u32 = 25;
 #[repr(u32)]
 pub enum PermissionError {
     /// No permission record found for this owner/delegate pair
+    PermissionNotFound = 302,
     NotFound = 1,
     /// Permission has expired
     Expired = 2,
@@ -211,14 +212,14 @@ pub struct RelayedSpendMessage {
 
 #[contracttype]
 #[derive(Clone, Debug)]
-pub struct MerchantWhitelistChangedEvent { 
-    pub owner: Address, 
-    pub delegate: Address, 
-    pub merchant_count: u32 
+pub struct MerchantWhitelistChangedEvent {
+    pub owner: Address,
+    pub delegate: Address,
+    pub merchant_count: u32,
 }
 
 #[contracttype]
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct PendingAllowanceDecrement {
     pub amount: i128,
     pub execution_time: u64,
@@ -398,6 +399,14 @@ pub struct PermissionUsageStats {
     pub last_spend_ledger: u32,
 }
 
+/// Tracks the total spent amount and most recent spend ledger for audit and freshness checks.
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct PermissionUsage {
+    pub spent: i128,
+    pub last_spend_ledger: Option<u32>,
+}
+
 /// Read-only view of the merchant restriction configured under a delegation
 /// permission. `None` when the delegation pair has no permission record or
 /// the whitelist is empty.
@@ -407,6 +416,15 @@ pub struct MerchantRestriction {
     pub owner: Address,
     pub delegate: Address,
     pub merchant: Option<Address>,
+}
+
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct ChildPermission {
+    pub delegate: Address,
+    pub limit_total: i128,
+    pub limit_per_tx: i128,
+    pub created_at: u64,
 }
 
 #[contracttype]
@@ -520,7 +538,7 @@ impl PermissionsContract {
             },
         );
 
-         env.events().publish(
+        env.events().publish(
             (symbol_short!("perm"), symbol_short!("merc_list")),
             MerchantWhitelistChangedEvent {
                 owner: owner.clone(),
@@ -684,19 +702,19 @@ impl PermissionsContract {
 
             Ok(())
         } else {
-            Err(PermissionError::NotFound)
+            Err(PermissionError::PermissionNotFound)
         }
     }
 
     /// Transfer a permission from one delegate to another, preserving spending limits and history.
-    /// 
+    ///
     /// Atomically:
     /// 1. Verifies the owner authorizes the transfer
     /// 2. Checks that the old permission exists and is not revoked
     /// 3. Creates a new permission with the same limits/spending/merchants
     /// 4. Revokes the old permission
     /// 5. Emits PermissionTransferredEvent with remaining allowance
-    /// 
+    ///
     /// The new permission starts fresh with the same configuration but preserves
     /// the spent amount and remaining allowance from the old permission.
     pub fn transfer_permission(
@@ -728,7 +746,7 @@ impl PermissionsContract {
             .storage()
             .persistent()
             .get(&old_key)
-            .ok_or(PermissionError::NotFound)?;
+            .ok_or(PermissionError::PermissionNotFound)?;
 
         // Reject if already revoked
         if old_record.status == PermissionStatus::Revoked {
@@ -755,7 +773,7 @@ impl PermissionsContract {
         };
 
         let new_key = DataKey::Permission(owner.clone(), new_delegate.clone());
-        
+
         // Ensure new permission doesn't already exist
         if env.storage().persistent().has(&new_key) {
             return Err(PermissionError::InvalidParam);
@@ -839,7 +857,7 @@ impl PermissionsContract {
 
             Ok(())
         } else {
-            Err(PermissionError::NotFound)
+            Err(PermissionError::PermissionNotFound)
         }
     }
 
@@ -850,7 +868,7 @@ impl PermissionsContract {
     /// than extending relatively.
     ///
     /// # Errors
-    /// - [`PermissionError::NotFound`] if no permission exists for `(owner, delegate)`
+    /// - [`PermissionError::PermissionNotFound`] if no permission exists for `(owner, delegate)`
     /// - [`PermissionError::Unauthorized`] if permission is already revoked
     /// - [`PermissionError::InvalidParam`] if `new_expiry` is not greater than the current ledger
     pub fn update_expiry(
@@ -871,7 +889,7 @@ impl PermissionsContract {
             .storage()
             .persistent()
             .get(&key)
-            .ok_or(PermissionError::NotFound)?;
+            .ok_or(PermissionError::PermissionNotFound)?;
 
         // Cannot update a revoked permission
         if record.status == PermissionStatus::Revoked {
@@ -960,7 +978,7 @@ impl PermissionsContract {
         let key = DataKey::Permission(owner.clone(), delegate.clone());
         let record: PermissionRecord = match env.storage().persistent().get(&key) {
             Some(r) => r,
-            None => return Err(PermissionError::NotFound),
+            None => return Err(PermissionError::PermissionNotFound),
         };
 
         match record.status {
@@ -1198,6 +1216,11 @@ impl PermissionsContract {
         env.storage().persistent().set(&nonce_key, &(nonce + 1));
         Self::record_spend_stats(&env, &owner, &delegate, amount);
 
+        let velocity_key = DataKey::LastSpendLedger(owner.clone(), delegate.clone());
+        env.storage()
+            .persistent()
+            .set(&velocity_key, &env.ledger().sequence());
+
         let remaining = record.limit_total - record.spent;
         env.events().publish(
             (symbol_short!("perm"), symbol_short!("relayed")),
@@ -1302,7 +1325,7 @@ impl PermissionsContract {
         let key = DataKey::MultiPermission(primary_owner, delegate);
         let record: MultiOwnerPermission = match env.storage().persistent().get(&key) {
             Some(r) => r,
-            None => return Err(PermissionError::NotFound),
+            None => return Err(PermissionError::PermissionNotFound),
         };
 
         match record.status {
@@ -1401,7 +1424,7 @@ impl PermissionsContract {
         Ok(())
     }
 
-        /// Read-only getter for a multi-owner permission record.
+    /// Read-only getter for a multi-owner permission record.
     pub fn get_multi_permission(
         env: Env,
         primary_owner: Address,
@@ -1410,7 +1433,7 @@ impl PermissionsContract {
         env.storage()
             .persistent()
             .get(&DataKey::MultiPermission(primary_owner, delegate))
-            .ok_or(PermissionError::NotFound)
+            .ok_or(PermissionError::PermissionNotFound)
     }
 
     /// Dry-run a spend and report whether it would succeed, without mutating state.
@@ -1458,7 +1481,7 @@ impl PermissionsContract {
             },
             Err(e) => {
                 let reason = match e {
-                    PermissionError::NotFound => Symbol::new(&env, "not_found"),
+                    PermissionError::PermissionNotFound => Symbol::new(&env, "not_found"),
                     PermissionError::Expired => Symbol::new(&env, "expired"),
                     PermissionError::PermissionPaused => Symbol::new(&env, "paused"),
                     PermissionError::Unauthorized => Symbol::new(&env, "unauthorized"),
@@ -1490,7 +1513,7 @@ impl PermissionsContract {
     }
 
     /// Typed allowance getter: returns limit, spent, remaining (clamped ≥ 0),
-    /// and expiry. Returns PermissionError::NotFound for unknown pairs (issue #98).
+    /// and expiry. Returns PermissionError::PermissionNotFound for unknown pairs (issue #98).
     pub fn get_allowance_detail(
         env: Env,
         owner: Address,
@@ -1501,7 +1524,7 @@ impl PermissionsContract {
             .storage()
             .persistent()
             .get(&key)
-            .ok_or(PermissionError::NotFound)?;
+            .ok_or(PermissionError::PermissionNotFound)?;
 
         let raw = record.limit_total - record.spent;
         let remaining = if raw < 0 { 0 } else { raw };
@@ -1539,7 +1562,7 @@ impl PermissionsContract {
             .storage()
             .persistent()
             .get(&perm_key)
-            .ok_or(PermissionError::NotFound)?;
+            .ok_or(PermissionError::PermissionNotFound)?;
 
         let old_limit = record.limit_total;
         let new_limit = old_limit
@@ -1586,6 +1609,8 @@ impl PermissionsContract {
     }
 
     pub fn execute_decrease_allowance(env: Env, owner: Address, delegate: Address) -> bool {
+        owner.require_auth();
+
         let pend_key = DataKey::PendingDecrement(owner.clone(), delegate.clone());
         let pending: PendingAllowanceDecrement = env.storage().persistent().get(&pend_key).unwrap();
 
@@ -1625,7 +1650,7 @@ impl PermissionsContract {
         let perm_key = DataKey::Permission(owner.clone(), delegate.clone());
         let mut record: PermissionRecord = match env.storage().persistent().get(&perm_key) {
             Some(r) => r,
-            None => return Err(PermissionError::NotFound),
+            None => return Err(PermissionError::PermissionNotFound),
         };
 
         if record.status != PermissionStatus::Active {
@@ -1656,7 +1681,7 @@ impl PermissionsContract {
         let perm_key = DataKey::Permission(owner.clone(), delegate.clone());
         let mut record: PermissionRecord = match env.storage().persistent().get(&perm_key) {
             Some(r) => r,
-            None => return Err(PermissionError::NotFound),
+            None => return Err(PermissionError::PermissionNotFound),
         };
 
         if record.status == PermissionStatus::Active {
@@ -1810,7 +1835,7 @@ impl PermissionsContract {
     ///
     /// Returns `Ok(true)` when the permission was revoked, `Ok(false)` when
     /// it exists but is not (yet) eligible (has spend, isn't `Active`, or the
-    /// threshold hasn't elapsed). Returns `Err(NotFound)` when no permission
+    /// threshold hasn't elapsed). Returns `Err(PermissionNotFound)` when no permission
     /// exists for the pair, and `Err(InactivityThresholdNotSet)` when the
     /// admin has not configured a threshold.
     pub fn sweep_inactive(
@@ -1826,7 +1851,7 @@ impl PermissionsContract {
             .storage()
             .persistent()
             .get(&key)
-            .ok_or(PermissionError::NotFound)?;
+            .ok_or(PermissionError::PermissionNotFound)?;
 
         if record.status != PermissionStatus::Active || record.spent != 0 {
             return Ok(false);
@@ -2070,7 +2095,7 @@ impl PermissionsContract {
             .storage()
             .persistent()
             .get(&key)
-            .ok_or(PermissionError::NotFound)?;
+            .ok_or(PermissionError::PermissionNotFound)?;
 
         let active = matches!(record.status, PermissionStatus::Active)
             && env.ledger().sequence() < record.expires_at_ledger;
@@ -2098,6 +2123,35 @@ impl PermissionsContract {
                 first_spend_ledger: 0,
                 last_spend_ledger: 0,
             })
+    }
+
+    /// Returns the total spent amount and the ledger sequence of the most
+    /// recent delegated spend for a (owner, delegate) pair.
+    pub fn get_permission_usage(
+        env: Env,
+        owner: Address,
+        delegate: Address,
+    ) -> PermissionUsage {
+        let key = DataKey::Permission(owner.clone(), delegate.clone());
+        let spent = if let Some(record) = env
+            .storage()
+            .persistent()
+            .get::<DataKey, PermissionRecord>(&key)
+        {
+            record.spent
+        } else {
+            0
+        };
+
+        let last_spend_ledger = env
+            .storage()
+            .persistent()
+            .get::<DataKey, u32>(&DataKey::LastSpendLedger(owner, delegate));
+
+        PermissionUsage {
+            spent,
+            last_spend_ledger,
+        }
     }
 
     /// Returns a compact status view for a delegate: whether they can currently
@@ -2218,7 +2272,6 @@ impl PermissionsContract {
 
         env.storage().persistent().set(&key, &log);
     }
-
 
     /// spend. Called from both `execute_spend` and `execute_spend_via_relayer`
     /// so relayed spends are reflected in the same analytics.
