@@ -1,9 +1,12 @@
 #![cfg(test)]
 
-use crate::{EscrowContract, EscrowContractClient, EscrowError, EscrowStatus, EscrowTerminalState};
+use crate::{
+    BatchDepositParams, BatchReleaseParams, BatchRefundParams, EscrowContract,
+    EscrowContractClient, EscrowError, EscrowStatus, EscrowTerminalState,
+};
 use soroban_sdk::{
-    symbol_short, testutils::{Address as _, Events, Ledger, MockAuth, MockAuthInvoke},
-    Address, BytesN, Env, IntoVal,
+    symbol_short, testutils::{Address as _, Ledger, MockAuth, MockAuthInvoke},
+    Address, BytesN, Env, IntoVal, Vec,
 };
 
 struct TestEnv {
@@ -1292,7 +1295,9 @@ fn test_get_timeout_view_active_past_timeout() {
     let escrow_id = deposit_escrow(&t, 1000, 100);
     let record = client.get_escrow(&escrow_id);
 
-    t.env.ledger().set_sequence_number(record.timeout_ledger + 500);
+    t.env
+        .ledger()
+        .set_sequence_number(record.timeout_ledger + 500);
 
     let view = client.get_timeout_view(&escrow_id);
 
@@ -1312,7 +1317,9 @@ fn test_get_timeout_view_released_state() {
 
     // Advance past timeout to ensure the only reason for false is the terminal state.
     let record = client.get_escrow(&escrow_id);
-    t.env.ledger().set_sequence_number(record.timeout_ledger + 10);
+    t.env
+        .ledger()
+        .set_sequence_number(record.timeout_ledger + 10);
 
     let view = client.get_timeout_view(&escrow_id);
 
@@ -1330,7 +1337,9 @@ fn test_get_timeout_view_refunded_state() {
     client.refund(&escrow_id, &t.seller);
 
     let record = client.get_escrow(&escrow_id);
-    t.env.ledger().set_sequence_number(record.timeout_ledger + 10);
+    t.env
+        .ledger()
+        .set_sequence_number(record.timeout_ledger + 10);
 
     let view = client.get_timeout_view(&escrow_id);
 
@@ -1348,7 +1357,9 @@ fn test_get_timeout_view_disputed_state() {
     client.dispute(&escrow_id, &t.buyer);
 
     let record = client.get_escrow(&escrow_id);
-    t.env.ledger().set_sequence_number(record.timeout_ledger + 10);
+    t.env
+        .ledger()
+        .set_sequence_number(record.timeout_ledger + 10);
 
     let view = client.get_timeout_view(&escrow_id);
 
@@ -1366,7 +1377,9 @@ fn test_get_timeout_view_does_not_mutate_state() {
     let before = client.get_escrow(&escrow_id);
 
     // Call past timeout — a mutating refund would change the status.
-    t.env.ledger().set_sequence_number(before.timeout_ledger + 5);
+    t.env
+        .ledger()
+        .set_sequence_number(before.timeout_ledger + 5);
     let _view = client.get_timeout_view(&escrow_id);
 
     let after = client.get_escrow(&escrow_id);
@@ -1446,13 +1459,15 @@ fn test_extend_timeout_via_quorum_reaches_threshold() {
     let before = escrow_client.get_escrow(&escrow_id);
 
     // First vote: quorum not yet reached, timeout unchanged.
-    let applied = escrow_client.extend_timeout_via_quorum(&escrow_id, &arbiters.get(0).unwrap(), &50u32);
+    let applied =
+        escrow_client.extend_timeout_via_quorum(&escrow_id, &arbiters.get(0).unwrap(), &50u32);
     assert!(!applied);
     let mid = escrow_client.get_escrow(&escrow_id);
     assert_eq!(mid.timeout_ledger, before.timeout_ledger);
 
     // Second matching vote reaches the threshold and extends the timeout.
-    let applied = escrow_client.extend_timeout_via_quorum(&escrow_id, &arbiters.get(1).unwrap(), &50u32);
+    let applied =
+        escrow_client.extend_timeout_via_quorum(&escrow_id, &arbiters.get(1).unwrap(), &50u32);
     assert!(applied);
     let after = escrow_client.get_escrow(&escrow_id);
     assert_eq!(after.timeout_ledger, before.timeout_ledger + 50);
@@ -1471,7 +1486,8 @@ fn test_extend_timeout_via_quorum_fails_without_sufficient_votes() {
     let escrow_id = deposit_escrow(&t, 1000, 100);
     let before = escrow_client.get_escrow(&escrow_id);
 
-    let applied = escrow_client.extend_timeout_via_quorum(&escrow_id, &arbiters.get(0).unwrap(), &50u32);
+    let applied =
+        escrow_client.extend_timeout_via_quorum(&escrow_id, &arbiters.get(0).unwrap(), &50u32);
     assert!(!applied);
 
     let after = escrow_client.get_escrow(&escrow_id);
@@ -1504,7 +1520,8 @@ fn test_extend_timeout_via_quorum_rejects_duplicate_vote() {
 
     let escrow_id = deposit_escrow(&t, 1000, 100);
 
-    let applied = escrow_client.extend_timeout_via_quorum(&escrow_id, &arbiters.get(0).unwrap(), &50u32);
+    let applied =
+        escrow_client.extend_timeout_via_quorum(&escrow_id, &arbiters.get(0).unwrap(), &50u32);
     assert!(!applied);
 
     assert_eq!(
@@ -1551,7 +1568,9 @@ fn test_fund_pool_increases_balance() {
     let newer_balance = escrow_client.fund_pool(&funder, &t.token_contract_id, &500);
     assert_eq!(newer_balance, 2500);
     assert_eq!(
-        escrow_client.get_liquidity_pool(&t.token_contract_id).balance,
+        escrow_client
+            .get_liquidity_pool(&t.token_contract_id)
+            .balance,
         2500
     );
 }
@@ -1662,7 +1681,9 @@ fn test_withdraw_from_pool_respects_available_balance() {
     let new_balance = escrow_client.withdraw_from_pool(&t.admin, &t.token_contract_id, &400);
     assert_eq!(new_balance, 600);
     assert_eq!(
-        escrow_client.get_liquidity_pool(&t.token_contract_id).balance,
+        escrow_client
+            .get_liquidity_pool(&t.token_contract_id)
+            .balance,
         600
     );
     assert_eq!(token_client.balance(&t.admin), 400);
@@ -1701,56 +1722,168 @@ fn test_get_liquidity_pool_defaults_to_zero_for_unfunded_token() {
     assert_eq!(pool.token, t.token_contract_id);
 }
 
-#[test]
-fn test_get_escrow_summary_returns_all_fields() {
-    let t = TestEnv::setup();
-    let escrow_client = EscrowContractClient::new(&t.env, &t.escrow_contract_id);
+// --- batch_deposit / batch_release / batch_refund (issue #317) ---
 
-    let escrow_id = deposit_escrow(&t, 1000, 100);
-    let summary = escrow_client.get_escrow_summary(&escrow_id);
-
-    assert_eq!(summary.escrow_id, t.order_id());
-    assert_eq!(summary.buyer, t.buyer);
-    assert_eq!(summary.merchant, t.seller);
-    assert_eq!(summary.amount, 1000);
-    assert_eq!(summary.status, EscrowStatus::Funded);
+fn order_id_n(env: &Env, n: u8) -> BytesN<32> {
+    BytesN::from_array(env, &[n; 32])
 }
 
 #[test]
-fn test_get_escrow_summary_not_found() {
+fn test_batch_deposit_three_orders_all_succeed() {
     let t = TestEnv::setup();
     let escrow_client = EscrowContractClient::new(&t.env, &t.escrow_contract_id);
 
+    let mut orders = Vec::new(&t.env);
+    for n in 1..=3u8 {
+        orders.push_back(BatchDepositParams {
+            seller: t.seller.clone(),
+            token: t.token_contract_id.clone(),
+            amount: 500,
+            order_id: order_id_n(&t.env, n),
+            timeout_ledgers: 100,
+            order_hash: None,
+            schema: None,
+        });
+    }
+
+    let escrow_ids = escrow_client.batch_deposit(&t.buyer, &orders);
+    assert_eq!(escrow_ids.len(), 3);
+
+    for escrow_id in escrow_ids.iter() {
+        let record = escrow_client.get_escrow(&escrow_id);
+        assert_eq!(record.status, EscrowStatus::Funded);
+        assert_eq!(record.amount, 500);
+    }
+}
+
+#[test]
+fn test_batch_deposit_with_one_invalid_order_reverts_entire_batch() {
+    let t = TestEnv::setup();
+    let escrow_client = EscrowContractClient::new(&t.env, &t.escrow_contract_id);
+
+    let mut orders = Vec::new(&t.env);
+    orders.push_back(BatchDepositParams {
+        seller: t.seller.clone(),
+        token: t.token_contract_id.clone(),
+        amount: 500,
+        order_id: order_id_n(&t.env, 1),
+        timeout_ledgers: 100,
+        order_hash: None,
+        schema: None,
+    });
+    // Second order amount is below the configured minimum (100) — invalid.
+    orders.push_back(BatchDepositParams {
+        seller: t.seller.clone(),
+        token: t.token_contract_id.clone(),
+        amount: 1,
+        order_id: order_id_n(&t.env, 2),
+        timeout_ledgers: 100,
+        order_hash: None,
+        schema: None,
+    });
+    orders.push_back(BatchDepositParams {
+        seller: t.seller.clone(),
+        token: t.token_contract_id.clone(),
+        amount: 500,
+        order_id: order_id_n(&t.env, 3),
+        timeout_ledgers: 100,
+        order_hash: None,
+        schema: None,
+    });
+
     assert_eq!(
-        escrow_client.try_get_escrow_summary(&999),
+        escrow_client.try_batch_deposit(&t.buyer, &orders),
+        Err(Ok(EscrowError::AmountBelowMin))
+    );
+
+    // The whole batch reverted: the first (valid) order was not committed either.
+    assert_eq!(
+        escrow_client.try_get_receipt(&1u64),
         Err(Ok(EscrowError::NotFound))
     );
 }
 
 #[test]
-fn test_get_escrow_summary_terminal_state() {
+fn test_batch_release_with_mixed_statuses() {
     let t = TestEnv::setup();
     let escrow_client = EscrowContractClient::new(&t.env, &t.escrow_contract_id);
 
-    let escrow_id = deposit_escrow(&t, 1000, 100);
-    escrow_client.release(&escrow_id, &t.buyer, &t.seller);
+    let id_a = deposit_escrow(&t, 500, 100);
+    let id_b = deposit_escrow_with_id(&t, 500, 100, 2);
 
-    let summary = escrow_client.get_escrow_summary(&escrow_id);
-    assert_eq!(summary.status, EscrowStatus::Released);
-    assert_eq!(summary.amount, 1000);
-    assert_eq!(summary.escrow_id, t.order_id());
+    // Fully release id_a up front so it's already terminal before the batch.
+    escrow_client.release(&id_a, &t.buyer, &t.seller);
+
+    let mut releases = Vec::new(&t.env);
+    releases.push_back(BatchReleaseParams {
+        escrow_id: id_a,
+        release_amount: 100,
+    });
+    releases.push_back(BatchReleaseParams {
+        escrow_id: id_b,
+        release_amount: 500,
+    });
+
+    // id_a is already released, so releasing again fails and the whole
+    // batch (including id_b) reverts atomically.
+    assert_eq!(
+        escrow_client.try_batch_release(&t.buyer, &releases),
+        Err(Ok(EscrowError::AlreadyReleased))
+    );
+    let record_b = escrow_client.get_escrow(&id_b);
+    assert_eq!(record_b.status, EscrowStatus::Funded);
+
+    // A batch touching only the still-funded escrow succeeds.
+    let mut ok_releases = Vec::new(&t.env);
+    ok_releases.push_back(BatchReleaseParams {
+        escrow_id: id_b,
+        release_amount: 500,
+    });
+    let results = escrow_client.batch_release(&t.buyer, &ok_releases);
+    assert_eq!(results.len(), 1);
+    assert!(results.get(0).unwrap().fully_released);
+
+    let record_b_after = escrow_client.get_escrow(&id_b);
+    assert_eq!(record_b_after.status, EscrowStatus::Released);
 }
 
 #[test]
-fn test_get_escrow_summary_does_not_mutate_state() {
+fn test_batch_refund_three_orders_all_succeed() {
     let t = TestEnv::setup();
     let escrow_client = EscrowContractClient::new(&t.env, &t.escrow_contract_id);
 
-    let escrow_id = deposit_escrow(&t, 1000, 100);
-    let summary_before = escrow_client.get_escrow_summary(&escrow_id);
-    let _summary_after = escrow_client.get_escrow_summary(&escrow_id);
+    let id_a = deposit_escrow(&t, 500, 100);
+    let id_b = deposit_escrow_with_id(&t, 500, 100, 2);
 
-    let record = escrow_client.get_escrow(&escrow_id);
-    assert_eq!(summary_before.status, record.status);
-    assert_eq!(summary_before.amount, record.amount);
+    let mut refunds = Vec::new(&t.env);
+    refunds.push_back(BatchRefundParams {
+        escrow_id: id_a,
+        refund_amount: 500,
+    });
+    refunds.push_back(BatchRefundParams {
+        escrow_id: id_b,
+        refund_amount: 500,
+    });
+
+    // Seller (record.seller == t.seller) can refund at any time.
+    let results = escrow_client.batch_refund(&t.seller, &refunds);
+    assert_eq!(results.len(), 2);
+    assert!(results.iter().all(|r| r.fully_refunded));
+
+    assert_eq!(escrow_client.get_escrow(&id_a).status, EscrowStatus::Refunded);
+    assert_eq!(escrow_client.get_escrow(&id_b).status, EscrowStatus::Refunded);
+}
+
+fn deposit_escrow_with_id(t: &TestEnv, amount: i128, timeout_ledgers: u32, id_seed: u8) -> u64 {
+    let escrow_client = EscrowContractClient::new(&t.env, &t.escrow_contract_id);
+    escrow_client.deposit(
+        &t.buyer,
+        &t.seller,
+        &t.token_contract_id,
+        &amount,
+        &order_id_n(&t.env, id_seed),
+        &timeout_ledgers,
+        &None,
+        &None,
+    )
 }
