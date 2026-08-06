@@ -189,6 +189,27 @@ pub struct EscrowResolvedEvent {
     pub resolved_by: Address,
 }
 
+/// Emitted when escrowed funds are split among multiple recipients (#321).
+#[contracttype]
+#[derive(Clone, Debug)]
+pub struct EscrowSplitReleasedEvent {
+    pub escrow_id: u64,
+    pub recipient_count: u32,
+    pub total_released: i128,
+    pub fee_charged: i128,
+    pub released_by: Address,
+}
+
+/// Emitted when an escrow's timeout ledger is extended (#323).
+#[contracttype]
+#[derive(Clone, Debug)]
+pub struct EscrowTimeoutExtendedEvent {
+    pub escrow_id: u64,
+    pub old_timeout_ledger: u32,
+    pub new_timeout_ledger: u32,
+    pub extended_by: Address,
+}
+
 #[contracttype]
 #[derive(Clone, Debug)]
 pub struct AdminProposedEvent {
@@ -531,18 +552,14 @@ pub enum EscrowError {
     PoolNotFound = 30,
     /// Liquidity pool balance is insufficient for the requested operation
     InsufficientPoolBalance = 31,
-    /// Fee config has not been initialized
-    FeeConfigNotSet = 34,
-    /// Amount limits have not been initialized
-    AmountLimitsNotSet = 35,
-    /// Release condition not set for escrow
-    ReleaseConditionNotSet = 36,
-    /// Oracle contract call failed
-    OracleCallFailed = 37,
-    /// Release condition not met
-    ConditionNotMet = 38,
-    /// Invalid yield configuration
-    InvalidYieldConfig = 39,
+    /// Release condition has not been set for this escrow
+    ReleaseConditionNotSet = 32,
+    /// Oracle call failed or returned an unexpected result
+    OracleCallFailed = 33,
+    /// Oracle condition was not met
+    ConditionNotMet = 34,
+    /// Invalid yield configuration (e.g. APR exceeds maximum)
+    InvalidYieldConfig = 35,
 }
 
 /// Compact receipt returned to buyers after escrow creation via `get_receipt`.
@@ -645,6 +662,30 @@ pub struct EscrowYieldView {
     pub escrow_id: u64,
     pub accrued_yield: i128,
     pub apr_bps: u32,
+}
+
+/// Compact read-only escrow summary for API/indexer consumers (issue #90).
+///
+/// Returned by [`EscrowContract::get_escrow_summary`]. Contains all display
+/// fields needed by the backend event indexer in a single call. The response
+/// shape is identical for both terminal and non-terminal escrows — callers
+/// do not need to branch on status to decode the result.
+///
+/// # Fields
+/// - `escrow_id` — 32-byte order identifier (same correlation key used by
+///   [`ReleaseEligibility`] and [`MerchantEscrowReceipt`]).
+/// - `buyer`     — Address of the buyer who funded the escrow.
+/// - `merchant`  — Address of the seller/merchant who receives released funds.
+/// - `amount`    — Total escrowed token amount.
+/// - `status`    — Current lifecycle status of the escrow.
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct EscrowSummary {
+    pub escrow_id: BytesN<32>,
+    pub buyer: Address,
+    pub merchant: Address,
+    pub amount: i128,
+    pub status: EscrowStatus,
 }
 
 /// Seconds in a 365-day year, used to prorate `YieldConfig::apr_bps` down to
@@ -2495,6 +2536,34 @@ impl EscrowContract {
             escrow_id,
             accrued_yield,
             apr_bps,
+        })
+    }
+
+    /// Read-only compact escrow summary for API/indexer consumers (issue #90).
+    ///
+    /// Returns all display fields needed by the backend event indexer in a
+    /// single call. The response is stable for both terminal and non-terminal
+    /// escrows. Never mutates storage.
+    ///
+    /// # Errors
+    /// Returns [`EscrowError::NotFound`] when no escrow exists for `escrow_id`.
+    pub fn get_escrow_summary(
+        env: Env,
+        escrow_id: u64,
+    ) -> Result<EscrowSummary, EscrowError> {
+        let key = DataKey::Escrow(escrow_id);
+        let record: EscrowRecord = env
+            .storage()
+            .persistent()
+            .get(&key)
+            .ok_or(EscrowError::NotFound)?;
+
+        Ok(EscrowSummary {
+            escrow_id: record.order_id,
+            buyer: record.buyer,
+            merchant: record.seller,
+            amount: record.amount,
+            status: record.status,
         })
     }
 
