@@ -2,7 +2,9 @@
 
 import { Button, Card } from "@delego/ui";
 import { DelegationSkeleton } from "../components/DelegationSkeleton";
+import { ExpiryCountdown } from "../components/delegations/ExpiryCountdown";
 import { OrderSkeleton } from "../components/OrderSkeleton";
+import { WalletConnectButton } from "../components/wallet/WalletConnectButton";
 import { useDelegations } from "../hooks/useDelegations";
 import { useOrders } from "../hooks/useOrders";
 
@@ -26,7 +28,8 @@ export function HomeContent() {
             <ul className="nav-list">
               {delegations.map((delegation) => (
                 <li key={delegation.id}>
-                  {delegation.agentId} — {delegation.status}
+                  {delegation.agentId} — {delegation.status}{" "}
+                  <ExpiryCountdown expiresAt={delegation.policy.expiresAt} />
                 </li>
               ))}
             </ul>

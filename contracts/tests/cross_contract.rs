@@ -87,7 +87,7 @@ fn test_permission_checked_before_escrow_fund_fails_without_permission() {
     let result = perm_client.try_execute_spend(&t.buyer, &t.agent, &200, &t.seller);
     assert_eq!(
         result,
-        Err(Ok(delego_permissions::PermissionError::NotFound))
+        Err(Ok(delego_permissions::PermissionError::PermissionNotFound))
     );
 }
 
