@@ -30,6 +30,7 @@ export const metadata: Metadata = {
     images: ["/og-default.png"],
   },
 };
+
 export default function HomePage() {
   return <HomeContent />;
 }
