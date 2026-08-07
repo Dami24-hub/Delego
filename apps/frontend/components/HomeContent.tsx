@@ -3,6 +3,7 @@
 import { Button, Card } from "@delego/ui";
 import { DelegationSkeleton } from "../components/DelegationSkeleton";
 import { OrderSkeleton } from "../components/OrderSkeleton";
+import { WalletConnectButton } from "../components/wallet/WalletConnectButton";
 import { useDelegations } from "../hooks/useDelegations";
 import { useOrders } from "../hooks/useOrders";
 

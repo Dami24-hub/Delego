@@ -409,27 +409,6 @@ pub struct TimeoutExtendedEvent {
     pub extension_ledgers: u32,
 }
 
-/// Emitted when escrow funds are split among multiple recipients (issue #321).
-#[contracttype]
-#[derive(Clone, Debug)]
-pub struct EscrowSplitReleasedEvent {
-    pub escrow_id: u64,
-    pub recipient_count: u32,
-    pub total_released: i128,
-    pub fee_charged: i128,
-    pub released_by: Address,
-}
-
-/// Emitted when an escrow's timeout is extended directly (issue #323).
-#[contracttype]
-#[derive(Clone, Debug)]
-pub struct EscrowTimeoutExtendedEvent {
-    pub escrow_id: u64,
-    pub old_timeout_ledger: u32,
-    pub new_timeout_ledger: u32,
-    pub extended_by: Address,
-}
-
 /// Contract version information for deployment scripts and runtime compatibility checks.
 ///
 /// # When to bump
@@ -553,13 +532,17 @@ pub enum EscrowError {
     /// Liquidity pool balance is insufficient for the requested operation
     InsufficientPoolBalance = 31,
     /// Release condition has not been set for this escrow
-    ReleaseConditionNotSet = 32,
+    ReleaseConditionNotSet = 36,
     /// Oracle call failed or returned an unexpected result
-    OracleCallFailed = 33,
+    OracleCallFailed = 37,
     /// Oracle condition was not met
-    ConditionNotMet = 34,
+    ConditionNotMet = 38,
     /// Invalid yield configuration (e.g. APR exceeds maximum)
-    InvalidYieldConfig = 35,
+    InvalidYieldConfig = 39,
+    /// Contract amount limits have not been configured
+    AmountLimitsNotSet = 40,
+    /// Contract fee configuration has not been set
+    FeeConfigNotSet = 41,
 }
 
 /// Compact receipt returned to buyers after escrow creation via `get_receipt`.
