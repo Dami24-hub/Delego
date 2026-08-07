@@ -1,5 +1,6 @@
 import type { HTMLAttributes, ReactNode } from "react";
 
+/** Props accepted by the shared card component. */
 export interface CardProps extends HTMLAttributes<HTMLDivElement> {
   title?: string;
   children: ReactNode;

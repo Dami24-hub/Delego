@@ -1,5 +1,6 @@
 import type { LabelHTMLAttributes, InputHTMLAttributes } from "react";
 
+/** Props accepted by the shared form-field wrapper. */
 export interface FormFieldProps extends Omit<
   LabelHTMLAttributes<HTMLLabelElement>,
   "children"

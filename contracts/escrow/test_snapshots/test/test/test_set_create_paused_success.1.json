@@ -195,6 +195,12 @@
                             },
                             {
                               "key": {
+                                "symbol": "expires_at_ledger"
+                              },
+                              "val": "void"
+                            },
+                            {
+                              "key": {
                                 "symbol": "updated_at_ledger"
                               },
                               "val": {

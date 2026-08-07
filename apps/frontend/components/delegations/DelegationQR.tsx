@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 
+/** Props required to generate a delegation QR payload. */
 export interface DelegationQRProps {
   delegationId: string;
   userId: string;
