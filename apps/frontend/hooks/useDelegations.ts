@@ -6,7 +6,7 @@ import type {
   CreateDelegationInput,
   Delegation,
   UpdateDelegationInput,
-} from "@delego/types";
+} from "@delegolabs/types";
 import { api } from "../lib/api";
 
 /**

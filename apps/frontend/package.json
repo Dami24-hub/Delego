@@ -1,5 +1,5 @@
 {
-  "name": "@delego/web",
+  "name": "@delegolabs/web",
   "version": "0.0.1",
   "private": true,
   "description": "Delego consumer web application",
@@ -14,9 +14,9 @@
     "analyze": "ANALYZE=true pnpm build"
   },
   "dependencies": {
-    "@delego/sdk": "workspace:*",
-    "@delego/types": "workspace:*",
-    "@delego/ui": "workspace:*",
+    "@delegolabs/sdk": "^0.0.1",
+    "@delegolabs/types": "^0.0.1",
+    "@delegolabs/ui": "workspace:*",
     "@stellar/freighter-api": "^6.0.1",
     "next": "^15.1.0",
     "qrcode": "^1.5.3",

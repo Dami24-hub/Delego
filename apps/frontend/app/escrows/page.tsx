@@ -2,7 +2,7 @@
 
 import { useEscrows } from "../../hooks/useEscrows";
 import { EscrowCard } from "../../components/escrows/EscrowCard";
-import { Button } from "@delego/ui";
+import { Button } from "@delegolabs/ui";
 
 export default function EscrowsPage() {
   const { escrows, loading, error } = useEscrows();

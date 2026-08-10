@@ -1,6 +1,6 @@
 "use client";
 
-import { Button, Card } from "@delego/ui";
+import { Button, Card } from "@delegolabs/ui";
 import { DelegationSkeleton } from "../components/DelegationSkeleton";
 import { ExpiryCountdown } from "../components/delegations/ExpiryCountdown";
 import { OrderSkeleton } from "../components/OrderSkeleton";

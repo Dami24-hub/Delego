@@ -1,8 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { Button, Card, StroopsInput } from "@delego/ui";
-import type { Delegation, UpdateDelegationInput } from "@delego/types";
+import { Button, Card, StroopsInput } from "@delegolabs/ui";
+import type { Delegation, UpdateDelegationInput } from "@delegolabs/types";
 import { DelegationQR } from "./DelegationQR";
 
 export interface DelegationCardProps {

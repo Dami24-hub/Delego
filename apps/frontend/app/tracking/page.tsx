@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Button } from "@delego/ui";
+import { Button } from "@delegolabs/ui";
 import { useOrders } from "../../hooks/useOrders";
 import { isTerminal } from "../../lib/orders";
 import { OrderTrackingCard } from "../../components/orders/OrderTrackingCard";

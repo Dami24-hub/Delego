@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { renderHook, waitFor } from "@testing-library/react";
 import { useEscrows } from "../hooks/useEscrows";
-import type { Escrow } from "@delego/types";
+import type { Escrow } from "@delegolabs/types";
 
 // Mock the API client
 vi.mock("../lib/api", () => ({

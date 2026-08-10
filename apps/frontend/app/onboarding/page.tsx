@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Button } from "@delego/ui";
+import { Button } from "@delegolabs/ui";
 import { OnboardingStep } from "../../components/onboarding/OnboardingStep";
 import { StepIndicator } from "../../components/onboarding/StepIndicator";
 

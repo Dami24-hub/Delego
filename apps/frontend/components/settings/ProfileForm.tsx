@@ -2,8 +2,8 @@
 
 import { useState } from "react";
 import type { FormEvent } from "react";
-import { Card, FormField, Button } from "@delego/ui";
-import type { User } from "@delego/types";
+import { Card, FormField, Button } from "@delegolabs/ui";
+import type { User } from "@delegolabs/types";
 
 /** Fields on the User that are editable from the profile form. */
 export type ProfileFormValues = Pick<User, "displayName" | "email">;

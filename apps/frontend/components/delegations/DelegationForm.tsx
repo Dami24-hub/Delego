@@ -2,11 +2,11 @@
 
 import { useState } from "react";
 import type { FormEvent } from "react";
-import { Button, Card, FormField, StroopsInput } from "@delego/ui";
+import { Button, Card, FormField, StroopsInput } from "@delegolabs/ui";
 import type {
   CreateDelegationInput,
   DelegationPermissionLevel,
-} from "@delego/types";
+} from "@delegolabs/types";
 
 const PERMISSION_LEVELS: DelegationPermissionLevel[] = [
   "VIEW_ONLY",

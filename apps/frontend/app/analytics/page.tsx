@@ -1,6 +1,6 @@
 "use client";
 
-import { Card } from "@delego/ui";
+import { Card } from "@delegolabs/ui";
 import { SpendingOverview } from "../../components/analytics/SpendingOverview";
 import { useAnalytics } from "../../hooks/useAnalytics";
 

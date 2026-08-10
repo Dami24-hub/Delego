@@ -1,8 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { Button, Card } from "@delego/ui";
-import type { Order } from "@delego/types";
+import { Button, Card } from "@delegolabs/ui";
+import type { Order } from "@delegolabs/types";
 import { formatXlm } from "../../lib/orders";
 
 export interface ApprovalCardProps {

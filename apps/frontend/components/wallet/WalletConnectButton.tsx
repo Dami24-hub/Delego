@@ -1,6 +1,6 @@
 "use client";
 
-import { Button } from "@delego/ui";
+import { Button } from "@delegolabs/ui";
 import { useWallet } from "../../hooks/useWallet";
 
 function truncateAddress(address: string): string {

@@ -1,6 +1,6 @@
 "use client";
 
-import { Card } from "@delego/ui";
+import { Card } from "@delegolabs/ui";
 import type { SpendingOverview as SpendingOverviewType } from "../../hooks/useAnalytics";
 
 interface SpendingOverviewProps {

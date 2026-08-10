@@ -23,9 +23,8 @@ Before you begin contributing, ensure you have the following installed:
 
 - **Node.js** >= 20.0.0
 - **pnpm** >= 9.0.0
-- **Docker** >= 24.0.0
-- **Rust** >= 1.70.0 (for contract development)
 - **Git** (for version control)
+- A **GitHub token** with read access to the `DelegoLabs` packages on GitHub Packages
 
 ### Setup Instructions
 
@@ -220,6 +219,8 @@ pub fn escrow_funds(env: Env, amount: i128) {
 - **Imports**: Organize imports logically (stdlib, external, internal)
 
 ## 🎯 Project Areas
+
+> **Note**: This repository contains the web application and shared UI package. The backend microservices and smart contracts live in separate repositories: [DelegoLabs/Delego-backend](https://github.com/DelegoLabs/Delego-backend) and [DelegoLabs/Delego-contracts](https://github.com/DelegoLabs/Delego-contracts).
 
 ### Customer Web Application (`apps/frontend`)
 

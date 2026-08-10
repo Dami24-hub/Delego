@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import type { ApiResponse, Escrow } from "@delego/types";
+import type { ApiResponse, Escrow } from "@delegolabs/types";
 import { api } from "../lib/api";
 
 /** Fetch user escrows from the API */

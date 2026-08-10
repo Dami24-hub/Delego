@@ -1,6 +1,6 @@
 "use client";
 
-import type { Order } from "@delego/types";
+import type { Order } from "@delegolabs/types";
 import { formatXlm } from "../../lib/orders";
 import { OrderStatusBadge } from "./OrderStatusBadge";
 

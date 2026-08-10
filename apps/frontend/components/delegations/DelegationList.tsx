@@ -1,6 +1,6 @@
 "use client";
 
-import type { Delegation, UpdateDelegationInput } from "@delego/types";
+import type { Delegation, UpdateDelegationInput } from "@delegolabs/types";
 import { DelegationCard } from "./DelegationCard";
 
 export interface DelegationListProps {

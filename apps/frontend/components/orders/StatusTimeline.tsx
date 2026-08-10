@@ -1,4 +1,4 @@
-import type { OrderStatus } from "@delego/types";
+import type { OrderStatus } from "@delegolabs/types";
 import { ORDER_LIFECYCLE, lifecycleIndex, orderStatusLabel } from "../../lib/orders";
 
 export interface StatusTimelineProps {

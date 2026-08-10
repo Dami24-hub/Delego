@@ -53,7 +53,7 @@ describe("api client", () => {
   });
 
   it("uses a custom base URL when constructed directly, stripping a trailing slash", async () => {
-    const { DelegoClient } = await import("@delego/sdk");
+    const { DelegoClient } = await import("@delegolabs/sdk");
     const fetchMock = mockFetchOnce(HEALTH_RESPONSE);
 
     const client = new DelegoClient({ baseUrl: "https://custom.example.com/" });

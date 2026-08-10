@@ -1,6 +1,6 @@
 "use client";
 
-import { Card } from "@delego/ui";
+import { Card } from "@delegolabs/ui";
 import { useWallet } from "../../hooks/useWallet";
 import { WalletConnectButton } from "../../components/wallet/WalletConnectButton";
 

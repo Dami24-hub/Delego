@@ -2,4 +2,4 @@
 
 React components specific to the consumer web app.
 
-Shared primitives live in `@delego/ui`.
+Shared primitives live in `@delegolabs/ui`.

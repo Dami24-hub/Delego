@@ -1,6 +1,6 @@
 "use client";
 
-import { Button } from "@delego/ui";
+import { Button } from "@delegolabs/ui";
 
 export interface PaginationProps {
   page: number;

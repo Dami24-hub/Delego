@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Button } from "@delego/ui";
+import { Button } from "@delegolabs/ui";
 import { useDelegations } from "../../hooks/useDelegations";
 import { useWallet } from "../../hooks/useWallet";
 import { DelegationForm } from "../../components/delegations/DelegationForm";

@@ -33,13 +33,7 @@ docs/
 ├── vision.md                    # Product vision and goals
 ├── problem.md                   # Problem statement and motivation
 ├── architecture/                # Technical architecture documentation
-│   ├── README.md                # Architecture overview
-│   ├── system-design.md         # System design details
-│   ├── agents.md                # Agent architecture
-│   ├── contracts.md             # Smart contract architecture
-│   └── wallet.md                # Wallet architecture
-├── contributor-guide.md         # Guide for contributors
-├── api-reference.md             # API reference documentation
+│   └── system-design.md         # System design details
 └── grant-deliverables.md        # Grant milestone tracking
 ```
 
@@ -57,19 +51,17 @@ Start here to understand Delego:
 
 Technical documentation for developers:
 
-1. **[../ARCHITECTURE.md](../ARCHITECTURE.md)** - System architecture overview
+1. **[architecture/system-design.md](./architecture/system-design.md)** - System architecture overview
 2. **[architecture/](./architecture/)** - Detailed technical architecture
-3. **[api-reference.md](./api-reference.md)** - API documentation
-4. **[../CONTRIBUTING.md](../CONTRIBUTING.md)** - Contribution guidelines
+3. **[../CONTRIBUTING.md](../CONTRIBUTING.md)** - Contribution guidelines
 
 ### For Contributors
 
 Resources for contributing to Delego:
 
-1. **[contributor-guide.md](./contributor-guide.md)** - Contributor guide
-2. **[../CONTRIBUTING.md](../CONTRIBUTING.md)** - Detailed contribution guidelines
-3. **[../CODE_OF_CONDUCT.md](../CODE_OF_CONDUCT.md)** - Code of conduct
-4. **[grant-deliverables.md](./grant-deliverables.md)** - Grant milestones
+1. **[../CONTRIBUTING.md](../CONTRIBUTING.md)** - Detailed contribution guidelines
+2. **[../CODE_OF_CONDUCT.md](../CODE_OF_CONDUCT.md)** - Code of conduct
+3. **[grant-deliverables.md](./grant-deliverables.md)** - Grant milestones
 
 ## Product Documentation
 
@@ -125,15 +117,6 @@ The architecture directory contains detailed technical documentation:
 
 ## Contributor Documentation
 
-### Contributor Guide ([contributor-guide.md](./contributor-guide.md))
-
-The contributor guide includes:
-- Repository map
-- Local setup instructions
-- Picking work guidelines
-- PR checklist
-- Development workflows
-
 ### Contribution Guidelines ([../CONTRIBUTING.md](../CONTRIBUTING.md))
 
 Comprehensive contribution guidelines covering:
@@ -154,15 +137,9 @@ Community guidelines including:
 
 ## API Documentation
 
-### API Reference ([api-reference.md](./api-reference.md))
+### API Reference
 
-The API reference provides:
-- Base URL and endpoints
-- Authentication methods
-- Request/response formats
-- Error handling
-- Rate limiting
-- Webhook documentation
+The Delego API is implemented by the backend microservices in [DelegoLabs/Delego-backend](https://github.com/DelegoLabs/Delego-backend). Refer to that repository for API endpoint documentation, authentication methods, request/response formats, error handling, and rate limiting.
 
 ### Grant Deliverables ([grant-deliverables.md](./grant-deliverables.md))
 
@@ -287,7 +264,7 @@ Documentation versioning:
 ### Internal Resources
 
 - [Project README](../README.md)
-- [Architecture Documentation](../ARCHITECTURE.md)
+- [Architecture Documentation](./architecture/system-design.md)
 - [Contributing Guidelines](../CONTRIBUTING.md)
 - [Code of Conduct](../CODE_OF_CONDUCT.md)
 

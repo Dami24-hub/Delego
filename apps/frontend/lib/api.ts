@@ -1,4 +1,4 @@
-import { DelegoClient } from "@delego/sdk";
+import { DelegoClient } from "@delegolabs/sdk";
 import { env } from "./env";
 
 /**

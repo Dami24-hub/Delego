@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import type { Order, OrderStatus } from "@delego/types";
+import type { Order, OrderStatus } from "@delegolabs/types";
 import {
   HIGH_VALUE_THRESHOLD_STROOPS,
   filterOrders,

@@ -2,8 +2,8 @@
 
 import { useState } from "react";
 import type { FormEvent } from "react";
-import { Card, StroopsInput, Button } from "@delego/ui";
-import type { UserPreferences } from "@delego/types";
+import { Card, StroopsInput, Button } from "@delegolabs/ui";
+import type { UserPreferences } from "@delegolabs/types";
 
 /** Preference fields editable from the form (userId is fixed). */
 export type PreferencesFormValues = Omit<UserPreferences, "userId">;

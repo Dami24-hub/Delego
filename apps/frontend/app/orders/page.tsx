@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import type { OrderStatus } from "@delego/types";
+import type { OrderStatus } from "@delegolabs/types";
 import { useOrders } from "../../hooks/useOrders";
 import {
   filterOrders,

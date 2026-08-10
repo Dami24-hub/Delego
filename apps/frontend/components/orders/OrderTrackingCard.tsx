@@ -1,7 +1,7 @@
 "use client";
 
-import { Card } from "@delego/ui";
-import type { Order } from "@delego/types";
+import { Card } from "@delegolabs/ui";
+import type { Order } from "@delegolabs/types";
 import { formatXlm, isTerminal } from "../../lib/orders";
 import { StatusTimeline } from "./StatusTimeline";
 

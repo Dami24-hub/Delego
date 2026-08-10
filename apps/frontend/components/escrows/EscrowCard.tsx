@@ -1,6 +1,6 @@
-import type { Escrow } from "@delego/types";
-import { ESCROW_STATUS_META } from "@delego/types";
-import { Card } from "@delego/ui";
+import type { Escrow } from "@delegolabs/types";
+import { ESCROW_STATUS_META } from "@delegolabs/types";
+import { Card } from "@delegolabs/ui";
 
 /** Approximate Stellar ledger close time in seconds */
 const LEDGER_CLOSE_SECONDS = 5;

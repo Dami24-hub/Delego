@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { ApiResponse, Order } from "@delego/types";
+import type { ApiResponse, Order } from "@delegolabs/types";
 import { api } from "../lib/api";
 
 /**

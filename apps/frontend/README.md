@@ -1,9 +1,9 @@
-# @delego/web
+# @delegolabs/web
 
 Consumer-facing Next.js application.
 
 ```bash
-pnpm --filter @delego/web dev
+pnpm --filter @delegolabs/web dev
 ```
 
 Open http://localhost:3001

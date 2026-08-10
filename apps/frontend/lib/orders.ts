@@ -1,4 +1,4 @@
-import type { Order, OrderStatus } from "@delego/types";
+import type { Order, OrderStatus } from "@delegolabs/types";
 
 /**
  * Pure helpers for working with orders in the web app: formatting, filtering,

@@ -2,7 +2,7 @@
   "name": "delego",
   "version": "0.0.1",
   "private": true,
-  "description": "AI commerce platform with Stellar/Soroban wallet, escrow, and agent delegation",
+  "description": "Frontend web application for the Delego AI commerce platform",
   "license": "MIT",
   "packageManager": "pnpm@9.15.0",
   "engines": {
@@ -11,20 +11,11 @@
   },
   "scripts": {
     "build": "pnpm -r build",
-    "dev": "pnpm --parallel -r --filter './apps/frontend' --filter './apps/backend/*' --filter './agents' dev",
-    "dev:web": "pnpm --filter @delego/web dev",
-    "dev:gateway": "pnpm --filter @delego/gateway dev",
+    "dev": "pnpm --filter @delegolabs/web dev",
+    "dev:web": "pnpm --filter @delegolabs/web dev",
     "lint": "pnpm -r lint",
     "typecheck": "pnpm -r typecheck",
     "test": "pnpm -r test",
-    "test:unit": "pnpm --filter @delego/tests-unit test",
-    "test:integration": "pnpm --filter @delego/tests-integration test",
-    "test:contracts": "pnpm --filter './contracts/*' test",
-    "test:e2e": "pnpm --filter @delego/tests-e2e test",
-    "db:migrate": "node scripts/setup/migrate.js",
-    "db:seed": "node scripts/setup/seed.js",
-    "docker:up": "docker compose up -d",
-    "docker:down": "docker compose down",
     "clean": "pnpm -r exec rm -rf dist .next node_modules",
     "prepare": "husky"
   },
@@ -32,15 +23,11 @@
     "@commitlint/cli": "^21.0.2",
     "@commitlint/config-conventional": "^21.0.2",
     "@types/node": "^25.9.3",
-    "husky": "^9.1.7",
-    "pg": "^8.21.0"
+    "husky": "^9.1.7"
   },
   "pnpm": {
     "overrides": {
       "axios": ">=1.16.0"
     }
-  },
-  "dependencies": {
-    "@stellar/stellar-sdk": "^15.1.0"
   }
 }

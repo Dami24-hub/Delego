@@ -1,9 +1,0 @@
-{
-  "name": "@delego/contract-permissions",
-  "version": "0.0.1",
-  "private": true,
-  "scripts": {
-    "build": "cargo build --target wasm32-unknown-unknown --release",
-    "test": "cargo test"
-  }
-}

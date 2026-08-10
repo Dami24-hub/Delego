@@ -1,7 +1,7 @@
 "use client";
 
-import type { OrderStatus } from "@delego/types";
-import { Button } from "@delego/ui";
+import type { OrderStatus } from "@delegolabs/types";
+import { Button } from "@delegolabs/ui";
 import { orderStatusLabel } from "../../lib/orders";
 import type { OrderSortField, SortDirection } from "../../lib/orders";
 

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import type { Delegation } from "@delego/types";
+import type { Delegation } from "@delegolabs/types";
 import { api } from "../lib/api";
 
 export interface SpendingOverview {

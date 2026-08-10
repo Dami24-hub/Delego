@@ -83,7 +83,7 @@ const securityHeaders = [
 ];
 
 const nextConfig: NextConfig = {
-  transpilePackages: ["@delego/ui", "@delego/sdk", "@delego/types"],
+  transpilePackages: ["@delegolabs/ui", "@delegolabs/sdk", "@delegolabs/types"],
   poweredByHeader: false,
   images: {
     remotePatterns: [

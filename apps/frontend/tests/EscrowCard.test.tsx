@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen } from "@testing-library/react";
 import { EscrowCard } from "../components/escrows/EscrowCard";
-import type { Escrow } from "@delego/types";
+import type { Escrow } from "@delegolabs/types";
 
 const fundedEscrow: Escrow = {
   escrowId: "42",

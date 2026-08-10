@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
-import { Card } from "@delego/ui";
+import { Card } from "@delegolabs/ui";
 import { useOrders } from "../../hooks/useOrders";
 import {
   HIGH_VALUE_THRESHOLD_STROOPS,

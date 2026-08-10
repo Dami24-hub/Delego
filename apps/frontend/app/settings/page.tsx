@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import type { User, UserPreferences } from "@delego/types";
+import type { User, UserPreferences } from "@delegolabs/types";
 import {
   ProfileForm,
   type ProfileFormValues,
@@ -14,7 +14,7 @@ import {
 /**
  * Placeholder user + preferences until the API exposes `/api/v1/me` endpoints.
  * TODO: replace with a `useUserProfile` hook backed by DelegoClient once the
- * user/preferences endpoints are implemented in @delego/sdk.
+ * user/preferences endpoints are implemented in @delegolabs/sdk.
  */
 const PLACEHOLDER_USER: User = {
   id: "user-placeholder",

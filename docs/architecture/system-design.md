@@ -2,6 +2,8 @@
 
 This document provides a detailed system design for the Delego platform, including architectural layers, communication patterns, and deployment topology.
 
+> **Repository layout**: The Delego platform is split across three repositories. This repo contains the web application (`apps/frontend`) and UI package (`packages/ui`). Backend microservices live in [DelegoLabs/Delego-backend](https://github.com/DelegoLabs/Delego-backend) and Soroban contracts in [DelegoLabs/Delego-contracts](https://github.com/DelegoLabs/Delego-contracts). Components referenced below as `apps/backend/*` and `contracts/*` reside in those repos.
+
 ## 📋 Table of Contents
 
 - [Overview](#overview)
@@ -45,7 +47,7 @@ The presentation layer handles user interaction and UI rendering.
 - **Web**: Next.js, React, Tailwind CSS
 - **Mobile**: React Native (Planned)
 - **State Management**: React Context, Zustand
-- **API Client**: Axios, @delego/sdk
+- **API Client**: Axios, @delegolabs/sdk
 
 #### Key Considerations
 
