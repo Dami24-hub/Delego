@@ -1,6 +1,5 @@
 "use client";
 
-import { useState } from "react";
 import { Card, Button } from "@delegolabs/ui";
 
 export interface OnboardingStepProps {
