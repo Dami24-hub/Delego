@@ -47,6 +47,7 @@ The web app will be available at http://localhost:3001
 - `/delegations` - Delegation management
 - `/approvals` - Pending approvals
 - `/orders` - Order history and tracking
+- `/tracking` - Per-order status timelines
 - `/escrows` - Escrow tracking
 - `/wallet` - Wallet management
 - `/analytics` - Spending analytics
@@ -85,7 +86,6 @@ The app consumes shared packages:
 - **@delegolabs/ui** — Shared React components (local workspace package)
 - **@delegolabs/sdk** — API client SDK (GitHub Packages)
 - **@delegolabs/types** — Shared TypeScript types (GitHub Packages)
-- **@delegolabs/utils** — Shared utility functions (GitHub Packages)
 
 ## Documentation
 

@@ -6,7 +6,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Stellar](https://img.shields.io/badge/Stellar-Soroban-blue)](https://soroban.stellar.org/)
-[![TypeScript](https://img.shields.io/badge/TypeScript-5.0-blue)](https://www.typescriptlang.org/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.7-blue)](https://www.typescriptlang.org/)
 [![Next.js](https://img.shields.io/badge/Next.js-15-black)](https://nextjs.org/)
 
 </div>
@@ -19,7 +19,7 @@ The backend microservices and Soroban smart contracts live in separate repositor
 
 - **Backend services**: [DelegoLabs/Delego-backend](https://github.com/DelegoLabs/Delego-backend)
 - **Smart contracts**: [DelegoLabs/Delego-contracts](https://github.com/DelegoLabs/Delego-contracts)
-- **Shared packages** (`@delegolabs/sdk`, `@delegolabs/types`, `@delegolabs/utils`): published to GitHub Packages
+- **Shared packages** (`@delegolabs/sdk`, `@delegolabs/types`): published to GitHub Packages
 
 ### 🎯 Key Features
 
@@ -53,11 +53,11 @@ Open http://localhost:3001
 
 - **Node.js** >= 20.0.0
 - **pnpm** >= 9.0.0
-- A **GitHub token** with read access to the `DelegoLabs` packages on GitHub Packages (see [Authentication](#-authentication))
+- A **GitHub token** with read access to the `DelegoLabs` packages on GitHub Packages (see [Authentication](#authentication))
 
 ## 🔐 Authentication
 
-The app depends on the private packages `@delegolabs/sdk`, `@delegolabs/types`, and `@delegolabs/utils` from GitHub Packages. Configure a token in your user-level `.npmrc`:
+The app depends on the private packages `@delegolabs/sdk` and `@delegolabs/types` from GitHub Packages. Configure a token in your user-level `.npmrc`:
 
 ```bash
 # ~/.npmrc
@@ -74,8 +74,7 @@ delego/
 │       ├── app/           # App Router routes
 │       ├── components/    # React components
 │       ├── hooks/         # React hooks
-│       ├── lib/           # Utilities and helpers
-│       ├── services/      # API service clients
+│       ├── lib/           # Utilities, helpers, and API client (lib/api.ts)
 │       └── tests/         # Test suites
 ├── packages/
 │   └── ui/                # Shared React component library (@delegolabs/ui)
@@ -94,7 +93,7 @@ delego/
 | `pnpm build` | Build the UI package and web app |
 | `pnpm typecheck` | Type-check all TypeScript projects |
 | `pnpm lint` | Run ESLint |
-| `pnpm format` | Format code with Prettier |
+| `pnpm --filter @delegolabs/web format` | Format code with Prettier |
 | `pnpm test` | Run all test suites |
 
 ## 🧪 Testing
@@ -103,10 +102,8 @@ delego/
 # Run all tests
 pnpm test
 
-# Run specific suites
-pnpm test:unit
-pnpm test:watch
-pnpm test:coverage
+# Run in watch mode
+pnpm --filter @delegolabs/web exec vitest
 ```
 
 ## 🏛️ Architecture
@@ -134,7 +131,7 @@ pnpm test:coverage
 └──────────────────────────────────────────────┘
 ```
 
-Shared SDK and types (`@delegolabs/sdk`, `@delegolabs/types`, `@delegolabs/utils`) are consumed from GitHub Packages; the UI package (`@delegolabs/ui`) is a local workspace package.
+Shared SDK and types (`@delegolabs/sdk`, `@delegolabs/types`) are consumed from GitHub Packages; the UI package (`@delegolabs/ui`) is a local workspace package.
 
 ## 🤝 Contributing
 

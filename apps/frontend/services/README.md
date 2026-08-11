@@ -1,5 +1,5 @@
 # Web Services
 
-Client-side service layer (API calls, wallet, local storage).
+Reserved for client-side service modules (API calls, wallet, local storage).
 
-Business logic belongs in backend services — keep this thin.
+The app's API client currently lives in [`lib/api.ts`](../lib/api.ts); business logic belongs in the backend services — keep this layer thin.

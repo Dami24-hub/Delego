@@ -13,6 +13,8 @@ This document tracks the deliverables for the Delego project grant, providing pr
 
 This document outlines the milestones and deliverables for the Delego project grant. Each milestone includes specific deliverables that must be completed to receive grant funding.
 
+> **Note**: The Delego platform is split across three repositories. The milestones below are tracked across all of them. This repository (`DelegoLabs/Delego`) contains the customer web MVP (M4) and UI package; backend and agents work (M1, M3, M5) is tracked in [DelegoLabs/Delego-backend](https://github.com/DelegoLabs/Delego-backend) and contract work (M2) in [DelegoLabs/Delego-contracts](https://github.com/DelegoLabs/Delego-contracts).
+
 ### Grant Information
 
 - **Grant Program**: Stellar Community Fund / Other
@@ -41,17 +43,17 @@ This document outlines the milestones and deliverables for the Delego project gr
 
 #### Deliverables
 
-- [x] Monorepo structure with pnpm workspaces
+- [x] pnpm workspace structure
 - [x] TypeScript configuration
-- [x] Docker Compose for local development
-- [x] Database schema and migrations
+- [x] Docker Compose for local development (moved to the backend repo)
+- [x] Database schema and migrations (moved to the backend repo)
 - [x] CI/CD pipeline setup
 - [x] Documentation structure
 
 #### Evidence
 
-- Repository: https://github.com/your-org/delego
-- Documentation: README.md, ARCHITECTURE.md
+- Repository: https://github.com/DelegoLabs/Delego
+- Documentation: README.md, docs/architecture/system-design.md
 - CI/CD: GitHub Actions workflows
 
 ### Milestone M1: Gateway + Wallet Skeleton
@@ -267,9 +269,9 @@ At the conclusion of the grant, a final report will include:
 For grant-related inquiries:
 
 - **Email**: grants@delego.dev
-- **GitHub**: https://github.com/your-org/delego
+- **GitHub**: https://github.com/DelegoLabs/Delego
 - **Discord**: [Link coming soon]
 
 ---
 
-**Last Updated**: June 2026
+**Last Updated**: August 2026

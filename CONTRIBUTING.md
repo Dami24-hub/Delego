@@ -43,33 +43,24 @@ Before you begin contributing, ensure you have the following installed:
 
 3. **Configure Environment**
    ```bash
-   cp .env.example .env
-   # Edit .env with your local configuration
+   cp .env.example .env.local
+   # Edit .env.local with your local configuration
    ```
 
-4. **Start Infrastructure**
-   ```bash
-   pnpm docker:up
-   ```
-
-5. **Run Database Migrations**
-   ```bash
-   pnpm db:migrate
-   pnpm db:seed
-   ```
-
-6. **Start Development Server**
+4. **Start Development Server**
    ```bash
    pnpm dev
    ```
 
-For detailed setup instructions, see [docs/contributor-guide.md](./docs/contributor-guide.md).
+Open http://localhost:3001
+
+> **Note**: This repo contains only the web application and UI package. The backend services and smart contracts live in [DelegoLabs/Delego-backend](https://github.com/DelegoLabs/Delego-backend) and [DelegoLabs/Delego-contracts](https://github.com/DelegoLabs/Delego-contracts). For a full local setup, also run the backend repo and point `NEXT_PUBLIC_API_URL` at its gateway.
 
 ## 🔄 Development Workflow
 
 ### 1. Choose an Issue
 
-- Browse [GitHub Issues](https://github.com/your-org/delego/issues) for open issues
+- Browse [GitHub Issues](https://github.com/DelegoLabs/Delego/issues) for open issues
 - Look for issues labeled `good first issue` if you're new to the project
 - Comment on the issue to claim it and ask questions if needed
 - Create a new issue if you've found a bug or have a feature request
@@ -113,19 +104,19 @@ footer
 
 Examples:
 ```
-feat(gateway): add JWT authentication middleware
+feat(delegations): add delegation creation form
 
-Implement JWT-based authentication for the API gateway.
-Includes token generation, validation, and refresh logic.
+Adds a form to create new agent delegations with spending limits.
+Includes validation and submission to the delegations API.
 
 Closes #123
 ```
 
 ```
-fix(agents): resolve memory leak in agent runtime
+fix(orders): correct status timeline sorting
 
-Fixed memory leak caused by unclosed agent sessions.
-Added proper cleanup in the agent shutdown process.
+Fixed the status timeline rendering out of order when multiple
+events share the same timestamp.
 
 Fixes #456
 ```
@@ -142,10 +133,8 @@ pnpm lint
 # Run tests
 pnpm test
 
-# Run specific test suites
-pnpm test:unit
-pnpm test:integration
-pnpm test:contracts
+# Run tests in watch mode
+pnpm --filter @delegolabs/web exec vitest
 ```
 
 ### 5. Submit a Pull Request
@@ -186,29 +175,13 @@ function getUserById(id: any): any {
 }
 ```
 
-### Rust (Soroban Contracts)
+### React
 
-- **Best Practices**: Follow Soroban best practices
-- **Error Handling**: Use `Result` types for error handling
-- **Testing**: Include comprehensive contract tests
-- **Documentation**: Document public functions and structs
-- **Safety**: Leverage Rust's safety features
-
-```rust
-// Good
-pub fn escrow_funds(env: Env, amount: i128) -> Result<(), Error> {
-    if amount <= 0 {
-        return Err(Error::InvalidAmount);
-    }
-    // Implementation
-    Ok(())
-}
-
-// Bad
-pub fn escrow_funds(env: Env, amount: i128) {
-    // Implementation without error handling
-}
-```
+- Use functional components with hooks
+- Follow the React Hooks rules (no conditional hooks)
+- Use the shared components from `@delegolabs/ui` where possible
+- Keep components focused and reusable
+- Follow accessibility best practices (semantic HTML, labels, keyboard navigation)
 
 ### General Guidelines
 
@@ -216,7 +189,7 @@ pub fn escrow_funds(env: Env, amount: i128) {
 - **Code Comments**: Add comments for complex logic, not obvious code
 - **Function Length**: Keep functions focused and reasonably short
 - **File Organization**: Group related functionality together
-- **Imports**: Organize imports logically (stdlib, external, internal)
+- **Imports**: Organize imports logically (external, internal, relative)
 
 ## 🎯 Project Areas
 
@@ -234,152 +207,44 @@ pub fn escrow_funds(env: Env, amount: i128) {
 - State management
 
 **Key Files:**
-- `app/` - Next.js app directory
+- `app/` - Next.js App Router routes
 - `components/` - React components
 - `hooks/` - Custom React hooks
+- `lib/api.ts` - API client
 
-### API Gateway (`apps/backend/gateway`)
+### Shared UI Package (`packages/ui`)
 
-**Tech Stack:** Node.js, Express/Fastify, TypeScript
-
-**Good First Issues:**
-- API endpoint implementation
-- Authentication middleware
-- Rate limiting improvements
-- Request validation
-- Error handling
-
-**Key Files:**
-- `routes/` - API route definitions
-- `middleware/` - Express middleware
-- `auth/` - Authentication logic
-
-### Orchestrator Service (`apps/backend/orchestrator`)
-
-**Tech Stack:** Node.js, TypeScript, XState
+**Tech Stack:** React, TypeScript
 
 **Good First Issues:**
-- Workflow state definitions
-- Event handling
-- Service orchestration
-- State machine transitions
+- Component design and implementation
+- Accessibility improvements
+- Testing
+- Theming and styling
 
 **Key Files:**
-- `workflows/` - Workflow definitions
-- `state/` - State machine logic
-- `execution/` - Workflow execution
+- `src/` - Components and hooks
 
-### Agents Service (`agents`)
-
-**Tech Stack:** Node.js, TypeScript, LLM APIs
-
-**Good First Issues:**
-- Agent prompt engineering
-- Tool implementation
-- Memory management
-- Response parsing
-
-**Key Files:**
-- `buyer-agent/` - Buyer agent implementation
-- `payment-agent/` - Payment agent implementation
-- `runtime/` - Agent runtime abstraction
-
-### Wallet Service (`apps/backend/wallet`)
-
-**Tech Stack:** Node.js, TypeScript, Stellar SDK
-
-**Good First Issues:**
-- Stellar account management
-- Soroban permission grants
-- Transaction signing
-- Balance tracking
-
-**Key Files:**
-- `stellar/` - Stellar integration
-- `soroban/` - Soroban contract interaction
-- `keys/` - Key management
-
-### Payments Service (`apps/backend/payments`)
-
-**Tech Stack:** Node.js, TypeScript, Soroban SDK
-
-**Good First Issues:**
-- Escrow coordination
-- Payment event processing
-- Settlement logic
-- Refund handling
-
-**Key Files:**
-- `escrow/` - Escrow contract coordination
-- `settlement/` - Settlement logic
-- `events/` - Payment event handling
-
-### Smart Contracts (`contracts/`)
-
-**Tech Stack:** Rust, Soroban SDK
-
-**Good First Issues:**
-- Contract function implementation
-- Test coverage
-- Documentation
-- Gas optimization
-
-**Key Files:**
-- `escrow/src/` - Escrow contract
-- `permissions/src/` - Permissions contract
-- `tests/` - Contract tests
-
-### Shared Packages (`packages/`)
-
-**Tech Stack:** TypeScript
-
-**Good First Issues:**
-- Type definitions
-- Utility functions
-- SDK methods
-- UI components
-
-**Key Files:**
-- `types/src/` - Shared TypeScript types
-- `utils/src/` - Utility functions
-- `sdk/src/` - API client SDK
-- `ui/src/` - React components
+The SDK, types, and utils packages are not developed in this repo; they are published to GitHub Packages (see `DelegoLabs/Delego-backend`).
 
 ## 🧪 Testing Guidelines
 
 ### Test Coverage
 
 - Aim for high test coverage on critical paths
-- Write unit tests for individual functions
-- Write integration tests for service interactions
-- Write contract tests for smart contracts
-- Write E2E tests for critical user flows
+- Write unit tests for individual functions and components
+- Write component tests with Vitest and Testing Library
 
 ### Test Structure
 
 ```typescript
-// Unit test example
-describe('UserService', () => {
-  describe('createUser', () => {
-    it('should create a new user with valid data', async () => {
-      const user = await userService.createUser({
-        name: 'Test User',
-        email: 'test@example.com',
-      });
-      
-      expect(user).toBeDefined();
-      expect(user.id).toBeDefined();
-      expect(user.email).toBe('test@example.com');
-    });
+// Component test example
+import { render, screen } from '@testing-library/react';
 
-    it('should throw error for duplicate email', async () => {
-      await expect(
-        userService.createUser({
-          name: 'Test User',
-          email: 'existing@example.com',
-        })
-      ).rejects.toThrow('Email already exists');
-    });
+describe('DelegationCard', () => {
+  it('renders the delegation status', () => {
+    render(<DelegationCard status="active" />);
+    expect(screen.getByText('Active')).toBeDefined();
   });
 });
 ```
@@ -390,27 +255,19 @@ describe('UserService', () => {
 # Run all tests
 pnpm test
 
-# Run unit tests only
-pnpm test:unit
+# Run tests for a specific package
+pnpm --filter @delegolabs/web test
+pnpm --filter @delegolabs/ui test
 
-# Run integration tests only
-pnpm test:integration
-
-# Run contract tests only
-pnpm test:contracts
-
-# Run tests with coverage
-pnpm test:coverage
-
-# Run tests in watch mode
-pnpm test:watch
+# Run in watch mode
+pnpm --filter @delegolabs/web exec vitest
 ```
 
 ## 📚 Documentation
 
 ### When to Update Documentation
 
-- Adding new features or services
+- Adding new features or pages
 - Changing existing APIs
 - Modifying architecture
 - Updating configuration
@@ -419,12 +276,11 @@ pnpm test:watch
 ### Documentation Files
 
 - **README.md**: Project overview and quick start
-- **ARCHITECTURE.md**: System architecture details
 - **CONTRIBUTING.md**: Contribution guidelines (this file)
 - **docs/**: Detailed documentation
-  - `docs/architecture/`: Technical architecture
-  - `docs/api-reference.md`: API documentation
-  - `docs/contributor-guide.md`: Contributor guide
+  - `docs/architecture/system-design.md`: System design
+  - `docs/vision.md`: Product vision
+  - `docs/grant-deliverables.md`: Grant deliverables
 
 ### Documentation Style
 
@@ -450,8 +306,7 @@ pnpm test:watch
    - [ ] Test coverage maintained or improved
 
 3. **Documentation**
-   - [ ] README updated if adding new service/package
-   - [ ] API documentation updated if changing APIs
+   - [ ] README updated if adding a new page or component
    - [ ] Comments added for complex logic
 
 4. **Commit Messages**
@@ -493,31 +348,31 @@ When reporting a bug, include:
 6. **Environment Details**:
    - OS: [e.g., macOS, Ubuntu, Windows]
    - Node version: [e.g., 20.0.0]
-   - pnpm version: [e.g., 9.0.0]
    - Browser (if applicable): [e.g., Chrome 120]
 
 **Example:**
 ```
-Title: Wallet service fails to connect to Stellar testnet
+Title: Delegation list does not update after approving an order
 
 Description:
-The wallet service fails to connect when attempting to connect to Stellar testnet. The connection times out after 30 seconds.
+After approving an order in the approvals page, the delegations list
+on the home page still shows the old spending totals.
 
 Steps to Reproduce:
-1. Start the wallet service
-2. Attempt to connect to Stellar testnet
-3. Observe timeout error
+1. Create a delegation with a spending limit
+2. Approve an agent-initiated order against it
+3. Navigate to the home page
+4. Observe the delegation spending total is stale
 
 Expected Behavior:
-Service should successfully connect to Stellar testnet
+The delegation spending total reflects the approved order.
 
 Actual Behavior:
-Connection times out with error: "ETIMEDOUT"
+The total only updates after a full page reload.
 
 Environment:
 - OS: Ubuntu 22.04
 - Node: 20.0.0
-- pnpm: 9.0.0
 ```
 
 ### Feature Requests
@@ -575,10 +430,7 @@ Please read and follow our [Code of Conduct](./CODE_OF_CONDUCT.md).
 
 ### Recognition
 
-Contributors will be recognized in:
-- CONTRIBUTORS.md file
-- Release notes
-- Project documentation
+Contributors will be recognized in release notes and project documentation.
 
 ## 📞 Contact
 
@@ -589,10 +441,3 @@ Contributors will be recognized in:
 ## 🙏 Thank You
 
 Thank you for contributing to Delego! Your contributions help make AI-powered delegated commerce more accessible and secure for everyone.
-
----
-
-For more detailed information, see:
-- [Contributor Guide](./docs/contributor-guide.md)
-- [Architecture Documentation](./ARCHITECTURE.md)
-- [API Reference](./docs/api-reference.md)

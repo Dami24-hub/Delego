@@ -4,7 +4,7 @@ This directory contains shared libraries consumed by the Delego web application.
 
 ## Overview
 
-This repository currently hosts one local workspace package. The SDK, types, and utilities packages are published to GitHub Packages and consumed as regular dependencies.
+This repository currently hosts one local workspace package. The SDK and types packages are published to GitHub Packages and consumed by the web app as regular dependencies (the utils package is also published there, though not currently a dependency of the web app).
 
 ## Packages
 

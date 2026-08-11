@@ -16,7 +16,7 @@ This document provides a detailed system design for the Delego platform, includi
 
 ## Overview
 
-See [ARCHITECTURE.md](../../ARCHITECTURE.md) for the monorepo overview. This document focuses on the detailed system design, including layer separation, communication patterns, and deployment strategies.
+See [../README.md](../../README.md) for a platform overview. This document focuses on the detailed system design, including layer separation, communication patterns, and deployment strategies.
 
 ### Design Goals
 
@@ -30,7 +30,7 @@ See [ARCHITECTURE.md](../../ARCHITECTURE.md) for the monorepo overview. This doc
 
 ### Presentation Layer
 
-**Components**: `apps/frontend`, `apps/merchant`, `apps/mobile`
+**Components**: `apps/frontend` (merchant and mobile apps are planned, not yet implemented)
 
 The presentation layer handles user interaction and UI rendering.
 
@@ -46,8 +46,8 @@ The presentation layer handles user interaction and UI rendering.
 
 - **Web**: Next.js, React, Tailwind CSS
 - **Mobile**: React Native (Planned)
-- **State Management**: React Context, Zustand
-- **API Client**: Axios, @delegolabs/sdk
+- **State Management**: React Context + Hooks
+- **API Client**: @delegolabs/sdk
 
 #### Key Considerations
 
@@ -73,7 +73,7 @@ The API layer provides a unified API entry point for all clients.
 
 #### Technologies
 
-- **Framework**: Express/Fastify
+- **Framework**: Node.js HTTP server (`@delegolabs/utils`)
 - **Authentication**: JWT
 - **Rate Limiting**: Redis
 - **Documentation**: OpenAPI/Swagger
@@ -88,7 +88,7 @@ The API layer provides a unified API entry point for all clients.
 
 ### Application Layer
 
-**Components**: `apps/backend/orchestrator`, `agents`
+**Components**: `apps/backend/orchestrator`, `agents` (in [DelegoLabs/Delego-backend](https://github.com/DelegoLabs/Delego-backend))
 
 The application layer contains business logic and workflow orchestration.
 
@@ -103,7 +103,7 @@ The application layer contains business logic and workflow orchestration.
 #### Technologies
 
 - **Framework**: Node.js with TypeScript
-- **State Machine**: XState
+- **State Machine**: Custom XState-style state machine (no external dependency)
 - **Event Bus**: Redis Pub/Sub
 - **Workflow Engine**: Custom orchestrator
 
@@ -160,7 +160,7 @@ The infrastructure layer provides foundational services.
 
 #### Technologies
 
-- **Database**: PostgreSQL 15
+- **Database**: PostgreSQL 16
 - **Cache**: Redis 7
 - **Blockchain**: Stellar, Soroban
 - **Storage**: S3 (Planned)
@@ -299,7 +299,7 @@ Service → Wallet Service → Soroban RPC → Smart Contract
 │       └──────────────┼─────────────────┘
 │                      ▼                 │
 │  ┌──────────────────────────────┐     │
-│  │    Docker Compose           │     │
+│  │    Docker Compose (backend)   │     │
 │  │  ┌────────┐  ┌────────┐      │     │
 │  │  │  Postgres │  │ Redis  │      │     │
 │  │  └────────┘  └────────┘      │     │
@@ -485,4 +485,4 @@ Disaster recovery procedures:
 
 ---
 
-**Last Updated**: June 2026
+**Last Updated**: August 2026

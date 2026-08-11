@@ -1,6 +1,6 @@
 # Delego Documentation
 
-This directory contains comprehensive documentation for the Delego platform, covering product vision, technical architecture, API references, and contributor guidelines.
+This directory contains documentation for the Delego platform, covering product vision, technical architecture, grant deliverables, and pointers to contributor resources.
 
 ## 📋 Table of Contents
 
@@ -94,26 +94,7 @@ The architecture directory contains detailed technical documentation:
 - Deployment architecture
 - Scalability considerations
 
-#### Agent Architecture ([architecture/agents.md](./architecture/agents.md))
-
-- Agent types and roles
-- Runtime architecture
-- Tool registry
-- Memory management
-
-#### Contract Architecture ([architecture/contracts.md](./architecture/contracts.md))
-
-- Smart contract overview
-- Contract interactions
-- State management
-- Upgrade patterns
-
-#### Wallet Architecture ([architecture/wallet.md](./architecture/wallet.md))
-
-- Wallet service design
-- Key management
-- Stellar integration
-- Soroban permissions
+> Agent, wallet, and contract architecture are documented in their respective repositories: [DelegoLabs/Delego-backend](https://github.com/DelegoLabs/Delego-backend) and [DelegoLabs/Delego-contracts](https://github.com/DelegoLabs/Delego-contracts).
 
 ## Contributor Documentation
 
@@ -288,4 +269,4 @@ We welcome feedback on documentation quality:
 
 ---
 
-**Last Updated**: June 2026
+**Last Updated**: August 2026
