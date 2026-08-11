@@ -124,6 +124,7 @@ export function DelegationQR({
         Delegation QR Code
       </h3>
       {qrDataUrl && (
+        // eslint-disable-next-line @next/next/no-img-element -- QR code is a data URL; next/image optimization is unnecessary
         <img
           src={qrDataUrl}
           alt="Delegation QR Code"

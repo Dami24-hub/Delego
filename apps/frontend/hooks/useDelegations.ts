@@ -165,7 +165,7 @@ export function useDelegations(): UseDelegationsResult {
         return null;
       }
     },
-    []
+    [setPending]
   );
 
   const updateDelegation = useCallback(
@@ -205,7 +205,7 @@ export function useDelegations(): UseDelegationsResult {
         return null;
       }
     },
-    [delegations]
+    [delegations, setPending]
   );
 
   const revokeDelegation = useCallback(
@@ -231,7 +231,7 @@ export function useDelegations(): UseDelegationsResult {
         return false;
       }
     },
-    [delegations]
+    [delegations, setPending]
   );
 
   useEffect(() => {
