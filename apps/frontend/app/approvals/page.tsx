@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { Button, Card } from "@delegolabs/ui";
 import { useOrders } from "../../hooks/useOrders";
+import { useAnnounce } from "../../hooks/useAnnounce";
 import { useNotifications } from "../../hooks/useNotifications";
 import { useApprovalHotkeys } from "../../hooks/useApprovalHotkeys";
 import { useApprovalNotifications } from "../../hooks/useApprovalNotifications";
@@ -29,9 +30,32 @@ export default function ApprovalsPage() {
   const { orders, loading, error, pendingIds, approveOrder, rejectOrder } = useOrders({
     pollIntervalMs: POLL_INTERVAL_MS,
   });
+  const { announce } = useAnnounce();
   const { add: addNotification } = useNotifications();
   const searchParams = useSearchParams();
   const now = useNow(DIGEST_CHECK_INTERVAL_MS);
+
+  const handleApprove = useCallback(
+    async (id: string) => {
+      const result = await approveOrder(id);
+      announce(
+        result ? `Order ${id} approved.` : `Failed to approve order ${id}.`
+      );
+      return result;
+    },
+    [approveOrder, announce]
+  );
+
+  const handleReject = useCallback(
+    async (id: string, reason?: string) => {
+      const result = await rejectOrder(id, reason);
+      announce(
+        result ? `Order ${id} rejected.` : `Failed to reject order ${id}.`
+      );
+      return result;
+    },
+    [rejectOrder, announce]
+  );
 
   const [oldestFirst, setOldestFirst] = useState(false);
   const [drawerOrderId, setDrawerOrderId] = useState<string | null>(null);
@@ -62,8 +86,8 @@ export default function ApprovalsPage() {
   const { focusedId, setFocusedId, showCheatSheet, setShowCheatSheet, undoAction, dismissUndo } =
     useApprovalHotkeys({
       itemIds,
-      onApprove: approveOrder,
-      onReject: rejectOrder,
+      onApprove: handleApprove,
+      onReject: handleReject,
       onOpenDrawer: setDrawerOrderId,
       disabled: drawerOrderId !== null,
     });
@@ -155,8 +179,8 @@ export default function ApprovalsPage() {
               <ApprovalCard
                 order={order}
                 pending={pendingIds.has(order.id)}
-                onApprove={approveOrder}
-                onReject={rejectOrder}
+                onApprove={handleApprove}
+                onReject={handleReject}
               />
             </div>
           ))}
@@ -166,8 +190,8 @@ export default function ApprovalsPage() {
       <ApprovalDrawer
         order={drawerOrder}
         pending={drawerOrderId ? pendingIds.has(drawerOrderId) : false}
-        onApprove={approveOrder}
-        onReject={rejectOrder}
+        onApprove={handleApprove}
+        onReject={handleReject}
         onClose={() => setDrawerOrderId(null)}
       />
 

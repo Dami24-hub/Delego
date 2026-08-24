@@ -1,12 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Button } from "@delegolabs/ui";
 import { useDelegations } from "../../hooks/useDelegations";
 import { useWallet } from "../../hooks/useWallet";
 import { DelegationForm } from "../../components/delegations/DelegationForm";
 import { DelegationList } from "../../components/delegations/DelegationList";
 import { NotificationPermissionPrompt } from "../../components/notifications/NotificationPermissionPrompt";
+import { OPEN_DELEGATION_FORM_KEY } from "../../lib/delegationFormIntent";
 
 /** Delegation management page — create, view, edit, pause/resume, and revoke delegations. */
 export default function DelegationsPage() {
@@ -22,6 +23,18 @@ export default function DelegationsPage() {
   const { address } = useWallet();
   const [showForm, setShowForm] = useState(false);
   const [showNotifyPrompt, setShowNotifyPrompt] = useState(false);
+
+  // Opened via the command palette's "New delegation" quick action.
+  useEffect(() => {
+    try {
+      if (window.sessionStorage.getItem(OPEN_DELEGATION_FORM_KEY)) {
+        window.sessionStorage.removeItem(OPEN_DELEGATION_FORM_KEY);
+        setShowForm(true);
+      }
+    } catch {
+      // sessionStorage may be unavailable (private mode) — just skip auto-open.
+    }
+  }, []);
 
   const handleCreate = async (input: Parameters<typeof createDelegation>[0]) => {
     const wasFirstDelegation = delegations.length === 0;

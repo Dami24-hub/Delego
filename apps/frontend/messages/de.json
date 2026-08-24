@@ -1,0 +1,40 @@
+{
+  "app": {
+    "brand": "Delego",
+    "tagline": "Delegiere Einkäufe an KI-Agenten mit Ausgabenkontrolle"
+  },
+  "nav": {
+    "dashboard": "Übersicht",
+    "delegations": "Delegationen",
+    "orders": "Bestellungen",
+    "approvals": "Genehmigungen",
+    "tracking": "Sendungsverfolgung",
+    "analytics": "Analytik",
+    "wallet": "Wallet",
+    "settings": "Einstellungen",
+    "openMenu": "Navigationsmenü öffnen",
+    "closeMenu": "Navigationsmenü schließen",
+    "primaryNavigation": "Hauptnavigation"
+  },
+  "common": {
+    "cancel": "Abbrechen",
+    "save": "Speichern",
+    "saving": "Wird gespeichert…",
+    "submit": "Absenden",
+    "close": "Schließen",
+    "loading": "Wird geladen…"
+  },
+  "delegations": {
+    "wizard": {
+      "title": "Neue Delegation erteilen",
+      "submit": "Delegation erstellen",
+      "submitting": "Wird erstellt…"
+    }
+  },
+  "settings": {
+    "language": {
+      "label": "Sprache",
+      "hint": "Wähle die im gesamten App verwendete Sprache"
+    }
+  }
+}

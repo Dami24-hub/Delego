@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { navItems } from "./navItems";
 
 /**
@@ -11,10 +12,12 @@ import { navItems } from "./navItems";
  */
 export function Sidebar() {
   const pathname = usePathname();
+  const t = useTranslations("nav");
+  const tApp = useTranslations("app");
 
   return (
-    <aside className="sidebar" aria-label="Primary navigation">
-      <p className="sidebar-brand">Delego</p>
+    <aside className="sidebar" aria-label={t("primaryNavigation")}>
+      <p className="sidebar-brand">{tApp("brand")}</p>
       <nav>
         <ul className="nav-list">
           {navItems.map((item) => {
@@ -32,7 +35,7 @@ export function Sidebar() {
                   <span className="nav-icon" aria-hidden="true">
                     {item.icon}
                   </span>
-                  {item.label}
+                  {t(item.labelKey)}
                 </Link>
               </li>
             );

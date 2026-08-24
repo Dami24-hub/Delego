@@ -1,0 +1,106 @@
+import { render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import { describe, expect, it, vi } from "vitest";
+import { NotificationCenter } from "./NotificationCenter";
+
+const mockUseNotifications = vi.fn();
+
+vi.mock("../../hooks/useNotifications", async () => {
+  const actual = await vi.importActual<typeof import("../../hooks/useNotifications")>(
+    "../../hooks/useNotifications"
+  );
+  return {
+    ...actual,
+    useNotifications: () => mockUseNotifications(),
+  };
+});
+
+function baseState(overrides: Record<string, unknown> = {}) {
+  return {
+    notifications: [],
+    unreadCount: 0,
+    markAllAsRead: vi.fn(),
+    clearAll: vi.fn(),
+    markAsRead: vi.fn(),
+    remove: vi.fn(),
+    ...overrides,
+  };
+}
+
+describe("NotificationCenter", () => {
+  it("renders as a labelled, modal dialog", () => {
+    mockUseNotifications.mockReturnValue(baseState());
+    render(<NotificationCenter onClose={() => {}} />);
+
+    const dialog = screen.getByRole("dialog", { name: /notifications/i });
+    expect(dialog).toHaveAttribute("aria-modal", "true");
+  });
+
+  it("moves initial focus into the panel", () => {
+    mockUseNotifications.mockReturnValue(
+      baseState({
+        notifications: [
+          {
+            id: "1",
+            type: "info",
+            title: "Hello",
+            createdAt: Date.now(),
+            read: false,
+          },
+        ],
+      })
+    );
+    render(<NotificationCenter onClose={() => {}} />);
+
+    expect(screen.getByRole("button", { name: /mark all read/i })).toHaveFocus();
+  });
+
+  it("falls back to focusing the panel container when empty (all action buttons disabled)", () => {
+    mockUseNotifications.mockReturnValue(baseState());
+    render(<NotificationCenter onClose={() => {}} />);
+
+    expect(screen.getByRole("dialog", { name: /notifications/i })).toHaveFocus();
+  });
+
+  it("traps Tab focus within the panel", async () => {
+    const user = userEvent.setup();
+    mockUseNotifications.mockReturnValue(
+      baseState({
+        notifications: [
+          {
+            id: "1",
+            type: "info",
+            title: "Hello",
+            createdAt: Date.now(),
+            read: false,
+          },
+        ],
+      })
+    );
+    render(<NotificationCenter onClose={() => {}} />);
+
+    const markAllRead = screen.getByRole("button", { name: /mark all read/i });
+    expect(markAllRead).toHaveFocus();
+
+    await user.tab({ shift: true });
+    const focusables = document.querySelectorAll<HTMLElement>(
+      "button:not([disabled]), a[href]"
+    );
+    expect(focusables[focusables.length - 1]).toHaveFocus();
+  });
+
+  it("restores focus to the previously focused element on unmount", () => {
+    mockUseNotifications.mockReturnValue(baseState());
+
+    const trigger = document.createElement("button");
+    document.body.appendChild(trigger);
+    trigger.focus();
+
+    const { unmount } = render(<NotificationCenter onClose={() => {}} />);
+    expect(screen.getByRole("dialog", { name: /notifications/i })).toHaveFocus();
+
+    unmount();
+    expect(trigger).toHaveFocus();
+    trigger.remove();
+  });
+});

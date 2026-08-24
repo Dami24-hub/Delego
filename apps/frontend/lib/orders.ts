@@ -10,9 +10,13 @@ import type { ActivityTimelineEvent } from "@delegolabs/ui";
 
 const STROOPS_PER_XLM = 10_000_000;
 
-/** Format a stroops amount as a human-readable XLM string (2 decimal places). */
-export function formatXlm(stroops: bigint): string {
-  return (Number(stroops) / STROOPS_PER_XLM).toLocaleString(undefined, {
+/**
+ * Format a stroops amount as a human-readable XLM string (2 decimal places).
+ * Pass the active app locale (from `useLocale()`) to format per the user's
+ * selected language instead of the browser default — see lib/intl.ts.
+ */
+export function formatXlm(stroops: bigint, locale?: string): string {
+  return (Number(stroops) / STROOPS_PER_XLM).toLocaleString(locale, {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   });
