@@ -8,6 +8,7 @@ import { WalletConnectButton } from "../wallet/WalletConnectButton";
 import { NetworkToggle } from "../network/NetworkToggle";
 import { NotificationBell } from "../notifications/NotificationBell";
 import { ThemeToggle } from "./ThemeToggle";
+import { CommandPaletteTrigger } from "../command-palette/CommandPaletteTrigger";
 
 /**
  * Top application bar.
@@ -34,6 +35,8 @@ export function Header() {
       <p className="app-header-brand">{tApp("brand")}</p>
 
       <GlobalSearch />
+
+      <CommandPaletteTrigger />
 
       <div className="app-header-spacer" />
 
