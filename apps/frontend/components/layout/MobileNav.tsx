@@ -3,6 +3,7 @@
 import { useEffect, useRef } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { navItems } from "./navItems";
 import { useFocusTrap } from "../../hooks/useFocusTrap";
 
@@ -20,6 +21,8 @@ export interface MobileNavProps {
 export function MobileNav({ open, onClose }: MobileNavProps) {
   const pathname = usePathname();
   const panelRef = useRef<HTMLDivElement>(null);
+  const t = useTranslations("nav");
+  const tApp = useTranslations("app");
 
   useFocusTrap(panelRef, open);
 
@@ -53,19 +56,19 @@ export function MobileNav({ open, onClose }: MobileNavProps) {
         className={`mobile-nav-panel${open ? " open" : ""}`}
         role="dialog"
         aria-modal="true"
-        aria-label="Primary navigation"
+        aria-label={t("primaryNavigation")}
         aria-hidden={!open}
         tabIndex={-1}
       >
         <div className="mobile-nav-header">
           <span className="sidebar-brand" style={{ margin: 0, padding: 0 }}>
-            Delego
+            {tApp("brand")}
           </span>
           <button
             type="button"
             className="mobile-nav-close"
             onClick={onClose}
-            aria-label="Close navigation menu"
+            aria-label={t("closeMenu")}
           >
             ×
           </button>
@@ -89,7 +92,7 @@ export function MobileNav({ open, onClose }: MobileNavProps) {
                     <span className="nav-icon" aria-hidden="true">
                       {item.icon}
                     </span>
-                    {item.label}
+                    {t(item.labelKey)}
                   </Link>
                 </li>
               );

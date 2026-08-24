@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import type { FormEvent } from "react";
+import { useTranslations } from "next-intl";
 import { Button, Card, FormField, StroopsInput } from "@delegolabs/ui";
 import type {
   CreateDelegationInput,
@@ -48,17 +49,20 @@ export function DelegationForm({
   const [expiresAt, setExpiresAt] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
+  const t = useTranslations("delegations.wizard");
+  const tCommon = useTranslations("common");
+  const tForms = useTranslations("forms");
 
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setFormError(null);
 
     if (!agentId.trim() || !walletId.trim() || !label.trim()) {
-      setFormError("Agent, wallet, and label are required");
+      setFormError(t("errors.missingFields"));
       return;
     }
     if (maxTotal <= 0n) {
-      setFormError("Total spending limit must be greater than zero");
+      setFormError(t("errors.invalidTotal"));
       return;
     }
 
@@ -90,7 +94,7 @@ export function DelegationForm({
       setExpiresAt("");
     } catch (err) {
       setFormError(
-        err instanceof Error ? err.message : "Failed to create delegation"
+        err instanceof Error ? err.message : t("errors.createFailed")
       );
     } finally {
       setSubmitting(false);
@@ -98,47 +102,47 @@ export function DelegationForm({
   };
 
   return (
-    <Card title="Grant a new delegation" ariaLabel="Create delegation">
+    <Card title={t("title")} ariaLabel={t("ariaLabel")}>
       <form className="settings-section" onSubmit={handleSubmit} noValidate>
         <FormField
-          label="Agent ID"
+          label={t("agentId.label")}
           required
-          hint="The AI agent that will receive this delegation"
+          hint={t("agentId.hint")}
           inputProps={{
             value: agentId,
             onChange: (e) => setAgentId(e.target.value),
-            placeholder: "agent-shopping-01",
+            placeholder: t("agentId.placeholder"),
             style: { width: "100%" },
           }}
         />
 
         <FormField
-          label="Wallet ID"
+          label={t("walletId.label")}
           required
-          hint="The Stellar wallet this delegation draws spending authority from"
+          hint={t("walletId.hint")}
           inputProps={{
             value: walletId,
             onChange: (e) => setWalletId(e.target.value),
-            placeholder: "wallet-id",
+            placeholder: t("walletId.placeholder"),
             style: { width: "100%" },
           }}
         />
 
         <FormField
-          label="Label"
+          label={t("label.label")}
           required
-          hint="A short name to identify this delegation"
+          hint={t("label.hint")}
           inputProps={{
             value: label,
             onChange: (e) => setLabel(e.target.value),
-            placeholder: "Groceries agent",
+            placeholder: t("label.placeholder"),
             style: { width: "100%" },
           }}
         />
 
         <div>
           <label htmlFor="permission-level" style={{ display: "block", fontWeight: 500, marginBottom: "0.5rem" }}>
-            Permission level
+            {t("permissionLevel.label")}
           </label>
           <select
             id="permission-level"
@@ -158,7 +162,7 @@ export function DelegationForm({
 
         <div>
           <label style={{ display: "block", fontWeight: 500, marginBottom: "0.5rem" }}>
-            Max per transaction
+            {t("maxPerTransaction.label")}
           </label>
           <StroopsInput
             value={maxPerTransaction}
@@ -169,7 +173,7 @@ export function DelegationForm({
 
         <div>
           <label style={{ display: "block", fontWeight: 500, marginBottom: "0.5rem" }}>
-            Max total spend
+            {t("maxTotal.label")}
           </label>
           <StroopsInput
             value={maxTotal}
@@ -179,30 +183,30 @@ export function DelegationForm({
         </div>
 
         <FormField
-          label="Allowed merchants"
-          hint="Comma-separated merchant IDs; leave blank to allow all"
+          label={t("allowedMerchants.label")}
+          hint={tForms("commaSeparatedHint")}
           inputProps={{
             value: allowedMerchants,
             onChange: (e) => setAllowedMerchants(e.target.value),
-            placeholder: "merchant-a, merchant-b",
+            placeholder: t("allowedMerchants.placeholder"),
             style: { width: "100%" },
           }}
         />
 
         <FormField
-          label="Allowed categories"
-          hint="Comma-separated category names; leave blank to allow all"
+          label={t("allowedCategories.label")}
+          hint={tForms("commaSeparatedHint")}
           inputProps={{
             value: allowedCategories,
             onChange: (e) => setAllowedCategories(e.target.value),
-            placeholder: "groceries, electronics",
+            placeholder: t("allowedCategories.placeholder"),
             style: { width: "100%" },
           }}
         />
 
         <FormField
-          label="Expires"
-          hint="Optional expiry date"
+          label={t("expiresAt.label")}
+          hint={t("expiresAt.hint")}
           inputProps={{
             type: "date",
             value: expiresAt,
@@ -219,11 +223,11 @@ export function DelegationForm({
 
         <div className="form-actions">
           <Button variant="primary" type="submit" disabled={submitting}>
-            {submitting ? "Creating…" : "Create delegation"}
+            {submitting ? t("submitting") : t("submit")}
           </Button>
           {onCancel && (
             <Button variant="ghost" type="button" onClick={onCancel}>
-              Cancel
+              {tCommon("cancel")}
             </Button>
           )}
         </div>

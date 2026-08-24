@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useTranslations } from "next-intl";
 import { GlobalSearch } from "../search/GlobalSearch";
 import { MobileNav } from "./MobileNav";
 import { WalletConnectButton } from "../wallet/WalletConnectButton";
@@ -15,6 +16,8 @@ import { ThemeToggle } from "./ThemeToggle";
  */
 export function Header() {
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
+  const t = useTranslations("nav");
+  const tApp = useTranslations("app");
 
   return (
     <header className="app-header">
@@ -22,13 +25,13 @@ export function Header() {
         type="button"
         className="hamburger"
         onClick={() => setMobileNavOpen(true)}
-        aria-label="Open navigation menu"
+        aria-label={t("openMenu")}
         aria-expanded={mobileNavOpen}
       >
         ☰
       </button>
 
-      <p className="app-header-brand">Delego</p>
+      <p className="app-header-brand">{tApp("brand")}</p>
 
       <GlobalSearch />
 

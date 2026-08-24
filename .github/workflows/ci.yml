@@ -47,6 +47,9 @@ jobs:
       - name: Run linter
         run: pnpm lint
 
+      - name: Check i18n message key parity
+        run: pnpm --filter @delegolabs/web check:i18n
+
   type-check:
     name: Type Check
     runs-on: ubuntu-latest
