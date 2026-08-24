@@ -11,6 +11,7 @@ import {
   type PreferencesFormValues,
 } from "../../components/settings/PreferencesForm";
 import { LanguageSwitcher } from "../../components/settings/LanguageSwitcher";
+import { PrivacyExportCard } from "../../components/settings/PrivacyExportCard";
 
 /**
  * Placeholder user + preferences until the API exposes `/api/v1/me` endpoints.
@@ -64,6 +65,7 @@ export default function SettingsPage() {
         onSave={handleSavePreferences}
       />
       <LanguageSwitcher />
+      <PrivacyExportCard user={user} preferences={preferences} />
     </div>
   );
 }
