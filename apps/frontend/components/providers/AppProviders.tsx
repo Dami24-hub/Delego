@@ -3,6 +3,7 @@
 import type { ReactNode } from "react";
 import { NetworkProvider } from "../../hooks/useNetwork";
 import { NotificationProvider } from "../../hooks/useNotifications";
+import { NetworkMismatchModal } from "../network/NetworkMismatchModal";
 
 /**
  * Client-side context providers shared across the app shell.
@@ -11,7 +12,11 @@ import { NotificationProvider } from "../../hooks/useNotifications";
 export function AppProviders({ children }: { children: ReactNode }) {
   return (
     <NetworkProvider>
-      <NotificationProvider>{children}</NotificationProvider>
+      <NotificationProvider>
+        {children}
+        <NetworkMismatchModal />
+      </NotificationProvider>
     </NetworkProvider>
   );
 }
+

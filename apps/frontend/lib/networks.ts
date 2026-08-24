@@ -74,3 +74,31 @@ export function isNetworkId(value: string): value is NetworkId {
 export function getNetworkConfig(id: NetworkId): NetworkConfig {
   return NETWORKS[id];
 }
+
+/**
+ * Match a Stellar network passphrase to a known NetworkConfig.
+ */
+export function findNetworkByPassphrase(
+  passphrase?: string | null
+): NetworkConfig | undefined {
+  if (!passphrase) return undefined;
+  return Object.values(NETWORKS).find(
+    (net) => net.networkPassphrase.trim() === passphrase.trim()
+  );
+}
+
+/**
+ * Match a Freighter network name ("TESTNET", "PUBLIC", etc.) to a known NetworkConfig.
+ */
+export function findNetworkByFreighterName(
+  freighterNetwork?: string | null
+): NetworkConfig | undefined {
+  if (!freighterNetwork) return undefined;
+  const normalized = freighterNetwork.trim().toUpperCase();
+  return Object.values(NETWORKS).find(
+    (net) =>
+      net.freighterNetwork === normalized ||
+      net.id.toUpperCase() === normalized
+  );
+}
+

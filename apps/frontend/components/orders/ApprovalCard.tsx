@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Button, Card } from "@delegolabs/ui";
 import type { Order } from "@delegolabs/types";
 import { formatXlm } from "../../lib/orders";
+import { useNetworkMismatch } from "../../hooks/useNetworkMismatch";
 
 export interface ApprovalCardProps {
   order: Order;
@@ -32,6 +33,12 @@ export function ApprovalCard({
 }: ApprovalCardProps) {
   const [rejecting, setRejecting] = useState(false);
   const [reason, setReason] = useState("");
+  const { isMismatched } = useNetworkMismatch();
+
+  const disabled = pending || isMismatched;
+  const mismatchTitle = isMismatched
+    ? "Cannot execute action while wallet and app network are mismatched"
+    : undefined;
 
   return (
     <Card
@@ -98,14 +105,16 @@ export function ApprovalCard({
           <Button
             variant="primary"
             onClick={() => onApprove(order.id)}
-            disabled={pending}
+            disabled={disabled}
+            title={mismatchTitle}
           >
             Approve
           </Button>
           <Button
             variant="ghost"
             onClick={() => setRejecting(true)}
-            disabled={pending}
+            disabled={disabled}
+            title={mismatchTitle}
           >
             Reject
           </Button>
@@ -125,12 +134,14 @@ export function ApprovalCard({
             onChange={(e) => setReason(e.target.value)}
             rows={2}
             placeholder="Why is this order being rejected?"
+            disabled={isMismatched}
           />
           <div className="form-actions">
             <Button
               variant="primary"
               onClick={() => onReject(order.id, reason.trim() || undefined)}
-              disabled={pending}
+              disabled={disabled}
+              title={mismatchTitle}
             >
               Confirm rejection
             </Button>
@@ -140,7 +151,8 @@ export function ApprovalCard({
                 setRejecting(false);
                 setReason("");
               }}
-              disabled={pending}
+              disabled={disabled}
+              title={mismatchTitle}
             >
               Cancel
             </Button>

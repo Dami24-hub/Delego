@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Button } from "@delegolabs/ui";
 import { useDelegations } from "../../hooks/useDelegations";
 import { useWallet } from "../../hooks/useWallet";
+import { useNetworkMismatch } from "../../hooks/useNetworkMismatch";
 import { DelegationForm } from "../../components/delegations/DelegationForm";
 import { DelegationList } from "../../components/delegations/DelegationList";
 
@@ -19,6 +20,7 @@ export default function DelegationsPage() {
     revokeDelegation,
   } = useDelegations();
   const { address } = useWallet();
+  const { isMismatched } = useNetworkMismatch();
   const [showForm, setShowForm] = useState(false);
 
   const handleCreate = async (input: Parameters<typeof createDelegation>[0]) => {
@@ -42,7 +44,16 @@ export default function DelegationsPage() {
       )}
 
       <div className="form-actions">
-        <Button variant="primary" onClick={() => setShowForm((v) => !v)}>
+        <Button
+          variant="primary"
+          onClick={() => setShowForm((v) => !v)}
+          disabled={isMismatched && !showForm}
+          title={
+            isMismatched
+              ? "Cannot create delegation while wallet and app network are mismatched"
+              : undefined
+          }
+        >
           {showForm ? "Close" : "New delegation"}
         </Button>
       </div>

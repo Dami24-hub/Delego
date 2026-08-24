@@ -7,6 +7,7 @@ import type {
   CreateDelegationInput,
   DelegationPermissionLevel,
 } from "@delegolabs/types";
+import { useNetworkMismatch } from "../../hooks/useNetworkMismatch";
 
 const PERMISSION_LEVELS: DelegationPermissionLevel[] = [
   "VIEW_ONLY",
@@ -36,6 +37,7 @@ export function DelegationForm({
   onSubmit,
   onCancel,
 }: DelegationFormProps) {
+  const { isMismatched } = useNetworkMismatch();
   const [agentId, setAgentId] = useState("");
   const [walletId, setWalletId] = useState(defaultWalletId);
   const [label, setLabel] = useState("");
@@ -218,7 +220,16 @@ export function DelegationForm({
         )}
 
         <div className="form-actions">
-          <Button variant="primary" type="submit" disabled={submitting}>
+          <Button
+            variant="primary"
+            type="submit"
+            disabled={submitting || isMismatched}
+            title={
+              isMismatched
+                ? "Cannot create delegation while wallet and app network are mismatched"
+                : undefined
+            }
+          >
             {submitting ? "Creating…" : "Create delegation"}
           </Button>
           {onCancel && (
