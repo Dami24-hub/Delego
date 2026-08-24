@@ -4,6 +4,7 @@ import "../styles/globals.css";
 import { Sidebar } from "../components/layout/Sidebar";
 import { Header } from "../components/layout/Header";
 import { AppProviders } from "../components/providers/AppProviders";
+import { AnnouncementBanner } from "../components/announcements/AnnouncementBanner";
 
 export const metadata: Metadata = {
   title: {
@@ -23,6 +24,7 @@ export default function RootLayout({
       <body>
         <StrictMode>
           <AppProviders>
+            <AnnouncementBanner />
             <div className="app-shell">
               <Sidebar />
               <div className="app-main">
