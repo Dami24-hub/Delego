@@ -10,6 +10,7 @@ import {
   PreferencesForm,
   type PreferencesFormValues,
 } from "../../components/settings/PreferencesForm";
+import { LanguageSwitcher } from "../../components/settings/LanguageSwitcher";
 
 /**
  * Placeholder user + preferences until the API exposes `/api/v1/me` endpoints.
@@ -62,6 +63,7 @@ export default function SettingsPage() {
         preferences={preferences}
         onSave={handleSavePreferences}
       />
+      <LanguageSwitcher />
     </div>
   );
 }

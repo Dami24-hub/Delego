@@ -1,8 +1,9 @@
 "use client";
 
-import { useMemo } from "react";
+import { useCallback, useMemo } from "react";
 import { Card } from "@delegolabs/ui";
 import { useOrders } from "../../hooks/useOrders";
+import { useAnnounce } from "../../hooks/useAnnounce";
 import {
   HIGH_VALUE_THRESHOLD_STROOPS,
   formatXlm,
@@ -15,6 +16,27 @@ import { ApprovalCard } from "../../components/orders/ApprovalCard";
 export default function ApprovalsPage() {
   const { orders, loading, error, pendingIds, approveOrder, rejectOrder } =
     useOrders();
+  const { announce } = useAnnounce();
+
+  const handleApprove = useCallback(
+    async (id: string) => {
+      const result = await approveOrder(id);
+      announce(
+        result ? `Order ${id} approved.` : `Failed to approve order ${id}.`
+      );
+    },
+    [approveOrder, announce]
+  );
+
+  const handleReject = useCallback(
+    async (id: string, reason?: string) => {
+      const result = await rejectOrder(id, reason);
+      announce(
+        result ? `Order ${id} rejected.` : `Failed to reject order ${id}.`
+      );
+    },
+    [rejectOrder, announce]
+  );
 
   const queue = useMemo(
     () => orders.filter((order) => needsApproval(order)),
@@ -67,8 +89,8 @@ export default function ApprovalsPage() {
               key={order.id}
               order={order}
               pending={pendingIds.has(order.id)}
-              onApprove={approveOrder}
-              onReject={rejectOrder}
+              onApprove={handleApprove}
+              onReject={handleReject}
             />
           ))}
         </div>

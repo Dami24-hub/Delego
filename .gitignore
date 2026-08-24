@@ -30,6 +30,10 @@ pnpm-debug.log*
 # Test / coverage
 coverage/
 .nyc_output/
+test-results/
+playwright-report/
+blob-report/
+playwright/.cache/
 
 # Soroban
 .soroban/

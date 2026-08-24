@@ -9,6 +9,7 @@ import {
   useState,
 } from "react";
 import type { ReactNode } from "react";
+import { useAnnounce } from "./useAnnounce";
 
 export type NotificationType = "info" | "success" | "warning" | "error";
 
@@ -86,6 +87,7 @@ function loadStored(): AppNotification[] {
  */
 export function NotificationProvider({ children }: { children: ReactNode }) {
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
+  const { announce } = useAnnounce();
 
   useEffect(() => {
     setNotifications(loadStored());
@@ -125,8 +127,12 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
     setNotifications((prev) =>
       [entry, ...prev.filter((n) => n.id !== id)].slice(0, MAX_NOTIFICATIONS)
     );
+    announce(
+      entry.title,
+      entry.type === "error" ? "assertive" : "polite"
+    );
     return id;
-  }, []);
+  }, [announce]);
 
   const markAsRead = useCallback((id: string) => {
     setNotifications((prev) =>
