@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { renderHook } from "@testing-library/react";
 import type { Order } from "@delegolabs/types";
 import { NotificationProvider, useNotifications } from "./useNotifications";
+import { AnnounceProvider } from "./useAnnounce";
 import { useApprovalNotifications } from "./useApprovalNotifications";
 
 const notifyMock = vi.fn().mockReturnValue(false);
@@ -40,7 +41,11 @@ function renderBridge(initialQueue: Order[], initialLoading = false) {
     },
     {
       initialProps: { queue: initialQueue, loading: initialLoading },
-      wrapper: ({ children }) => <NotificationProvider>{children}</NotificationProvider>,
+      wrapper: ({ children }) => (
+        <AnnounceProvider>
+          <NotificationProvider>{children}</NotificationProvider>
+        </AnnounceProvider>
+      ),
     }
   );
 }

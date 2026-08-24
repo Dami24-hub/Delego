@@ -1414,6 +1414,10 @@ body {
 
 .friendbot-card h2 {
   margin: 0 0 0.35rem;
+  color: var(--color-text-primary);
+  font-size: 1rem;
+}
+
 /* ---------------------------------------------------------------------------
    Announcement banner
    Rendered above the app shell; never part of its grid, so opening/closing it
@@ -1610,6 +1614,9 @@ body {
   .friendbot-card {
     align-items: stretch;
     flex-direction: column;
+  }
+}
+
 .command-palette-input:focus {
   outline: none;
 }
