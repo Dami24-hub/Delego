@@ -106,7 +106,18 @@ jobs:
         run: pnpm --filter "./packages/*" --filter "./apps/frontend" build
 
       - name: Run tests
-        run: pnpm test
+        run: pnpm --filter "./packages/*" test
+
+      - name: Run frontend tests with coverage
+        run: pnpm --filter @delegolabs/web test:coverage
+
+      - name: Upload coverage report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: apps/frontend/coverage
+          retention-days: 7
 
   build:
     name: Build
