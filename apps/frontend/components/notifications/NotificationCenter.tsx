@@ -1,8 +1,10 @@
 "use client";
 
+import { useRef } from "react";
 import Link from "next/link";
 import type { AppNotification, NotificationType } from "../../hooks/useNotifications";
 import { useNotifications } from "../../hooks/useNotifications";
+import { useFocusTrap } from "../../hooks/useFocusTrap";
 
 const TYPE_ICON: Record<NotificationType, string> = {
   info: "ℹ️",
@@ -102,12 +104,18 @@ export interface NotificationCenterProps {
 export function NotificationCenter({ onClose }: NotificationCenterProps) {
   const { notifications, unreadCount, markAllAsRead, clearAll } =
     useNotifications();
+  const panelRef = useRef<HTMLDivElement>(null);
+
+  useFocusTrap(panelRef, true);
 
   return (
     <div
+      ref={panelRef}
       className="notification-center"
       role="dialog"
+      aria-modal="true"
       aria-label="Notifications"
+      tabIndex={-1}
     >
       <div className="notification-center-header">
         <span className="notification-center-title">

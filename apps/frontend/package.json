@@ -12,6 +12,7 @@
     "format": "prettier --write .",
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",
+    "test:e2e": "playwright test",
     "analyze": "ANALYZE=true pnpm build"
   },
   "dependencies": {
@@ -26,7 +27,9 @@
     "react-dom": "^19.0.0"
   },
   "devDependencies": {
+    "@axe-core/playwright": "^4.10.1",
     "@next/bundle-analyzer": "^15.1.0",
+    "@playwright/test": "^1.49.0",
     "@vitejs/plugin-react": "^4.3.4",
     "@testing-library/jest-dom": "^6.6.0",
     "@testing-library/react": "^16.0.0",

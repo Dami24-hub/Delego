@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { navItems } from "./navItems";
+import { useFocusTrap } from "../../hooks/useFocusTrap";
 
 export interface MobileNavProps {
   /** Whether the drawer is currently open */
@@ -18,6 +19,9 @@ export interface MobileNavProps {
  */
 export function MobileNav({ open, onClose }: MobileNavProps) {
   const pathname = usePathname();
+  const panelRef = useRef<HTMLDivElement>(null);
+
+  useFocusTrap(panelRef, open);
 
   // Close on Escape and lock body scroll while the drawer is open.
   useEffect(() => {
@@ -45,11 +49,13 @@ export function MobileNav({ open, onClose }: MobileNavProps) {
         aria-hidden="true"
       />
       <div
+        ref={panelRef}
         className={`mobile-nav-panel${open ? " open" : ""}`}
         role="dialog"
         aria-modal="true"
         aria-label="Primary navigation"
         aria-hidden={!open}
+        tabIndex={-1}
       >
         <div className="mobile-nav-header">
           <span className="sidebar-brand" style={{ margin: 0, padding: 0 }}>

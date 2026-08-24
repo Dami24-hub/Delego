@@ -2,11 +2,16 @@ import { describe, it, expect, beforeEach } from "vitest";
 import { renderHook, waitFor, act } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { NotificationProvider, useNotifications } from "./useNotifications";
+import { AnnounceProvider } from "./useAnnounce";
 
 const STORAGE_KEY = "delego_notifications";
 
 function wrapper({ children }: { children: ReactNode }) {
-  return <NotificationProvider>{children}</NotificationProvider>;
+  return (
+    <AnnounceProvider>
+      <NotificationProvider>{children}</NotificationProvider>
+    </AnnounceProvider>
+  );
 }
 
 describe("useNotifications", () => {
