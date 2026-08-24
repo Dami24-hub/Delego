@@ -4,6 +4,8 @@ import type { ReactNode } from "react";
 import { NetworkProvider } from "../../hooks/useNetwork";
 import { NotificationProvider } from "../../hooks/useNotifications";
 import { AnnounceProvider } from "../../hooks/useAnnounce";
+import { CurrencyProvider } from "../../hooks/useCurrency";
+import { MockApiProvider } from "./MockApiProvider";
 
 /**
  * Client-side context providers shared across the app shell.
@@ -11,10 +13,14 @@ import { AnnounceProvider } from "../../hooks/useAnnounce";
  */
 export function AppProviders({ children }: { children: ReactNode }) {
   return (
-    <NetworkProvider>
-      <AnnounceProvider>
-        <NotificationProvider>{children}</NotificationProvider>
-      </AnnounceProvider>
-    </NetworkProvider>
+    <MockApiProvider>
+      <NetworkProvider>
+        <CurrencyProvider>
+          <AnnounceProvider>
+            <NotificationProvider>{children}</NotificationProvider>
+          </AnnounceProvider>
+        </CurrencyProvider>
+      </NetworkProvider>
+    </MockApiProvider>
   );
 }

@@ -1,9 +1,10 @@
 "use client";
 
 import { useState } from "react";
-import { Button, Card, StroopsInput } from "@delegolabs/ui";
+import { Amount, Button, Card, StroopsInput } from "@delegolabs/ui";
 import type { Delegation, UpdateDelegationInput } from "@delegolabs/types";
 import { DelegationQR } from "./DelegationQR";
+import { useCurrency } from "../../hooks/useCurrency";
 
 export interface DelegationCardProps {
   delegation: Delegation;
@@ -11,10 +12,6 @@ export interface DelegationCardProps {
   pending?: boolean;
   onUpdate: (id: string, input: UpdateDelegationInput) => void | Promise<unknown>;
   onRevoke: (id: string) => void | Promise<unknown>;
-}
-
-function formatXlm(stroops: bigint): string {
-  return (Number(stroops) / 10_000_000).toFixed(2);
 }
 
 /** Single delegation card with pause/resume, inline policy editing, revoke, and QR sharing. */
@@ -34,6 +31,7 @@ export function DelegationCard({
     delegation.policy.allowedMerchants.join(", ")
   );
   const [saving, setSaving] = useState(false);
+  const { currencyId, rate } = useCurrency();
 
   const isRevoked = delegation.status === "revoked";
   const isExpired = delegation.status === "expired";
@@ -87,11 +85,23 @@ export function DelegationCard({
         <dl className="wallet-detail-list">
           <div className="wallet-detail-row">
             <dt>Max / transaction</dt>
-            <dd>{formatXlm(delegation.policy.maxPerTransaction)} XLM</dd>
+            <dd>
+              <Amount
+                stroops={delegation.policy.maxPerTransaction}
+                currency={currencyId}
+                xlmUsdRate={rate?.xlmUsdRate}
+              />
+            </dd>
           </div>
           <div className="wallet-detail-row">
             <dt>Total limit</dt>
-            <dd>{formatXlm(delegation.policy.maxTotal)} XLM</dd>
+            <dd>
+              <Amount
+                stroops={delegation.policy.maxTotal}
+                currency={currencyId}
+                xlmUsdRate={rate?.xlmUsdRate}
+              />
+            </dd>
           </div>
           <div className="wallet-detail-row">
             <dt>Merchants</dt>

@@ -1,4 +1,5 @@
 import type { Order, OrderStatus } from "@delegolabs/types";
+import { formatAmount, type FormatAmountContext } from "@delegolabs/ui";
 
 /**
  * Pure helpers for working with orders in the web app: formatting, filtering,
@@ -13,12 +14,13 @@ const STROOPS_PER_XLM = 10_000_000;
  * Format a stroops amount as a human-readable XLM string (2 decimal places).
  * Pass the active app locale (from `useLocale()`) to format per the user's
  * selected language instead of the browser default — see lib/intl.ts.
+ *
+ * Thin wrapper over the canonical `formatAmount` (FE-039, packages/ui) kept
+ * for call-site compatibility; prefer `formatAmount`/`<Amount>` directly for
+ * any new call site that needs the display-currency preference (useCurrency).
  */
 export function formatXlm(stroops: bigint, locale?: string): string {
-  return (Number(stroops) / STROOPS_PER_XLM).toLocaleString(locale, {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  });
+  return formatAmount(stroops, { locale } satisfies FormatAmountContext).value;
 }
 
 /** Human-friendly label for an order status (e.g. "pending_approval" -> "Pending approval"). */

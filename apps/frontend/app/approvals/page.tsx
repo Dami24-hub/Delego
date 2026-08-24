@@ -1,15 +1,11 @@
 "use client";
 
 import { useCallback, useMemo } from "react";
-import { Card } from "@delegolabs/ui";
+import { Amount, Card } from "@delegolabs/ui";
 import { useOrders } from "../../hooks/useOrders";
 import { useAnnounce } from "../../hooks/useAnnounce";
-import {
-  HIGH_VALUE_THRESHOLD_STROOPS,
-  formatXlm,
-  needsApproval,
-  sumOrderTotals,
-} from "../../lib/orders";
+import { useCurrency } from "../../hooks/useCurrency";
+import { HIGH_VALUE_THRESHOLD_STROOPS, needsApproval, sumOrderTotals } from "../../lib/orders";
 import { ApprovalCard } from "../../components/orders/ApprovalCard";
 
 /** Approval workflow — review and approve/reject high-value orders. */
@@ -17,6 +13,7 @@ export default function ApprovalsPage() {
   const { orders, loading, error, pendingIds, approveOrder, rejectOrder } =
     useOrders();
   const { announce } = useAnnounce();
+  const { currencyId, rate } = useCurrency();
 
   const handleApprove = useCallback(
     async (id: string) => {
@@ -49,8 +46,9 @@ export default function ApprovalsPage() {
       <header className="header">
         <h1>Approvals</h1>
         <p>
-          Review high-value orders (over {formatXlm(HIGH_VALUE_THRESHOLD_STROOPS)}{" "}
-          XLM) that require your sign-off before they proceed
+          Review high-value orders (over{" "}
+          <Amount stroops={HIGH_VALUE_THRESHOLD_STROOPS} currency={currencyId} xlmUsdRate={rate?.xlmUsdRate} />)
+          that require your sign-off before they proceed
         </p>
       </header>
 
@@ -66,7 +64,9 @@ export default function ApprovalsPage() {
           <p className="stat-label">High-value orders</p>
         </Card>
         <Card title="Value pending approval">
-          <p className="stat-value">{formatXlm(pendingValue)} XLM</p>
+          <p className="stat-value">
+            <Amount stroops={pendingValue} currency={currencyId} xlmUsdRate={rate?.xlmUsdRate} />
+          </p>
           <p className="stat-label">Across the queue</p>
         </Card>
       </div>
