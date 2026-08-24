@@ -2,6 +2,7 @@
 
 import { useMemo } from "react";
 import { useRouter } from "next/navigation";
+import { useTranslations } from "next-intl";
 import type { ApiResponse, Order } from "@delegolabs/types";
 import { useRegisterCommands, type Command } from "./useCommandRegistry";
 import { useNetwork } from "./useNetwork";
@@ -37,18 +38,22 @@ async function exportOrdersCsv(): Promise<void> {
  */
 export function useBuiltinCommands(): void {
   const router = useRouter();
+  const t = useTranslations("nav");
   const { networkId, networks, setNetwork } = useNetwork();
 
   const commands = useMemo<Command[]>(() => {
-    const navigateCommands: Command[] = navItems.map((item) => ({
-      id: `nav:${item.href}`,
-      label: `Go to ${item.label}`,
-      subtitle: item.href,
-      icon: item.icon,
-      keywords: [item.href, item.label],
-      group: "navigate",
-      perform: () => router.push(item.href),
-    }));
+    const navigateCommands: Command[] = navItems.map((item) => {
+      const label = t(item.labelKey);
+      return {
+        id: `nav:${item.href}`,
+        label: `Go to ${label}`,
+        subtitle: item.href,
+        icon: item.icon,
+        keywords: [item.href, label],
+        group: "navigate",
+        perform: () => router.push(item.href),
+      };
+    });
 
     const otherNetwork = networks.find((network) => network.id !== networkId);
 
@@ -93,7 +98,7 @@ export function useBuiltinCommands(): void {
       ...navigateCommands,
       ...actionCommands.filter((c): c is Command => Boolean(c)),
     ];
-  }, [router, networkId, networks, setNetwork]);
+  }, [router, t, networkId, networks, setNetwork]);
 
   useRegisterCommands(commands);
 }
