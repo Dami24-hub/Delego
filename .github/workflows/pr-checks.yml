@@ -9,6 +9,10 @@ permissions:
   issues: write
   contents: read
 
+concurrency:
+  group: pr-checks-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   pr-title-check:
     name: PR Title Check

@@ -3,8 +3,7 @@
 import type { ReactNode } from "react";
 import { NetworkProvider } from "../../hooks/useNetwork";
 import { NotificationProvider } from "../../hooks/useNotifications";
-import { ViewTransitions } from "./ViewTransitions";
-import { CommandPaletteProvider } from "../command-palette/CommandPaletteProvider";
+import { AnnounceProvider } from "../../hooks/useAnnounce";
 
 /**
  * Client-side context providers shared across the app shell.
@@ -13,12 +12,9 @@ import { CommandPaletteProvider } from "../command-palette/CommandPaletteProvide
 export function AppProviders({ children }: { children: ReactNode }) {
   return (
     <NetworkProvider>
-      <NotificationProvider>
-        <CommandPaletteProvider>
-          <ViewTransitions />
-          {children}
-        </CommandPaletteProvider>
-      </NotificationProvider>
+      <AnnounceProvider>
+        <NotificationProvider>{children}</NotificationProvider>
+      </AnnounceProvider>
     </NetworkProvider>
   );
 }

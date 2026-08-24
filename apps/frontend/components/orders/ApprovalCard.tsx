@@ -1,9 +1,11 @@
 "use client";
 
 import { useState } from "react";
+import { useLocale } from "next-intl";
 import { Button, Card } from "@delegolabs/ui";
 import type { Order } from "@delegolabs/types";
 import { formatXlm } from "../../lib/orders";
+import { formatDateTime } from "../../lib/intl";
 
 export interface ApprovalCardProps {
   order: Order;
@@ -11,13 +13,6 @@ export interface ApprovalCardProps {
   pending?: boolean;
   onApprove: (id: string) => void | Promise<unknown>;
   onReject: (id: string, reason?: string) => void | Promise<unknown>;
-}
-
-function formatDateTime(date: Date): string {
-  return date.toLocaleString(undefined, {
-    dateStyle: "medium",
-    timeStyle: "short",
-  });
 }
 
 /**
@@ -32,6 +27,7 @@ export function ApprovalCard({
 }: ApprovalCardProps) {
   const [rejecting, setRejecting] = useState(false);
   const [reason, setReason] = useState("");
+  const locale = useLocale();
 
   return (
     <Card
@@ -59,7 +55,7 @@ export function ApprovalCard({
         </div>
         <div className="wallet-detail-row">
           <dt>Requested</dt>
-          <dd>{formatDateTime(order.createdAt)}</dd>
+          <dd>{formatDateTime(order.createdAt, locale)}</dd>
         </div>
       </dl>
 
@@ -78,9 +74,9 @@ export function ApprovalCard({
               <tr key={item.productId}>
                 <td>{item.productId}</td>
                 <td>{item.quantity}</td>
-                <td>{formatXlm(item.unitPriceStroops)} XLM</td>
+                <td>{formatXlm(item.unitPriceStroops, locale)} XLM</td>
                 <td>
-                  {formatXlm(item.unitPriceStroops * BigInt(item.quantity))} XLM
+                  {formatXlm(item.unitPriceStroops * BigInt(item.quantity), locale)} XLM
                 </td>
               </tr>
             ))}
@@ -90,7 +86,7 @@ export function ApprovalCard({
 
       <div className="approval-total">
         <span>Total</span>
-        <strong>{formatXlm(order.totalStroops)} XLM</strong>
+        <strong>{formatXlm(order.totalStroops, locale)} XLM</strong>
       </div>
 
       {!rejecting ? (
