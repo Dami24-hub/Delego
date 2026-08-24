@@ -69,6 +69,7 @@ export function MobileNav({ open, onClose }: MobileNavProps) {
             className="mobile-nav-close"
             onClick={onClose}
             aria-label={t("closeMenu")}
+            tabIndex={open ? 0 : -1}
           >
             ×
           </button>

@@ -1,6 +1,7 @@
 import { getRequestConfig } from "next-intl/server";
 import { cookies, headers } from "next/headers";
 import { defaultLocale, isLocale, LOCALE_COOKIE, type Locale } from "./config";
+import { parseAcceptLanguage } from "../lib/acceptLanguage";
 
 /**
  * Resolves the active locale for a request: cookie first (set by the
@@ -14,7 +15,7 @@ async function resolveLocale(): Promise<Locale> {
 
   const headerStore = await headers();
   const acceptLanguage = headerStore.get("accept-language");
-  const preferred = acceptLanguage?.split(",")[0]?.trim().split("-")[0];
+  const preferred = parseAcceptLanguage(acceptLanguage);
   if (isLocale(preferred)) return preferred;
 
   return defaultLocale;

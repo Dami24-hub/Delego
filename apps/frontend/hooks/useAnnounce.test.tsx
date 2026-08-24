@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, act } from "@testing-library/react";
 import { AnnounceProvider, useAnnounce } from "./useAnnounce";
 
 function Announcer({ message, assertive = false }: { message: string; assertive?: boolean }) {
@@ -54,6 +54,42 @@ describe("useAnnounce", () => {
     await waitFor(() => {
       const assertiveRegion = document.querySelector('[aria-live="assertive"]');
       expect(assertiveRegion?.textContent).toBe("Something failed.");
+    });
+  });
+
+  it("keeps independent polite and assertive announcements from cancelling each other", async () => {
+    function DualAnnouncer() {
+      const { announce } = useAnnounce();
+      return (
+        <button
+          type="button"
+          onClick={() => {
+            announce("Order approved.", "polite");
+            announce("Something failed.", "assertive");
+          }}
+        >
+          Trigger both
+        </button>
+      );
+    }
+
+    render(
+      <AnnounceProvider>
+        <DualAnnouncer />
+      </AnnounceProvider>
+    );
+
+    await act(async () => {
+      screen.getByText("Trigger both").click();
+    });
+
+    await waitFor(() => {
+      expect(document.querySelector('[aria-live="polite"]')?.textContent).toBe(
+        "Order approved."
+      );
+      expect(document.querySelector('[aria-live="assertive"]')?.textContent).toBe(
+        "Something failed."
+      );
     });
   });
 

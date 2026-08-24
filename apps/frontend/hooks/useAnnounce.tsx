@@ -24,10 +24,12 @@ const AnnounceContext = createContext<AnnounceContextValue | null>(null);
 export function AnnounceProvider({ children }: { children: ReactNode }) {
   const [politeMessage, setPoliteMessage] = useState("");
   const [assertiveMessage, setAssertiveMessage] = useState("");
-  const timeoutRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const politeTimeoutRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const assertiveTimeoutRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
   const announce = useCallback((message: string, politeness: Politeness = "polite") => {
     const setMessage = politeness === "assertive" ? setAssertiveMessage : setPoliteMessage;
+    const timeoutRef = politeness === "assertive" ? assertiveTimeoutRef : politeTimeoutRef;
     setMessage("");
     if (timeoutRef.current) clearTimeout(timeoutRef.current);
     timeoutRef.current = setTimeout(() => setMessage(message), 50);

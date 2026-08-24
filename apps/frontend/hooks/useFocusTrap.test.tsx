@@ -105,4 +105,48 @@ describe("useFocusTrap", () => {
     await user.click(screen.getByText("Close"));
     expect(openButton).toHaveFocus();
   });
+
+  it("does not steal focus back when it already moved elsewhere before the trap deactivated", async () => {
+    function NavigatingDialog() {
+      const [open, setOpen] = useState(false);
+      const containerRef = useRef<HTMLDivElement>(null);
+      useFocusTrap(containerRef, open);
+
+      return (
+        <div>
+          <button type="button" onClick={() => setOpen(true)}>
+            Open
+          </button>
+          <a href="#elsewhere">Elsewhere on the page</a>
+          {open && (
+            <div ref={containerRef} role="dialog" tabIndex={-1}>
+              <button
+                type="button"
+                onClick={() => {
+                  // Simulate a link inside the dialog moving focus to a
+                  // destination element as part of navigating away, then
+                  // the dialog closing as a side effect (e.g. MobileNav's
+                  // nav links: onClick={onClose} alongside navigation).
+                  document.querySelector<HTMLAnchorElement>("a")?.focus();
+                  setOpen(false);
+                }}
+              >
+                Navigate away
+              </button>
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    const user = userEvent.setup();
+    render(<NavigatingDialog />);
+
+    const openButton = screen.getByText("Open");
+    await user.click(openButton);
+    await user.click(screen.getByText("Navigate away"));
+
+    expect(screen.getByText("Elsewhere on the page")).toHaveFocus();
+    expect(openButton).not.toHaveFocus();
+  });
 });

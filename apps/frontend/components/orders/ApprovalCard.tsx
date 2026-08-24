@@ -74,9 +74,9 @@ export function ApprovalCard({
               <tr key={item.productId}>
                 <td>{item.productId}</td>
                 <td>{item.quantity}</td>
-                <td>{formatXlm(item.unitPriceStroops)} XLM</td>
+                <td>{formatXlm(item.unitPriceStroops, locale)} XLM</td>
                 <td>
-                  {formatXlm(item.unitPriceStroops * BigInt(item.quantity))} XLM
+                  {formatXlm(item.unitPriceStroops * BigInt(item.quantity), locale)} XLM
                 </td>
               </tr>
             ))}
@@ -86,7 +86,7 @@ export function ApprovalCard({
 
       <div className="approval-total">
         <span>Total</span>
-        <strong>{formatXlm(order.totalStroops)} XLM</strong>
+        <strong>{formatXlm(order.totalStroops, locale)} XLM</strong>
       </div>
 
       {!rejecting ? (

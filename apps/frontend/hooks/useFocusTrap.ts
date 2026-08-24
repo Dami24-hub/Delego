@@ -67,7 +67,13 @@ export function useFocusTrap(
 
     return () => {
       document.removeEventListener("keydown", handleKeyDown);
-      previouslyFocusedRef.current?.focus();
+      // Only reclaim focus if it's still inside the trap (Escape, outside
+      // click, close button). If focus already moved elsewhere — e.g. the
+      // browser navigated because the user activated a link inside the
+      // panel — respect that instead of yanking focus back.
+      if (container.contains(document.activeElement)) {
+        previouslyFocusedRef.current?.focus();
+      }
     };
   }, [active, containerRef]);
 }
