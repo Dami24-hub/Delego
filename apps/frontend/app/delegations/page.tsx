@@ -6,6 +6,7 @@ import { useDelegations } from "../../hooks/useDelegations";
 import { useWallet } from "../../hooks/useWallet";
 import { DelegationForm } from "../../components/delegations/DelegationForm";
 import { DelegationList } from "../../components/delegations/DelegationList";
+import { NotificationPermissionPrompt } from "../../components/notifications/NotificationPermissionPrompt";
 
 /** Delegation management page — create, view, edit, pause/resume, and revoke delegations. */
 export default function DelegationsPage() {
@@ -20,11 +21,14 @@ export default function DelegationsPage() {
   } = useDelegations();
   const { address } = useWallet();
   const [showForm, setShowForm] = useState(false);
+  const [showNotifyPrompt, setShowNotifyPrompt] = useState(false);
 
   const handleCreate = async (input: Parameters<typeof createDelegation>[0]) => {
+    const wasFirstDelegation = delegations.length === 0;
     const created = await createDelegation(input);
     if (created) {
       setShowForm(false);
+      if (wasFirstDelegation) setShowNotifyPrompt(true);
     }
   };
 
@@ -46,6 +50,10 @@ export default function DelegationsPage() {
           {showForm ? "Close" : "New delegation"}
         </Button>
       </div>
+
+      {showNotifyPrompt && (
+        <NotificationPermissionPrompt message="Get notified about approvals for this delegation, even when this tab isn't in focus." />
+      )}
 
       {showForm && (
         <DelegationForm

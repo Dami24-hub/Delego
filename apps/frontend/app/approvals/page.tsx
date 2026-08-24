@@ -1,26 +1,88 @@
 "use client";
 
-import { useMemo } from "react";
-import { Card } from "@delegolabs/ui";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useSearchParams } from "next/navigation";
+import { Button, Card } from "@delegolabs/ui";
 import { useOrders } from "../../hooks/useOrders";
+import { useNotifications } from "../../hooks/useNotifications";
+import { useApprovalHotkeys } from "../../hooks/useApprovalHotkeys";
+import { useApprovalNotifications } from "../../hooks/useApprovalNotifications";
+import { useNow } from "../../hooks/useNow";
 import {
   HIGH_VALUE_THRESHOLD_STROOPS,
   formatXlm,
   needsApproval,
+  sortOrders,
   sumOrderTotals,
 } from "../../lib/orders";
+import { STALE_DIGEST_THRESHOLD_HOURS, countStaleApprovals } from "../../lib/approvals";
 import { ApprovalCard } from "../../components/orders/ApprovalCard";
+import { ApprovalDrawer } from "../../components/orders/ApprovalDrawer";
+import { HotkeyCheatSheet } from "../../components/orders/HotkeyCheatSheet";
+import { UndoSnackbar } from "../../components/orders/UndoSnackbar";
+
+const POLL_INTERVAL_MS = 15_000;
+const DIGEST_CHECK_INTERVAL_MS = 5 * 60_000;
 
 /** Approval workflow — review and approve/reject high-value orders. */
 export default function ApprovalsPage() {
-  const { orders, loading, error, pendingIds, approveOrder, rejectOrder } =
-    useOrders();
+  const { orders, loading, error, pendingIds, approveOrder, rejectOrder } = useOrders({
+    pollIntervalMs: POLL_INTERVAL_MS,
+  });
+  const { add: addNotification } = useNotifications();
+  const searchParams = useSearchParams();
+  const now = useNow(DIGEST_CHECK_INTERVAL_MS);
 
-  const queue = useMemo(
-    () => orders.filter((order) => needsApproval(order)),
-    [orders]
-  );
+  const [oldestFirst, setOldestFirst] = useState(false);
+  const [drawerOrderId, setDrawerOrderId] = useState<string | null>(null);
+  const rowRefs = useRef<Map<string, HTMLDivElement>>(new Map());
+
+  const queue = useMemo(() => {
+    const filtered = orders.filter((order) => needsApproval(order));
+    return sortOrders(filtered, "createdAt", oldestFirst ? "asc" : "desc");
+  }, [orders, oldestFirst]);
   const pendingValue = useMemo(() => sumOrderTotals(queue), [queue]);
+  const itemIds = useMemo(() => queue.map((order) => order.id), [queue]);
+
+  useApprovalNotifications({ queue, loading });
+
+  // Digest hint: surface a notification-center entry for a stale backlog.
+  useEffect(() => {
+    if (loading) return;
+    const staleCount = countStaleApprovals(queue, now, STALE_DIGEST_THRESHOLD_HOURS);
+    if (staleCount === 0) return;
+    addNotification({
+      id: "approvals-stale-digest",
+      type: "warning",
+      title: `${staleCount} approval${staleCount === 1 ? "" : "s"} waiting > ${STALE_DIGEST_THRESHOLD_HOURS}h`,
+      href: "/approvals",
+    });
+  }, [queue, now, loading, addNotification]);
+
+  const { focusedId, setFocusedId, showCheatSheet, setShowCheatSheet, undoAction, dismissUndo } =
+    useApprovalHotkeys({
+      itemIds,
+      onApprove: approveOrder,
+      onReject: rejectOrder,
+      onOpenDrawer: setDrawerOrderId,
+      disabled: drawerOrderId !== null,
+    });
+
+  // The roving focus ring follows keyboard navigation, not just mouse/tab focus.
+  useEffect(() => {
+    if (focusedId) rowRefs.current.get(focusedId)?.focus();
+  }, [focusedId]);
+
+  // Deep link from a background-tab notification: /approvals?focus=<orderId>.
+  useEffect(() => {
+    const focusParam = searchParams.get("focus");
+    if (focusParam) {
+      setDrawerOrderId(focusParam);
+      setFocusedId(focusParam);
+    }
+  }, [searchParams, setFocusedId]);
+
+  const drawerOrder = queue.find((order) => order.id === drawerOrderId) ?? null;
 
   return (
     <div className="settings-page">
@@ -49,6 +111,23 @@ export default function ApprovalsPage() {
         </Card>
       </div>
 
+      <div className="form-actions">
+        <Button
+          variant="ghost"
+          onClick={() => setOldestFirst((v) => !v)}
+          ariaLabel="Toggle sort order"
+        >
+          Sort: {oldestFirst ? "Oldest first" : "Newest first"}
+        </Button>
+        <Button
+          variant="ghost"
+          onClick={() => setShowCheatSheet(true)}
+          ariaLabel="Show keyboard shortcuts"
+        >
+          Keyboard shortcuts (?)
+        </Button>
+      </div>
+
       {loading && orders.length === 0 ? (
         <div className="card skeleton">
           <div className="skeleton-title" />
@@ -63,16 +142,38 @@ export default function ApprovalsPage() {
       ) : (
         <div className="grid">
           {queue.map((order) => (
-            <ApprovalCard
+            <div
               key={order.id}
-              order={order}
-              pending={pendingIds.has(order.id)}
-              onApprove={approveOrder}
-              onReject={rejectOrder}
-            />
+              ref={(el) => {
+                if (el) rowRefs.current.set(order.id, el);
+                else rowRefs.current.delete(order.id);
+              }}
+              tabIndex={-1}
+              className={`approval-row${order.id === focusedId ? " is-focused" : ""}`}
+              onFocus={() => setFocusedId(order.id)}
+            >
+              <ApprovalCard
+                order={order}
+                pending={pendingIds.has(order.id)}
+                onApprove={approveOrder}
+                onReject={rejectOrder}
+              />
+            </div>
           ))}
         </div>
       )}
+
+      <ApprovalDrawer
+        order={drawerOrder}
+        pending={drawerOrderId ? pendingIds.has(drawerOrderId) : false}
+        onApprove={approveOrder}
+        onReject={rejectOrder}
+        onClose={() => setDrawerOrderId(null)}
+      />
+
+      {showCheatSheet && <HotkeyCheatSheet onClose={() => setShowCheatSheet(false)} />}
+
+      <UndoSnackbar action={undoAction} onDismiss={dismissUndo} />
     </div>
   );
 }
