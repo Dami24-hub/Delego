@@ -6,6 +6,8 @@ import { NotificationProvider } from "../../hooks/useNotifications";
 import { AnnounceProvider } from "../../hooks/useAnnounce";
 import { CurrencyProvider } from "../../hooks/useCurrency";
 import { MockApiProvider } from "./MockApiProvider";
+import { SentryBreadcrumbs } from "./SentryBreadcrumbs";
+import { WebVitalsReporter } from "./WebVitalsReporter";
 
 /**
  * Client-side context providers shared across the app shell.
@@ -17,7 +19,11 @@ export function AppProviders({ children }: { children: ReactNode }) {
       <NetworkProvider>
         <CurrencyProvider>
           <AnnounceProvider>
-            <NotificationProvider>{children}</NotificationProvider>
+            <NotificationProvider>
+              <SentryBreadcrumbs />
+              <WebVitalsReporter />
+              {children}
+            </NotificationProvider>
           </AnnounceProvider>
         </CurrencyProvider>
       </NetworkProvider>
