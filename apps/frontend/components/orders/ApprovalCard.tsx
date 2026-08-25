@@ -6,6 +6,8 @@ import { Amount, Button, Card } from "@delegolabs/ui";
 import type { Order } from "@delegolabs/types";
 import { formatDateTime } from "../../lib/intl";
 import { useCurrency } from "../../hooks/useCurrency";
+import { useAnnounce } from "../../hooks/useAnnounce";
+import { ApprovalAgeBadge } from "./ApprovalAgeBadge";
 
 export interface ApprovalCardProps {
   order: Order;
@@ -29,6 +31,25 @@ export function ApprovalCard({
   const [reason, setReason] = useState("");
   const locale = useLocale();
   const { currencyId, rate } = useCurrency();
+  const { announce } = useAnnounce();
+
+  const handleApprove = async () => {
+    try {
+      await onApprove(order.id);
+      announce(`Order ${order.id} approved.`, "polite");
+    } catch {
+      announce(`Failed to approve order ${order.id}.`, "assertive");
+    }
+  };
+
+  const handleReject = async () => {
+    try {
+      await onReject(order.id, reason.trim() || undefined);
+      announce(`Order ${order.id} rejected.`, "polite");
+    } catch {
+      announce(`Failed to reject order ${order.id}.`, "assertive");
+    }
+  };
 
   return (
     <Card
@@ -114,7 +135,7 @@ export function ApprovalCard({
         <div className="form-actions">
           <Button
             variant="primary"
-            onClick={() => onApprove(order.id)}
+            onClick={handleApprove}
             disabled={pending}
           >
             Approve
@@ -146,7 +167,7 @@ export function ApprovalCard({
           <div className="form-actions">
             <Button
               variant="primary"
-              onClick={() => onReject(order.id, reason.trim() || undefined)}
+              onClick={handleReject}
               disabled={pending}
             >
               Confirm rejection

@@ -7,6 +7,7 @@ import { formatXlm } from "../../lib/orders";
 import type { OrderExplainability } from "../../lib/approvalExplainability";
 import { ApprovalAgeBadge } from "./ApprovalAgeBadge";
 import { useFocusTrap } from "../../hooks/useFocusTrap";
+import { useAnnounce } from "../../hooks/useAnnounce";
 
 export interface ApprovalDrawerProps {
   order: Order | null;
@@ -38,6 +39,7 @@ export function ApprovalDrawer({
 }: ApprovalDrawerProps) {
   const panelRef = useRef<HTMLDivElement>(null);
   const isOpen = order !== null;
+  const { announce } = useAnnounce();
 
   useFocusTrap(panelRef, isOpen);
 
@@ -51,6 +53,26 @@ export function ApprovalDrawer({
   }, [order, onClose]);
 
   if (!order) return null;
+
+  const handleApprove = async () => {
+    try {
+      await onApprove(order.id);
+      announce(`Order ${order.id} approved.`, "polite");
+      onClose();
+    } catch {
+      announce(`Failed to approve order ${order.id}.`, "assertive");
+    }
+  };
+
+  const handleReject = async () => {
+    try {
+      await onReject(order.id);
+      announce(`Order ${order.id} rejected.`, "polite");
+      onClose();
+    } catch {
+      announce(`Failed to reject order ${order.id}.`, "assertive");
+    }
+  };
 
   const priceRangeByProductId = explainability?.priceRangeByProductId;
   const imageUrlByProductId = explainability?.imageUrlByProductId;
@@ -184,10 +206,10 @@ export function ApprovalDrawer({
         )}
 
         <div className="form-actions">
-          <Button variant="primary" onClick={() => onApprove(order.id)} disabled={pending}>
+          <Button variant="primary" onClick={handleApprove} disabled={pending}>
             Approve
           </Button>
-          <Button variant="ghost" onClick={() => onReject(order.id)} disabled={pending}>
+          <Button variant="ghost" onClick={handleReject} disabled={pending}>
             Reject
           </Button>
         </div>

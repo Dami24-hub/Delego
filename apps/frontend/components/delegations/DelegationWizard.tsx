@@ -1,10 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import { Button, Card, Stepper } from "@delegolabs/ui";
 import type { CreateDelegationInput, DelegationPermissionLevel } from "@delegolabs/types";
 import { useDelegationWizardDraft } from "../../hooks/useDelegationWizardDraft";
+import { useAnnounce } from "../../hooks/useAnnounce";
 import {
   DELEGATION_WIZARD_STEPS,
   draftToCreateInput,
@@ -45,6 +46,7 @@ export function DelegationWizard({
   const t = useTranslations("delegations.wizard");
   const tSteps = useTranslations("delegations.wizard.steps");
   const tCommon = useTranslations("common");
+  const { announce } = useAnnounce();
 
   const {
     draft,
@@ -62,6 +64,13 @@ export function DelegationWizard({
   const [formError, setFormError] = useState<string | null>(null);
   const [touchedSteps, setTouchedSteps] = useState<Set<DelegationWizardStepId>>(new Set());
 
+  /**
+   * Step heading ref — moves focus to the <h2> heading when advancing between
+   * steps so screen readers announce the new step title and context in logical
+   * reading order without the user having to re-navigate from the top.
+   */
+  const stepHeadingRef = useRef<HTMLHeadingElement>(null);
+
   const steps = DELEGATION_WIZARD_STEPS.map((id) => ({
     id,
     label: tSteps(STEP_LABEL_KEYS[id]),
@@ -71,18 +80,39 @@ export function DelegationWizard({
   const isLastStep = stepIndex === DELEGATION_WIZARD_STEPS.length - 1;
   const isFirstStep = stepIndex === 0;
 
+  // Move focus to the step heading whenever the active step changes. This gives
+  // AT users a natural "you are now on step N" entry point for the new content.
+  useEffect(() => {
+    stepHeadingRef.current?.focus();
+  }, [stepId]);
+
   const handleNext = () => {
     setTouchedSteps((prev) => new Set(prev).add(stepId));
-    if (Object.keys(errors).length > 0) return;
+    if (Object.keys(errors).length > 0) {
+      announce(t("errors.missingFields"), "assertive");
+      return;
+    }
     if (isLastStep) {
       handleSubmit();
       return;
     }
-    goToStep(stepIndex + 1);
+    const nextIndex = stepIndex + 1;
+    goToStep(nextIndex);
+    announce(
+      `Step ${nextIndex + 1} of ${DELEGATION_WIZARD_STEPS.length}: ${tSteps(STEP_LABEL_KEYS[DELEGATION_WIZARD_STEPS[nextIndex]!])}`,
+      "polite"
+    );
   };
 
   const handleBack = () => {
-    if (!isFirstStep) goToStep(stepIndex - 1);
+    if (!isFirstStep) {
+      const prevIndex = stepIndex - 1;
+      goToStep(prevIndex);
+      announce(
+        `Step ${prevIndex + 1} of ${DELEGATION_WIZARD_STEPS.length}: ${tSteps(STEP_LABEL_KEYS[DELEGATION_WIZARD_STEPS[prevIndex]!])}`,
+        "polite"
+      );
+    }
   };
 
   const handleCancel = () => {
@@ -100,8 +130,11 @@ export function DelegationWizard({
       await onSubmit(draftToCreateInput(draft));
       clearDraft();
       discardDraft();
+      announce("Delegation created.", "polite");
     } catch (err) {
-      setFormError(err instanceof Error ? err.message : t("errors.createFailed"));
+      const msg = err instanceof Error ? err.message : t("errors.createFailed");
+      setFormError(msg);
+      announce(msg, "assertive");
     } finally {
       setSubmitting(false);
     }
@@ -109,6 +142,8 @@ export function DelegationWizard({
 
   const showError = (field: string) =>
     touchedSteps.has(stepId) ? Boolean((errors as Record<string, string | undefined>)[field]) : false;
+
+  const currentStepLabel = tSteps(STEP_LABEL_KEYS[stepId]);
 
   return (
     <Card title={t("title")} ariaLabel={t("ariaLabel")}>
@@ -126,10 +161,33 @@ export function DelegationWizard({
 
       <div style={{ marginBottom: "1.5rem" }}>
         <Stepper steps={steps} currentIndex={stepIndex} onStepSelect={goToStep} />
-        <p style={{ fontSize: "0.75rem", color: "var(--color-text-muted)", marginTop: "0.5rem" }}>
+        {/*
+          Visually hidden progress text is surfaced to AT via the step heading
+          below; this visible paragraph gives sighted users a compact counter.
+        */}
+        <p
+          style={{ fontSize: "0.75rem", color: "var(--color-text-muted)", marginTop: "0.5rem" }}
+          aria-hidden="true"
+        >
           {tSteps("stepOf", { current: stepIndex + 1, total: DELEGATION_WIZARD_STEPS.length })}
         </p>
       </div>
+
+      {/*
+        Step heading: receives focus on step transitions so AT reads out the
+        new step in logical order. tabIndex={-1} allows programmatic focus
+        without placing it in the Tab sequence.
+      */}
+      <h2
+        ref={stepHeadingRef}
+        tabIndex={-1}
+        style={{ fontSize: "1rem", fontWeight: 600, margin: "0 0 1rem", outline: "none" }}
+      >
+        <span className="sr-only">
+          {tSteps("stepOf", { current: stepIndex + 1, total: DELEGATION_WIZARD_STEPS.length })}:{" "}
+        </span>
+        {currentStepLabel}
+      </h2>
 
       {stepId === "agent" && (
         <WizardStepAgent
