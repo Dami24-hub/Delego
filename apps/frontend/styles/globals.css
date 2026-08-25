@@ -731,6 +731,29 @@ body {
   color: var(--color-status-pending-text);
 }
 
+.approval-age-badge {
+  display: inline-block;
+  padding: 0.25rem 0.5rem;
+  border-radius: 0.25rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.approval-age-normal {
+  background: var(--color-status-pending-bg);
+  color: var(--color-status-pending-text);
+}
+
+.approval-age-warning {
+  background: var(--color-status-paused-bg);
+  color: var(--color-status-paused-text);
+}
+
+.approval-age-critical {
+  background: var(--color-error-bg);
+  color: var(--color-error-text);
+}
+
 .utilization-bars {
   display: flex;
   flex-direction: column;
@@ -1221,6 +1244,149 @@ body {
   }
 }
 
+/* Approvals: roving keyboard focus, drawer, cheat sheet, undo snackbar */
+.approval-row {
+  border-radius: 0.5rem;
+  outline: none;
+}
+
+.approval-row.is-focused,
+.approval-row:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+.approval-drawer-overlay {
+  position: fixed;
+  inset: 0;
+  background: var(--color-overlay);
+  z-index: 60;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.approval-drawer {
+  width: 100%;
+  max-width: 420px;
+  height: 100%;
+  overflow-y: auto;
+  background: var(--color-bg-surface);
+  padding: 1.5rem;
+  box-shadow: -2px 0 12px var(--color-shadow);
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.approval-drawer-header {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  justify-content: space-between;
+}
+
+.approval-drawer-header h2 {
+  margin: 0;
+  font-size: 1.125rem;
+  flex: 1;
+}
+
+.approval-drawer-close {
+  background: none;
+  border: none;
+  font-size: 1.5rem;
+  line-height: 1;
+  cursor: pointer;
+  color: var(--color-text-muted);
+}
+
+.hotkey-cheatsheet-overlay {
+  position: fixed;
+  inset: 0;
+  background: var(--color-overlay);
+  z-index: 60;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.hotkey-cheatsheet {
+  background: var(--color-bg-surface);
+  border-radius: 0.5rem;
+  padding: 1.5rem;
+  width: 100%;
+  max-width: 360px;
+  box-shadow: 0 4px 24px var(--color-shadow);
+}
+
+.hotkey-cheatsheet-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 1rem;
+}
+
+.hotkey-cheatsheet-header h2 {
+  margin: 0;
+  font-size: 1.125rem;
+}
+
+.hotkey-cheatsheet-header button {
+  background: none;
+  border: none;
+  font-size: 1.5rem;
+  line-height: 1;
+  cursor: pointer;
+  color: var(--color-text-muted);
+}
+
+.hotkey-cheatsheet-list {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.hotkey-cheatsheet-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.hotkey-cheatsheet-row dt {
+  min-width: 3.5rem;
+}
+
+.hotkey-cheatsheet-row kbd {
+  background: var(--color-bg-subtle);
+  border: 1px solid var(--color-border);
+  border-radius: 0.25rem;
+  padding: 0.125rem 0.375rem;
+  font-size: 0.8125rem;
+  font-family: inherit;
+}
+
+.hotkey-cheatsheet-row dd {
+  margin: 0;
+  color: var(--color-text-secondary);
+}
+
+.undo-snackbar {
+  position: fixed;
+  bottom: 1.5rem;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 70;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  background: var(--color-bg-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 0.5rem;
+  padding: 0.75rem 1rem;
+  box-shadow: 0 4px 16px var(--color-shadow);
+}
+
 .network-live-badge {
   display: inline-flex;
   align-items: center;
@@ -1248,6 +1414,10 @@ body {
 
 .friendbot-card h2 {
   margin: 0 0 0.35rem;
+  color: var(--color-text-primary);
+  font-size: 1rem;
+}
+
 /* ---------------------------------------------------------------------------
    Announcement banner
    Rendered above the app shell; never part of its grid, so opening/closing it
@@ -1444,6 +1614,9 @@ body {
   .friendbot-card {
     align-items: stretch;
     flex-direction: column;
+  }
+}
+
 .command-palette-input:focus {
   outline: none;
 }
@@ -1513,5 +1686,216 @@ body {
 @media (max-width: 640px) {
   .command-palette-trigger-hint {
     display: none;
+  }
+}
+
+/* ---------------------------------------------------------------------------
+   Offline page
+--------------------------------------------------------------------------- */
+
+.offline-cached-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.offline-cached-list li {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.5rem 0;
+  border-bottom: 1px solid var(--color-bg-subtle);
+}
+
+.offline-cached-list li:last-child {
+  border-bottom: none;
+}
+
+.offline-cached-label {
+  font-weight: 500;
+}
+
+.offline-cached-time {
+  font-size: 0.8125rem;
+  color: var(--color-text-muted);
+  white-space: nowrap;
+}
+
+/* ---------------------------------------------------------------------------
+   PWA install prompt
+--------------------------------------------------------------------------- */
+
+.install-prompt-card {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin: 1rem 1.5rem 0;
+  padding: 0.75rem 1rem;
+  background: var(--color-accent-bg);
+  border: 1px solid var(--color-border);
+  border-radius: 0.5rem;
+}
+
+.install-prompt-icon {
+  flex-shrink: 0;
+  font-size: 1.5rem;
+}
+
+.install-prompt-text {
+  flex: 1;
+  min-width: 0;
+}
+
+.install-prompt-title {
+  margin: 0;
+  font-weight: 600;
+  font-size: 0.9375rem;
+}
+
+.install-prompt-subtitle {
+  margin: 0.125rem 0 0;
+  font-size: 0.8125rem;
+  color: var(--color-text-secondary);
+}
+
+.install-prompt-action {
+  flex-shrink: 0;
+  background: var(--color-accent);
+  color: #fff;
+  border: none;
+  border-radius: 0.375rem;
+  padding: 0.5rem 0.875rem;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.install-prompt-dismiss {
+  flex-shrink: 0;
+  border: none;
+  background: transparent;
+  color: var(--color-text-muted);
+  font-size: 0.75rem;
+  cursor: pointer;
+  padding: 0.25rem;
+}
+
+.install-prompt-dismiss:hover {
+  color: var(--color-text-primary);
+}
+
+@media (max-width: 640px) {
+  .install-prompt-card {
+    margin: 0.75rem 1rem 0;
+    flex-wrap: wrap;
+  }
+}
+
+/* ---------------------------------------------------------------------------
+   Privacy export
+--------------------------------------------------------------------------- */
+
+.export-progress {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+}
+
+.export-progress-label {
+  margin: 0;
+  font-size: 0.875rem;
+  color: var(--color-text-secondary);
+}
+
+/* ---------------------------------------------------------------------------
+   Analytics: spend chart + range switcher
+--------------------------------------------------------------------------- */
+
+.range-switcher {
+  display: inline-flex;
+  gap: 0.25rem;
+  padding: 0.25rem;
+  background: var(--color-bg-subtle);
+  border-radius: 0.5rem;
+  align-self: flex-start;
+}
+
+.range-switcher-option {
+  border: none;
+  background: transparent;
+  color: var(--color-text-secondary);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  padding: 0.375rem 0.75rem;
+  border-radius: 0.375rem;
+  cursor: pointer;
+}
+
+.range-switcher-option.active {
+  background: var(--color-bg-surface);
+  color: var(--color-accent);
+  box-shadow: 0 1px 2px var(--color-shadow);
+}
+
+.spend-chart-skeleton {
+  height: 280px;
+  border-radius: 0.5rem;
+  background: linear-gradient(
+    90deg,
+    var(--color-bg-subtle) 25%,
+    var(--color-border) 37%,
+    var(--color-bg-subtle) 63%
+  );
+  background-size: 400% 100%;
+  animation: spend-chart-skeleton-shimmer 1.4s ease infinite;
+}
+
+@keyframes spend-chart-skeleton-shimmer {
+  0% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0 50%;
+  }
+}
+
+.spend-chart-empty {
+  height: 280px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-text-muted);
+  font-size: 0.875rem;
+  border: 1px dashed var(--color-border);
+  border-radius: 0.5rem;
+}
+
+.spend-chart-tooltip {
+  background: var(--color-bg-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 0.375rem;
+  padding: 0.5rem 0.75rem;
+  box-shadow: 0 2px 8px var(--color-shadow);
+}
+
+.spend-chart-tooltip-label {
+  margin: 0;
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+}
+
+.spend-chart-tooltip-value {
+  margin: 0.125rem 0 0;
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .spend-chart-skeleton {
+    animation: none;
   }
 }

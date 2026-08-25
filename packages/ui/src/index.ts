@@ -1,3 +1,9 @@
+export {
+  ActivityTimeline,
+  type ActivityTimelineProps,
+  type ActivityTimelineEvent,
+  type ActivityTone,
+} from "./ActivityTimeline.js";
 export { Badge, type BadgeProps, type BadgeTone } from "./Badge.js";
 export { Button, type ButtonProps } from "./Button.js";
 export { Card, type CardProps } from "./Card.js";

@@ -6,6 +6,7 @@ import { Button, Card } from "@delegolabs/ui";
 import type { Order } from "@delegolabs/types";
 import { formatXlm } from "../../lib/orders";
 import { formatDateTime } from "../../lib/intl";
+import { ApprovalAgeBadge } from "./ApprovalAgeBadge";
 
 export interface ApprovalCardProps {
   order: Order;
@@ -39,6 +40,7 @@ export function ApprovalCard({
         <span className="status-badge order-status-pending_approval">
           Pending approval
         </span>
+        <ApprovalAgeBadge createdAt={order.createdAt} />
         <span className="approval-flag" title="Exceeds the high-value threshold">
           ⚠ High value
         </span>

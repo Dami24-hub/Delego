@@ -1,13 +1,44 @@
 "use client";
 
+import { useCallback, useMemo } from "react";
+import { useRouter, useSearchParams, usePathname } from "next/navigation";
+import { useLocale } from "next-intl";
 import { Card } from "@delegolabs/ui";
 import { SpendingOverview } from "../../components/analytics/SpendingOverview";
+import { SpendChart } from "../../components/analytics/SpendChart";
+import { RangeSwitcher } from "../../components/analytics/RangeSwitcher";
 import { useAnalytics } from "../../hooks/useAnalytics";
+import { useOrders } from "../../hooks/useOrders";
+import {
+  parseAnalyticsRange,
+  spendByRange,
+  type AnalyticsRange,
+} from "../../lib/analytics";
 
 export default function AnalyticsPage() {
   const { delegations, overview, loading, error } = useAnalytics();
+  const { orders, loading: ordersLoading } = useOrders();
+  const locale = useLocale();
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
 
-  if (loading) {
+  const range = parseAnalyticsRange(searchParams.get("range"));
+  const buckets = useMemo(
+    () => spendByRange(orders, range, { locale }),
+    [orders, range, locale]
+  );
+
+  const setRange = useCallback(
+    (next: AnalyticsRange) => {
+      const params = new URLSearchParams(searchParams.toString());
+      params.set("range", next);
+      router.replace(`${pathname}?${params.toString()}`, { scroll: false });
+    },
+    [router, pathname, searchParams]
+  );
+
+  if (loading || ordersLoading) {
     return (
       <div className="settings-page">
         <header className="header">
@@ -35,6 +66,15 @@ export default function AnalyticsPage() {
         <h1>Analytics</h1>
         <p>Compare delegation policies and view aggregate spending data</p>
       </header>
+
+      <Card
+        title="Spending Over Time"
+        ariaLabel="Spending over time"
+        style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}
+      >
+        <RangeSwitcher value={range} onChange={setRange} />
+        <SpendChart buckets={buckets} locale={locale} />
+      </Card>
 
       <SpendingOverview overview={overview} />
 
