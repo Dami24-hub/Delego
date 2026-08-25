@@ -1,7 +1,8 @@
 "use client";
 
 import type { Order } from "@delegolabs/types";
-import { formatXlm } from "../../lib/orders";
+import { Amount } from "@delegolabs/ui";
+import { useCurrency } from "../../hooks/useCurrency";
 import { OrderStatusBadge } from "./OrderStatusBadge";
 
 export interface OrderTableProps {
@@ -22,6 +23,8 @@ function itemCount(order: Order): number {
 
 /** Read-only table of orders. Empty/loading states are handled by the caller. */
 export function OrderTable({ orders }: OrderTableProps) {
+  const { currencyId, rate } = useCurrency();
+
   return (
     <div className="comparison-table-wrapper">
       <table className="comparison-table order-table">
@@ -48,7 +51,9 @@ export function OrderTable({ orders }: OrderTableProps) {
                 <OrderStatusBadge status={order.status} />
               </td>
               <td>{itemCount(order)}</td>
-              <td className="order-amount">{formatXlm(order.totalStroops)} XLM</td>
+              <td className="order-amount">
+                <Amount stroops={order.totalStroops} currency={currencyId} xlmUsdRate={rate?.xlmUsdRate} />
+              </td>
               <td>{formatDate(order.createdAt)}</td>
             </tr>
           ))}

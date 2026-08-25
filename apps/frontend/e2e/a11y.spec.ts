@@ -1,24 +1,20 @@
-import { test, expect } from "@playwright/test";
+import { test, expect } from "./support/test";
 import AxeBuilder from "@axe-core/playwright";
 
 /**
  * Automated axe-core scan gate (#557 FE-050).
  *
- * Only covers routes that render without an auth cookie — /delegations,
- * /orders, /wallet, and /settings redirect via middleware.ts and need the
- * MSW fixtures from FE-045 (not landed yet) to render meaningfully. Extend
- * this list once that lands.
+ * Public routes render with no setup. Protected routes (/delegations,
+ * /orders, /wallet, /settings) redirect via middleware.ts unless the auth
+ * cookie is present, so they run through the shared `test` base from
+ * e2e/support/test.ts (FE-045 fixtures + auth cookie), extending the
+ * original public-only list now that lands.
  */
-const PUBLIC_ROUTES = [
-  "/",
-  "/onboarding",
-  "/tracking",
-  "/analytics",
-  "/escrows",
-  "/approvals",
-];
+const PUBLIC_ROUTES = ["/", "/onboarding", "/tracking", "/analytics", "/escrows", "/approvals"];
 
-for (const route of PUBLIC_ROUTES) {
+const PROTECTED_ROUTES = ["/delegations", "/orders", "/wallet", "/settings"];
+
+for (const route of [...PUBLIC_ROUTES, ...PROTECTED_ROUTES]) {
   test(`${route} has no critical or serious axe violations`, async ({ page }) => {
     await page.goto(route);
 

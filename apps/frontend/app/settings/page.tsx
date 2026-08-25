@@ -12,7 +12,7 @@ import {
 } from "../../components/settings/PreferencesForm";
 import { NotificationSettingsCard } from "../../components/notifications/NotificationSettingsCard";
 import { LanguageSwitcher } from "../../components/settings/LanguageSwitcher";
-import { PrivacyExportCard } from "../../components/settings/PrivacyExportCard";
+import { CurrencySwitcher } from "../../components/settings/CurrencySwitcher";
 
 /**
  * Placeholder user + preferences until the API exposes `/api/v1/me` endpoints.
@@ -67,7 +67,7 @@ export default function SettingsPage() {
       />
       <NotificationSettingsCard />
       <LanguageSwitcher />
-      <PrivacyExportCard user={user} preferences={preferences} />
+      <CurrencySwitcher />
     </div>
   );
 }

@@ -2,11 +2,10 @@
 
 import { useState } from "react";
 import { useLocale } from "next-intl";
-import { Button, Card } from "@delegolabs/ui";
+import { Amount, Button, Card } from "@delegolabs/ui";
 import type { Order } from "@delegolabs/types";
-import { formatXlm } from "../../lib/orders";
 import { formatDateTime } from "../../lib/intl";
-import { ApprovalAgeBadge } from "./ApprovalAgeBadge";
+import { useCurrency } from "../../hooks/useCurrency";
 
 export interface ApprovalCardProps {
   order: Order;
@@ -29,6 +28,7 @@ export function ApprovalCard({
   const [rejecting, setRejecting] = useState(false);
   const [reason, setReason] = useState("");
   const locale = useLocale();
+  const { currencyId, rate } = useCurrency();
 
   return (
     <Card
@@ -76,9 +76,21 @@ export function ApprovalCard({
               <tr key={item.productId}>
                 <td>{item.productId}</td>
                 <td>{item.quantity}</td>
-                <td>{formatXlm(item.unitPriceStroops, locale)} XLM</td>
                 <td>
-                  {formatXlm(item.unitPriceStroops * BigInt(item.quantity), locale)} XLM
+                  <Amount
+                    stroops={item.unitPriceStroops}
+                    locale={locale}
+                    currency={currencyId}
+                    xlmUsdRate={rate?.xlmUsdRate}
+                  />
+                </td>
+                <td>
+                  <Amount
+                    stroops={item.unitPriceStroops * BigInt(item.quantity)}
+                    locale={locale}
+                    currency={currencyId}
+                    xlmUsdRate={rate?.xlmUsdRate}
+                  />
                 </td>
               </tr>
             ))}
@@ -88,7 +100,14 @@ export function ApprovalCard({
 
       <div className="approval-total">
         <span>Total</span>
-        <strong>{formatXlm(order.totalStroops, locale)} XLM</strong>
+        <strong>
+          <Amount
+            stroops={order.totalStroops}
+            locale={locale}
+            currency={currencyId}
+            xlmUsdRate={rate?.xlmUsdRate}
+          />
+        </strong>
       </div>
 
       {!rejecting ? (

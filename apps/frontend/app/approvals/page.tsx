@@ -1,22 +1,11 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useSearchParams } from "next/navigation";
-import { Button, Card } from "@delegolabs/ui";
+import { useCallback, useMemo } from "react";
+import { Amount, Card } from "@delegolabs/ui";
 import { useOrders } from "../../hooks/useOrders";
 import { useAnnounce } from "../../hooks/useAnnounce";
-import { useNotifications } from "../../hooks/useNotifications";
-import { useApprovalHotkeys } from "../../hooks/useApprovalHotkeys";
-import { useApprovalNotifications } from "../../hooks/useApprovalNotifications";
-import { useNow } from "../../hooks/useNow";
-import {
-  HIGH_VALUE_THRESHOLD_STROOPS,
-  formatXlm,
-  needsApproval,
-  sortOrders,
-  sumOrderTotals,
-} from "../../lib/orders";
-import { STALE_DIGEST_THRESHOLD_HOURS, countStaleApprovals } from "../../lib/approvals";
+import { useCurrency } from "../../hooks/useCurrency";
+import { HIGH_VALUE_THRESHOLD_STROOPS, needsApproval, sumOrderTotals } from "../../lib/orders";
 import { ApprovalCard } from "../../components/orders/ApprovalCard";
 import { ApprovalDrawer } from "../../components/orders/ApprovalDrawer";
 import { HotkeyCheatSheet } from "../../components/orders/HotkeyCheatSheet";
@@ -31,9 +20,7 @@ export default function ApprovalsPage() {
     pollIntervalMs: POLL_INTERVAL_MS,
   });
   const { announce } = useAnnounce();
-  const { add: addNotification } = useNotifications();
-  const searchParams = useSearchParams();
-  const now = useNow(DIGEST_CHECK_INTERVAL_MS);
+  const { currencyId, rate } = useCurrency();
 
   const handleApprove = useCallback(
     async (id: string) => {
@@ -113,8 +100,9 @@ export default function ApprovalsPage() {
       <header className="header">
         <h1>Approvals</h1>
         <p>
-          Review high-value orders (over {formatXlm(HIGH_VALUE_THRESHOLD_STROOPS)}{" "}
-          XLM) that require your sign-off before they proceed
+          Review high-value orders (over{" "}
+          <Amount stroops={HIGH_VALUE_THRESHOLD_STROOPS} currency={currencyId} xlmUsdRate={rate?.xlmUsdRate} />)
+          that require your sign-off before they proceed
         </p>
       </header>
 
@@ -130,7 +118,9 @@ export default function ApprovalsPage() {
           <p className="stat-label">High-value orders</p>
         </Card>
         <Card title="Value pending approval">
-          <p className="stat-value">{formatXlm(pendingValue)} XLM</p>
+          <p className="stat-value">
+            <Amount stroops={pendingValue} currency={currencyId} xlmUsdRate={rate?.xlmUsdRate} />
+          </p>
           <p className="stat-label">Across the queue</p>
         </Card>
       </div>
