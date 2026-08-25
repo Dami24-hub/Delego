@@ -10,6 +10,7 @@ import {
   PreferencesForm,
   type PreferencesFormValues,
 } from "../../components/settings/PreferencesForm";
+import { NotificationSettingsCard } from "../../components/notifications/NotificationSettingsCard";
 import { LanguageSwitcher } from "../../components/settings/LanguageSwitcher";
 import { PrivacyExportCard } from "../../components/settings/PrivacyExportCard";
 
@@ -64,6 +65,7 @@ export default function SettingsPage() {
         preferences={preferences}
         onSave={handleSavePreferences}
       />
+      <NotificationSettingsCard />
       <LanguageSwitcher />
       <PrivacyExportCard user={user} preferences={preferences} />
     </div>

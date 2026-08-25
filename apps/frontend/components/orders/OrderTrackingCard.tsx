@@ -1,9 +1,8 @@
 "use client";
 
-import { Card } from "@delegolabs/ui";
+import { ActivityTimeline, Card } from "@delegolabs/ui";
 import type { Order } from "@delegolabs/types";
-import { formatXlm, isTerminal } from "../../lib/orders";
-import { StatusTimeline } from "./StatusTimeline";
+import { formatXlm, isTerminal, orderToTimelineEvents } from "../../lib/orders";
 
 export interface OrderTrackingCardProps {
   order: Order;
@@ -25,7 +24,10 @@ export function OrderTrackingCard({ order }: OrderTrackingCardProps) {
       title={`Order ${order.id}`}
       ariaLabel={`Tracking for order ${order.id}`}
     >
-      <StatusTimeline status={order.status} />
+      <ActivityTimeline
+        events={orderToTimelineEvents(order)}
+        ariaLabel="Order progress"
+      />
 
       <dl className="wallet-detail-list">
         <div className="wallet-detail-row">

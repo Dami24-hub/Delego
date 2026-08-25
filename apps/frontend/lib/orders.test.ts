@@ -9,6 +9,7 @@ import {
   lifecycleIndex,
   needsApproval,
   orderStatusLabel,
+  orderToTimelineEvents,
   paginate,
   sortOrders,
   sumOrderTotals,
@@ -181,5 +182,59 @@ describe("sumOrderTotals", () => {
       ])
     ).toBe(350n);
     expect(sumOrderTotals([])).toBe(0n);
+  });
+});
+
+describe("orderToTimelineEvents", () => {
+  const createdAt = new Date("2026-01-01T00:00:00Z");
+  const updatedAt = new Date("2026-01-03T00:00:00Z");
+
+  it("renders on-path steps in lifecycle order, up to and including the current step", () => {
+    const order = makeOrder({ status: "escrowed", createdAt, updatedAt });
+    const events = orderToTimelineEvents(order);
+    expect(events.map((e) => e.type)).toEqual([
+      "draft",
+      "pending_approval",
+      "approved",
+      "escrowed",
+    ]);
+  });
+
+  it("marks completed steps success and the current in-progress step pending", () => {
+    const order = makeOrder({ status: "escrowed", createdAt, updatedAt });
+    const events = orderToTimelineEvents(order);
+    expect(events.map((e) => e.tone)).toEqual([
+      "success",
+      "success",
+      "success",
+      "pending",
+    ]);
+  });
+
+  it("marks the final step success (not pending) once the order is settled", () => {
+    const order = makeOrder({ status: "settled", createdAt, updatedAt });
+    const events = orderToTimelineEvents(order);
+    expect(events[events.length - 1].tone).toBe("success");
+  });
+
+  it("timestamps completed steps at createdAt and the current step at updatedAt", () => {
+    const order = makeOrder({ status: "approved", createdAt, updatedAt });
+    const events = orderToTimelineEvents(order);
+    expect(events[0].timestamp).toEqual(createdAt);
+    expect(events[events.length - 1].timestamp).toEqual(updatedAt);
+  });
+
+  it("renders off-path terminal states as creation plus a failed terminal event", () => {
+    const order = makeOrder({ status: "cancelled", createdAt, updatedAt });
+    const events = orderToTimelineEvents(order);
+    expect(events).toHaveLength(2);
+    expect(events[0]).toMatchObject({ type: "draft", tone: "success", timestamp: createdAt });
+    expect(events[1]).toMatchObject({ type: "cancelled", tone: "failed", timestamp: updatedAt });
+  });
+
+  it("renders disputed the same way as cancelled", () => {
+    const order = makeOrder({ status: "disputed", createdAt, updatedAt });
+    const events = orderToTimelineEvents(order);
+    expect(events[1]).toMatchObject({ type: "disputed", tone: "failed" });
   });
 });
