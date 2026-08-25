@@ -1,7 +1,16 @@
 import { describe, it, expect } from "vitest";
 import { render, screen } from "@testing-library/react";
 import { EscrowCard } from "../components/escrows/EscrowCard";
+import { CurrencyProvider } from "../hooks/useCurrency";
 import type { Escrow } from "@delegolabs/types";
+
+function renderEscrowCard(escrow: Escrow) {
+  return render(
+    <CurrencyProvider>
+      <EscrowCard escrow={escrow} />
+    </CurrencyProvider>
+  );
+}
 
 const fundedEscrow: Escrow = {
   escrowId: "42",
@@ -39,44 +48,44 @@ const disputedEscrow: Escrow = {
 
 describe("EscrowCard", () => {
   it("renders the escrow ID", () => {
-    render(<EscrowCard escrow={fundedEscrow} />);
+    renderEscrowCard(fundedEscrow);
     expect(screen.getByText(/Escrow #42/)).toBeInTheDocument();
   });
 
   it("renders the formatted amount", () => {
-    render(<EscrowCard escrow={fundedEscrow} />);
+    renderEscrowCard(fundedEscrow);
     expect(screen.getByTestId("escrow-amount")).toHaveTextContent("1,500.00 XLM");
   });
 
   it("renders the status badge with correct label", () => {
-    render(<EscrowCard escrow={fundedEscrow} />);
+    renderEscrowCard(fundedEscrow);
     const badge = screen.getByTestId("escrow-status-badge");
     expect(badge).toHaveTextContent("Funded");
   });
 
   it("shows Released badge when status is Released", () => {
-    render(<EscrowCard escrow={releasedEscrow} />);
+    renderEscrowCard(releasedEscrow);
     expect(screen.getByTestId("escrow-status-badge")).toHaveTextContent("Released");
   });
 
   it("shows Refunded badge when status is Refunded", () => {
-    render(<EscrowCard escrow={refundedEscrow} />);
+    renderEscrowCard(refundedEscrow);
     expect(screen.getByTestId("escrow-status-badge")).toHaveTextContent("Refunded");
   });
 
   it("shows Disputed badge when status is Disputed", () => {
-    render(<EscrowCard escrow={disputedEscrow} />);
+    renderEscrowCard(disputedEscrow);
     expect(screen.getByTestId("escrow-status-badge")).toHaveTextContent("Disputed");
   });
 
   it("renders buyer and seller addresses shortened", () => {
-    render(<EscrowCard escrow={fundedEscrow} />);
+    renderEscrowCard(fundedEscrow);
     expect(screen.getByText(/GBVNN…/)).toBeInTheDocument();
     expect(screen.getByText(/GCSV4…/)).toBeInTheDocument();
   });
 
   it("renders timeout countdown for funded escrows", () => {
-    render(<EscrowCard escrow={fundedEscrow} />);
+    renderEscrowCard(fundedEscrow);
     const countdown = screen.getByTestId("escrow-countdown");
     expect(countdown).toBeInTheDocument();
     // 1,000 ledgers × 5s ≈ 1h 23m
@@ -89,14 +98,14 @@ describe("EscrowCard", () => {
       timeoutLedger: 5_500_000,
       currentLedger: 5_499_950, // 50 ledgers ≈ 4m 10s
     };
-    render(<EscrowCard escrow={urgentEscrow} />);
+    renderEscrowCard(urgentEscrow);
     const countdown = screen.getByTestId("escrow-countdown");
     expect(countdown).toHaveTextContent("Expiring soon:");
     expect(countdown).toHaveTextContent("~4m");
   });
 
   it("does not render countdown for non-funded escrows", () => {
-    render(<EscrowCard escrow={releasedEscrow} />);
+    renderEscrowCard(releasedEscrow);
     expect(screen.queryByTestId("escrow-countdown")).not.toBeInTheDocument();
   });
 });

@@ -18,6 +18,7 @@ const isDev = process.env.NODE_ENV !== "production";
 const connectSrc = [
   "'self'",
   process.env.NEXT_PUBLIC_API_URL || "",
+  process.env.NEXT_PUBLIC_XLM_RATE_URL || "",
   "https://*.stellar.org",
   "https://*.sorobanrpc.com",
   isDev ? "ws:" : "",
