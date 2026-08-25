@@ -1,11 +1,12 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import type { Delegation } from "@delegolabs/types";
 import { Button } from "@delegolabs/ui";
 import { useDelegations } from "../../hooks/useDelegations";
 import { useWallet } from "../../hooks/useWallet";
 import { useQueryParamState } from "../../hooks/useQueryParamState";
+import { useAnnounce } from "../../hooks/useAnnounce";
 import { DelegationWizard } from "../../components/delegations/DelegationWizard";
 import { DelegationFilters } from "../../components/delegations/DelegationFilters";
 import { DelegationList } from "../../components/delegations/DelegationList";
@@ -29,6 +30,7 @@ export default function DelegationsPage() {
   const { address } = useWallet();
   const [showForm, setShowForm] = useState(false);
   const [showNotifyPrompt, setShowNotifyPrompt] = useState(false);
+  const { announce } = useAnnounce();
   const [search, setSearch] = useQueryParamState<string>({
     key: "q",
     defaultValue: "",
@@ -76,6 +78,7 @@ export default function DelegationsPage() {
     const created = await createDelegation(input);
     if (created) {
       setShowForm(false);
+      announce("Delegation created successfully.", "polite");
       if (wasFirstDelegation) setShowNotifyPrompt(true);
     }
   };
@@ -99,7 +102,13 @@ export default function DelegationsPage() {
       )}
 
       <div className="form-actions">
-        <Button variant="primary" onClick={() => setShowForm((v) => !v)}>
+        <Button
+          variant="primary"
+          onClick={() => setShowForm((v) => !v)}
+          ariaLabel={showForm ? "Close delegation form" : "Create new delegation"}
+          aria-expanded={showForm}
+          aria-controls="delegation-wizard-region"
+        >
           {showForm ? "Close" : "New delegation"}
         </Button>
       </div>
@@ -109,11 +118,13 @@ export default function DelegationsPage() {
       )}
 
       {showForm && (
-        <DelegationWizard
-          defaultWalletId={address ?? ""}
-          onSubmit={handleCreate}
-          onCancel={() => setShowForm(false)}
-        />
+        <div id="delegation-wizard-region">
+          <DelegationWizard
+            defaultWalletId={address ?? ""}
+            onSubmit={handleCreate}
+            onCancel={() => setShowForm(false)}
+          />
+        </div>
       )}
 
       {delegations.length > 0 && (

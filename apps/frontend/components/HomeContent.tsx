@@ -1,10 +1,10 @@
 "use client";
 
 import { Button, Card } from "@delegolabs/ui";
-import { DelegationSkeleton } from "../components/DelegationSkeleton";
-import { ExpiryCountdown } from "../components/delegations/ExpiryCountdown";
-import { OrderSkeleton } from "../components/OrderSkeleton";
-import { WalletConnectButton } from "../components/wallet/WalletConnectButton";
+import { DelegationSkeleton } from "./DelegationSkeleton";
+import { ExpiryCountdown } from "./delegations/public";
+import { OrderSkeleton } from "./OrderSkeleton";
+import { WalletConnectButton } from "./wallet/public";
 import { useDelegations } from "../hooks/useDelegations";
 import { useOrders } from "../hooks/useOrders";
 
