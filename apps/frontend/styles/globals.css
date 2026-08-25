@@ -1300,6 +1300,57 @@ body {
   color: var(--color-text-muted);
 }
 
+.approval-explainability-section h3 {
+  margin: 0 0 0.5rem;
+  font-size: 0.9375rem;
+}
+
+.approval-reasoning-text {
+  margin: 0;
+  color: var(--color-text-secondary);
+  font-size: 0.9375rem;
+  line-height: 1.5;
+}
+
+.approval-line-item-product {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.approval-line-item-image {
+  width: 32px;
+  height: 32px;
+  object-fit: cover;
+  border-radius: 0.25rem;
+  flex-shrink: 0;
+}
+
+.approval-price-hint {
+  font-size: 0.8125rem;
+  color: var(--color-text-secondary);
+  white-space: nowrap;
+}
+
+.approval-price-hint-above {
+  color: var(--color-status-warning-text, #92400e);
+  font-weight: 500;
+}
+
+.approval-price-hint-unknown {
+  color: var(--color-text-muted);
+}
+
+.approval-evidence-list {
+  margin: 0;
+  padding-left: 1.25rem;
+  font-size: 0.875rem;
+}
+
+.approval-evidence-list li + li {
+  margin-top: 0.25rem;
+}
+
 .hotkey-cheatsheet-overlay {
   position: fixed;
   inset: 0;
@@ -1369,6 +1420,74 @@ body {
 .hotkey-cheatsheet-row dd {
   margin: 0;
   color: var(--color-text-secondary);
+}
+
+/* Merchant whitelist picker (#524) */
+.merchant-whitelist-picker {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.merchant-whitelist-toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.9375rem;
+  cursor: pointer;
+}
+
+.merchant-whitelist-editor {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.merchant-whitelist-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.merchant-whitelist-chip-remove {
+  background: none;
+  border: none;
+  cursor: pointer;
+  margin-left: 0.375rem;
+  font-size: 1rem;
+  line-height: 1;
+  color: inherit;
+}
+
+.merchant-whitelist-search-label {
+  font-size: 0.8125rem;
+  color: var(--color-text-secondary);
+}
+
+.merchant-whitelist-search {
+  width: 100%;
+  padding: 0.5rem;
+  border-radius: 0.375rem;
+  border: 1px solid var(--color-border);
+}
+
+.merchant-whitelist-results {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  border: 1px solid var(--color-border);
+  border-radius: 0.375rem;
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.merchant-whitelist-no-results {
+  padding: 0.5rem 0.75rem;
+  color: var(--color-text-muted);
+  font-size: 0.875rem;
 }
 
 .undo-snackbar {
