@@ -31,6 +31,10 @@
     "labelRequiredSuffix": "*",
     "commaSeparatedHint": "Comma-separated, leave blank to allow all"
   },
+  "filters": {
+    "copyLink": "Copy link to this view",
+    "copied": "Link copied"
+  },
   "delegations": {
     "wizard": {
       "title": "Grant a new delegation",
@@ -78,6 +82,35 @@
         "invalidTotal": "Total spending limit must be greater than zero",
         "emptyWhitelist": "Select at least one merchant, or turn on \"Allow all merchants\"",
         "createFailed": "Failed to create delegation"
+      },
+      "steps": {
+        "agent": {
+          "title": "Choose agent",
+          "scanQr": "Scan QR code",
+          "scanQrHint": "Use your camera to scan an agent's QR code, or paste its ID above",
+          "scanQrUnsupported": "QR scanning isn't supported in this browser — paste the agent ID instead",
+          "scanQrError": "Couldn't read a delegation QR code from that image"
+        },
+        "scope": {
+          "title": "Scope"
+        },
+        "limits": {
+          "title": "Limits"
+        },
+        "review": {
+          "title": "Review & confirm",
+          "summary": "{agentLabel} can spend up to {maxTotal} {merchantScope} until {expiry}",
+          "summaryNoExpiry": "no expiry",
+          "merchantScopeAll": "on any merchant",
+          "merchantScopeRestricted": "on {count, plural, one {# allowed merchant} other {# allowed merchants}}"
+        },
+        "next": "Next",
+        "back": "Back",
+        "stepOf": "Step {current} of {total}",
+        "cancelConfirm": "Discard this delegation draft? Your changes will be lost.",
+        "resumeDraft": "You have an unfinished delegation draft.",
+        "resumeDraftAction": "Resume",
+        "discardDraft": "Discard"
       }
     }
   },

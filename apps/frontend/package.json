@@ -16,12 +16,14 @@
     "test:e2e": "playwright test",
     "test:e2e:visual": "playwright test --project=visual --project=visual-mobile",
     "visual:update": "playwright test --project=visual --project=visual-mobile --update-snapshots",
-    "analyze": "ANALYZE=true pnpm build"
+    "analyze": "ANALYZE=true pnpm build",
+    "check:perf-budget": "node scripts/check-perf-budget.mjs"
   },
   "dependencies": {
     "@delegolabs/sdk": "^0.0.1",
     "@delegolabs/types": "^0.0.1",
     "@delegolabs/ui": "workspace:*",
+    "@sentry/nextjs": "^8.47.0",
     "@stellar/freighter-api": "^6.0.1",
     "next": "^15.1.0",
     "next-intl": "^3.26.0",

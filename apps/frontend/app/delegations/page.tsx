@@ -1,13 +1,19 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import type { Delegation } from "@delegolabs/types";
 import { Button } from "@delegolabs/ui";
 import { useDelegations } from "../../hooks/useDelegations";
 import { useWallet } from "../../hooks/useWallet";
-import { DelegationForm } from "../../components/delegations/DelegationForm";
+import { useQueryParamState } from "../../hooks/useQueryParamState";
+import { DelegationWizard } from "../../components/delegations/DelegationWizard";
+import { DelegationFilters } from "../../components/delegations/DelegationFilters";
 import { DelegationList } from "../../components/delegations/DelegationList";
 import { NotificationPermissionPrompt } from "../../components/notifications/NotificationPermissionPrompt";
+import { CopyViewLinkButton } from "../../components/filters/CopyViewLinkButton";
 import { OPEN_DELEGATION_FORM_KEY } from "../../lib/delegationFormIntent";
+
+type DelegationStatus = Delegation["status"];
 
 /** Delegation management page — create, view, edit, pause/resume, and revoke delegations. */
 export default function DelegationsPage() {
@@ -23,6 +29,35 @@ export default function DelegationsPage() {
   const { address } = useWallet();
   const [showForm, setShowForm] = useState(false);
   const [showNotifyPrompt, setShowNotifyPrompt] = useState(false);
+  const [search, setSearch] = useQueryParamState<string>({
+    key: "q",
+    defaultValue: "",
+  });
+  const [selectedStatuses, setSelectedStatuses] = useQueryParamState<DelegationStatus[]>({
+    key: "status",
+    defaultValue: [],
+  });
+
+  const visibleDelegations = useMemo(() => {
+    const term = search.trim().toLowerCase();
+    return delegations.filter((d) => {
+      const matchesSearch =
+        term === "" ||
+        d.agentId.toLowerCase().includes(term) ||
+        d.walletId.toLowerCase().includes(term);
+      const matchesStatus =
+        selectedStatuses.length === 0 || selectedStatuses.includes(d.status);
+      return matchesSearch && matchesStatus;
+    });
+  }, [delegations, search, selectedStatuses]);
+
+  const toggleStatus = (status: DelegationStatus) => {
+    setSelectedStatuses(
+      selectedStatuses.includes(status)
+        ? selectedStatuses.filter((s) => s !== status)
+        : [...selectedStatuses, status]
+    );
+  };
 
   // Opened via the command palette's "New delegation" quick action.
   useEffect(() => {
@@ -48,8 +83,13 @@ export default function DelegationsPage() {
   return (
     <div className="settings-page">
       <header className="header">
-        <h1>Delegations</h1>
-        <p>Grant, adjust, and revoke scoped spending authority for AI agents</p>
+        <div className="header-row">
+          <div>
+            <h1>Delegations</h1>
+            <p>Grant, adjust, and revoke scoped spending authority for AI agents</p>
+          </div>
+          <CopyViewLinkButton />
+        </div>
       </header>
 
       {error && (
@@ -69,19 +109,29 @@ export default function DelegationsPage() {
       )}
 
       {showForm && (
-        <DelegationForm
+        <DelegationWizard
           defaultWalletId={address ?? ""}
           onSubmit={handleCreate}
           onCancel={() => setShowForm(false)}
         />
       )}
 
+      {delegations.length > 0 && (
+        <DelegationFilters
+          search={search}
+          onSearchChange={setSearch}
+          selectedStatuses={selectedStatuses}
+          onToggleStatus={toggleStatus}
+        />
+      )}
+
       <DelegationList
-        delegations={delegations}
+        delegations={visibleDelegations}
         loading={loading}
         pendingIds={pendingIds}
         onUpdate={updateDelegation}
         onRevoke={revokeDelegation}
+        filtered={delegations.length > 0 && visibleDelegations.length !== delegations.length}
       />
     </div>
   );

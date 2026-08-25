@@ -9,3 +9,9 @@ export {
 } from "./formatAmount.js";
 export { FormField, type FormFieldProps } from "./FormField.js";
 export { StroopsInput, type StroopsInputProps } from "./StroopsInput.js";
+export {
+  Stepper,
+  type StepperProps,
+  type StepperStep,
+  type StepStatus,
+} from "./Stepper.js";
