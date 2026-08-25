@@ -8,6 +8,7 @@ import type {
   CreateDelegationInput,
   DelegationPermissionLevel,
 } from "@delegolabs/types";
+import { MerchantWhitelistPicker } from "./MerchantWhitelistPicker";
 
 const PERMISSION_LEVELS: DelegationPermissionLevel[] = [
   "VIEW_ONLY",
@@ -44,7 +45,9 @@ export function DelegationForm({
     useState<DelegationPermissionLevel>("AUTO_APPROVE");
   const [maxPerTransaction, setMaxPerTransaction] = useState<bigint>(0n);
   const [maxTotal, setMaxTotal] = useState<bigint>(0n);
-  const [allowedMerchants, setAllowedMerchants] = useState("");
+  const [allowedMerchants, setAllowedMerchants] = useState<string[]>([]);
+  const [unrestrictedMerchants, setUnrestrictedMerchants] = useState(true);
+  const [showEmptyWhitelistError, setShowEmptyWhitelistError] = useState(false);
   const [allowedCategories, setAllowedCategories] = useState("");
   const [expiresAt, setExpiresAt] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -65,6 +68,12 @@ export function DelegationForm({
       setFormError(t("errors.invalidTotal"));
       return;
     }
+    if (!unrestrictedMerchants && allowedMerchants.length === 0) {
+      setShowEmptyWhitelistError(true);
+      setFormError(t("errors.emptyWhitelist"));
+      return;
+    }
+    setShowEmptyWhitelistError(false);
 
     const input: CreateDelegationInput = {
       agentId: agentId.trim(),
@@ -74,7 +83,7 @@ export function DelegationForm({
       policy: {
         maxPerTransaction: maxPerTransaction.toString(),
         maxTotal: maxTotal.toString(),
-        allowedMerchants: parseCsv(allowedMerchants),
+        allowedMerchants: unrestrictedMerchants ? [] : allowedMerchants,
         allowedCategories: parseCsv(allowedCategories),
         ...(expiresAt && {
           expiresAt: new Date(expiresAt).toISOString(),
@@ -89,7 +98,8 @@ export function DelegationForm({
       setLabel("");
       setMaxPerTransaction(0n);
       setMaxTotal(0n);
-      setAllowedMerchants("");
+      setAllowedMerchants([]);
+      setUnrestrictedMerchants(true);
       setAllowedCategories("");
       setExpiresAt("");
     } catch (err) {
@@ -182,16 +192,21 @@ export function DelegationForm({
           />
         </div>
 
-        <FormField
-          label={t("allowedMerchants.label")}
-          hint={tForms("commaSeparatedHint")}
-          inputProps={{
-            value: allowedMerchants,
-            onChange: (e) => setAllowedMerchants(e.target.value),
-            placeholder: t("allowedMerchants.placeholder"),
-            style: { width: "100%" },
-          }}
-        />
+        <div>
+          <label style={{ display: "block", fontWeight: 500, marginBottom: "0.5rem" }}>
+            {t("allowedMerchants.label")}
+          </label>
+          <MerchantWhitelistPicker
+            value={allowedMerchants}
+            onChange={setAllowedMerchants}
+            unrestricted={unrestrictedMerchants}
+            onUnrestrictedChange={(next) => {
+              setUnrestrictedMerchants(next);
+              if (next) setShowEmptyWhitelistError(false);
+            }}
+            showEmptyWhitelistError={showEmptyWhitelistError}
+          />
+        </div>
 
         <FormField
           label={t("allowedCategories.label")}

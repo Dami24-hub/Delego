@@ -184,6 +184,13 @@ export default function ApprovalsPage() {
         onReject={handleReject}
         onClose={() => setDrawerOrderId(null)}
       />
+      {/*
+        `explainability` is intentionally omitted here: the orders payload
+        doesn't carry agent-reasoning data yet (orchestrator events #130/#206
+        aren't surfaced to the frontend). ApprovalDrawer already collapses
+        every optional section cleanly, so it just renders without them until
+        the payload is extended — see lib/approvalExplainability.ts.
+      */}
 
       {showCheatSheet && <HotkeyCheatSheet onClose={() => setShowCheatSheet(false)} />}
 

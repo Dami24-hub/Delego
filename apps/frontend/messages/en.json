@@ -76,6 +76,7 @@
       "errors": {
         "missingFields": "Agent, wallet, and label are required",
         "invalidTotal": "Total spending limit must be greater than zero",
+        "emptyWhitelist": "Select at least one merchant, or turn on \"Allow all merchants\"",
         "createFailed": "Failed to create delegation"
       }
     }
