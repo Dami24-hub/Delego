@@ -143,6 +143,7 @@ See [CONTRIBUTING.md](./CONTRIBUTING.md) and [CODE_OF_CONDUCT.md](./CODE_OF_COND
 - [docs/problem.md](./docs/problem.md) — Problem statement
 - [docs/grant-deliverables.md](./docs/grant-deliverables.md) — Grant deliverables
 - [docs/architecture/system-design.md](./docs/architecture/system-design.md) — System design
+- [docs/architecture/frontend-perf.md](./docs/architecture/frontend-perf.md) — Frontend performance budget
 - [docs/README.md](./docs/README.md) — Documentation index
 
 ## 🔒 Security
