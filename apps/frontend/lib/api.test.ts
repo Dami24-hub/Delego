@@ -64,4 +64,29 @@ describe("api client", () => {
       expect.anything()
     );
   });
+
+  it("retries transient GET failures without retrying POST requests", async () => {
+    vi.useFakeTimers();
+    const { createRetryingFetch } = await import("./api.js");
+    const success = new Response(JSON.stringify(HEALTH_RESPONSE), { status: 200 });
+    const baseFetch = vi
+      .fn()
+      .mockResolvedValueOnce(new Response("busy", { status: 503 }))
+      .mockResolvedValueOnce(success);
+
+    const retryingFetch = createRetryingFetch(baseFetch as typeof fetch, {
+      baseDelayMs: 1,
+      maxDelayMs: 1,
+    });
+    const resultPromise = retryingFetch("https://api.example.com/health");
+
+    await vi.runAllTimersAsync();
+
+    await expect(resultPromise).resolves.toBe(success);
+    expect(baseFetch).toHaveBeenCalledTimes(2);
+
+    await retryingFetch("https://api.example.com/orders", { method: "POST" });
+    expect(baseFetch).toHaveBeenCalledTimes(3);
+    vi.useRealTimers();
+  });
 });
