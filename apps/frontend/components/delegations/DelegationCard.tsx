@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Button, Card, StroopsInput } from "@delegolabs/ui";
 import type { Delegation, UpdateDelegationInput } from "@delegolabs/types";
 import { DelegationQR } from "./DelegationQR";
+import { MerchantWhitelistPicker } from "./MerchantWhitelistPicker";
 
 export interface DelegationCardProps {
   delegation: Delegation;
@@ -30,9 +31,13 @@ export function DelegationCard({
     delegation.policy.maxPerTransaction
   );
   const [maxTotal, setMaxTotal] = useState(delegation.policy.maxTotal);
-  const [allowedMerchants, setAllowedMerchants] = useState(
-    delegation.policy.allowedMerchants.join(", ")
+  const [allowedMerchants, setAllowedMerchants] = useState<string[]>(
+    delegation.policy.allowedMerchants
   );
+  const [unrestrictedMerchants, setUnrestrictedMerchants] = useState(
+    delegation.policy.allowedMerchants.length === 0
+  );
+  const [showEmptyWhitelistError, setShowEmptyWhitelistError] = useState(false);
   const [saving, setSaving] = useState(false);
 
   const isRevoked = delegation.status === "revoked";
@@ -52,16 +57,18 @@ export function DelegationCard({
   };
 
   const handleSavePolicy = async () => {
+    if (!unrestrictedMerchants && allowedMerchants.length === 0) {
+      setShowEmptyWhitelistError(true);
+      return;
+    }
+    setShowEmptyWhitelistError(false);
     setSaving(true);
     try {
       await onUpdate(delegation.id, {
         policy: {
           maxPerTransaction: maxPerTransaction.toString(),
           maxTotal: maxTotal.toString(),
-          allowedMerchants: allowedMerchants
-            .split(",")
-            .map((s) => s.trim())
-            .filter(Boolean),
+          allowedMerchants: unrestrictedMerchants ? [] : allowedMerchants,
         },
       });
       setEditing(false);
@@ -130,12 +137,17 @@ export function DelegationCard({
           </div>
           <div>
             <label style={{ display: "block", fontSize: "0.875rem", marginBottom: "0.25rem" }}>
-              Allowed merchants (comma-separated)
+              Allowed merchants
             </label>
-            <input
+            <MerchantWhitelistPicker
               value={allowedMerchants}
-              onChange={(e) => setAllowedMerchants(e.target.value)}
-              style={{ width: "100%", padding: "0.5rem", borderRadius: "0.375rem" }}
+              onChange={setAllowedMerchants}
+              unrestricted={unrestrictedMerchants}
+              onUnrestrictedChange={(next) => {
+                setUnrestrictedMerchants(next);
+                if (next) setShowEmptyWhitelistError(false);
+              }}
+              showEmptyWhitelistError={showEmptyWhitelistError}
             />
           </div>
         </div>
