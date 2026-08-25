@@ -17,6 +17,7 @@ import { ApprovalDrawer } from "../../components/orders/ApprovalDrawer";
 import { HotkeyCheatSheet } from "../../components/orders/HotkeyCheatSheet";
 import { UndoSnackbar } from "../../components/orders/UndoSnackbar";
 import { CopyViewLinkButton } from "../../components/filters/CopyViewLinkButton";
+import { HelpLink } from "../../components/help/HelpLink";
 
 const POLL_INTERVAL_MS = 15_000;
 
@@ -114,10 +115,11 @@ export default function ApprovalsPage() {
         <div className="header-row">
           <div>
             <h1>Approvals</h1>
-            <p>
+            <p style={{ display: "flex", alignItems: "center", gap: "0.375rem", flexWrap: "wrap" }}>
               Review high-value orders (over{" "}
               <Amount stroops={HIGH_VALUE_THRESHOLD_STROOPS} currency={currencyId} xlmUsdRate={rate?.xlmUsdRate} />)
               that require your sign-off before they proceed
+              <HelpLink concept="approval" />
             </p>
           </div>
           <CopyViewLinkButton />

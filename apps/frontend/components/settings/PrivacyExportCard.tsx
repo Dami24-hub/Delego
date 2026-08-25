@@ -3,6 +3,7 @@
 import { Card, Button } from "@delegolabs/ui";
 import type { User, UserPreferences } from "@delegolabs/types";
 import { useAccountExport } from "../../hooks/useAccountExport";
+import { HelpLink } from "../help/HelpLink";
 
 export interface PrivacyExportCardProps {
   user: User;
@@ -37,7 +38,10 @@ export function PrivacyExportCard({ user, preferences }: PrivacyExportCardProps)
     <Card title="Privacy" ariaLabel="Privacy settings">
       <div className="settings-section">
         <div>
-          <p className="settings-toggle-label">Export your data</p>
+          <p className="settings-toggle-label" style={{ display: "flex", alignItems: "center", gap: "0.375rem" }}>
+            Export your data
+            <HelpLink concept="privacy" />
+          </p>
           <p className="settings-toggle-hint">
             Download a complete copy of your account — profile, delegations,
             orders, and approval decisions — as a single JSON file. You control

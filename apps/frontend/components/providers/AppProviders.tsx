@@ -8,6 +8,7 @@ import { CurrencyProvider } from "../../hooks/useCurrency";
 import { MockApiProvider } from "./MockApiProvider";
 import { SentryBreadcrumbs } from "./SentryBreadcrumbs";
 import { WebVitalsReporter } from "./WebVitalsReporter";
+import { TourProvider } from "../tour/TourProvider";
 
 /**
  * Client-side context providers shared across the app shell.
@@ -20,9 +21,11 @@ export function AppProviders({ children }: { children: ReactNode }) {
         <CurrencyProvider>
           <AnnounceProvider>
             <NotificationProvider>
-              <SentryBreadcrumbs />
-              <WebVitalsReporter />
-              {children}
+              <TourProvider>
+                <SentryBreadcrumbs />
+                <WebVitalsReporter />
+                {children}
+              </TourProvider>
             </NotificationProvider>
           </AnnounceProvider>
         </CurrencyProvider>

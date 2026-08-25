@@ -1,24 +1,25 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { ApiResponse, Order } from "@delegolabs/types";
+import type { Order } from "@delegolabs/types";
 import { api } from "../lib/api";
+import {
+  adaptOrders,
+  adaptOrder,
+  type ListOrdersResponse,
+  type ApproveOrderResponse,
+  type RejectOrderResponse,
+} from "@delegolabs/api-generated";
 
 /**
  * Fetch (and optionally poll) the current user's orders from the Delego API,
  * with optimistic approve/reject mutations for the approval workflow.
+ *
+ * The approvals module is fully typed end-to-end from the OpenAPI spec via
+ * @delegolabs/api-generated (#633). Raw API responses are adapted to the
+ * application domain model (Date, bigint) by adaptOrder(s) before being
+ * stored in state — no hand-written interfaces remain in this module.
  */
-function isOrderArray(data: unknown): data is Order[] {
-  if (!Array.isArray(data)) return false;
-  return data.every(
-    (item) =>
-      typeof item === "object" &&
-      item !== null &&
-      "id" in item &&
-      "userId" in item &&
-      "status" in item
-  );
-}
 
 export interface UseOrdersOptions {
   /**
@@ -66,14 +67,16 @@ export function useOrders(options: UseOrdersOptions = {}): UseOrdersResult {
 
   const load = useCallback(async (signal?: AbortSignal) => {
     try {
-      const res: ApiResponse<Order[]> = await api.getOrders({ signal });
+      // Typed against the generated ListOrdersResponse from the OpenAPI spec.
+      const res = (await api.getOrders({ signal })) as ListOrdersResponse;
       if (signal?.aborted || !mountedRef.current) return;
       if (res.error) {
         setError(res.error.message);
-      } else if (!isOrderArray(res.data)) {
+      } else if (!Array.isArray(res.data)) {
         setError("Invalid response format");
       } else {
-        setOrders(res.data);
+        // Adapt generated API order shape → domain order shape (Date, bigint).
+        setOrders(adaptOrders(res.data));
         setLastUpdated(new Date());
         setError(null);
       }
@@ -111,7 +114,7 @@ export function useOrders(options: UseOrdersOptions = {}): UseOrdersResult {
   const runMutation = useCallback(
     async (
       id: string,
-      call: () => Promise<ApiResponse<Order>>
+      call: () => Promise<ApproveOrderResponse | RejectOrderResponse>
     ): Promise<Order | null> => {
       setPending(id, true);
       setError(null);
@@ -122,7 +125,8 @@ export function useOrders(options: UseOrdersOptions = {}): UseOrdersResult {
           return null;
         }
         if (res.data) {
-          const updated = res.data;
+          // Adapt generated API shape → domain shape before storing.
+          const updated = adaptOrder(res.data);
           setOrders((prev) =>
             prev.map((order) => (order.id === id ? updated : order))
           );
@@ -140,13 +144,16 @@ export function useOrders(options: UseOrdersOptions = {}): UseOrdersResult {
   );
 
   const approveOrder = useCallback(
-    (id: string) => runMutation(id, () => api.approveOrder(id)),
+    (id: string) =>
+      runMutation(id, () => api.approveOrder(id) as Promise<ApproveOrderResponse>),
     [runMutation]
   );
 
   const rejectOrder = useCallback(
     (id: string, reason?: string) =>
-      runMutation(id, () => api.rejectOrder(id, reason)),
+      runMutation(id, () =>
+        api.rejectOrder(id, reason) as Promise<RejectOrderResponse>
+      ),
     [runMutation]
   );
 

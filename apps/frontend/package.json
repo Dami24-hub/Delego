@@ -17,9 +17,11 @@
     "test:e2e:visual": "playwright test --project=visual --project=visual-mobile",
     "visual:update": "playwright test --project=visual --project=visual-mobile --update-snapshots",
     "analyze": "ANALYZE=true pnpm build",
-    "check:perf-budget": "node scripts/check-perf-budget.mjs"
+    "check:perf-budget": "node scripts/check-perf-budget.mjs",
+    "check:help-links": "node scripts/check-help-links.mjs"
   },
   "dependencies": {
+    "@delegolabs/api-generated": "workspace:*",
     "@delegolabs/sdk": "^0.0.1",
     "@delegolabs/types": "^0.0.1",
     "@delegolabs/ui": "workspace:*",
