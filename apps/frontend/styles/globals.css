@@ -1300,6 +1300,57 @@ body {
   color: var(--color-text-muted);
 }
 
+.approval-explainability-section h3 {
+  margin: 0 0 0.5rem;
+  font-size: 0.9375rem;
+}
+
+.approval-reasoning-text {
+  margin: 0;
+  color: var(--color-text-secondary);
+  font-size: 0.9375rem;
+  line-height: 1.5;
+}
+
+.approval-line-item-product {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.approval-line-item-image {
+  width: 32px;
+  height: 32px;
+  object-fit: cover;
+  border-radius: 0.25rem;
+  flex-shrink: 0;
+}
+
+.approval-price-hint {
+  font-size: 0.8125rem;
+  color: var(--color-text-secondary);
+  white-space: nowrap;
+}
+
+.approval-price-hint-above {
+  color: var(--color-status-warning-text, #92400e);
+  font-weight: 500;
+}
+
+.approval-price-hint-unknown {
+  color: var(--color-text-muted);
+}
+
+.approval-evidence-list {
+  margin: 0;
+  padding-left: 1.25rem;
+  font-size: 0.875rem;
+}
+
+.approval-evidence-list li + li {
+  margin-top: 0.25rem;
+}
+
 .hotkey-cheatsheet-overlay {
   position: fixed;
   inset: 0;
