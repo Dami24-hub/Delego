@@ -2,6 +2,7 @@
 
 import { useTranslations } from "next-intl";
 import { FormField, StroopsInput } from "@delegolabs/ui";
+import { HelpLink } from "../../help/HelpLink";
 
 export interface WizardStepLimitsProps {
   maxPerTransaction: string;
@@ -28,8 +29,9 @@ export function WizardStepLimits({
   return (
     <div className="settings-section">
       <div>
-        <label style={{ display: "block", fontWeight: 500, marginBottom: "0.5rem" }}>
+        <label style={{ display: "flex", alignItems: "center", gap: "0.375rem", fontWeight: 500, marginBottom: "0.5rem" }}>
           {t("maxPerTransaction.label")}
+          <HelpLink concept="delegation-limits" />
         </label>
         <StroopsInput
           value={BigInt(maxPerTransaction || "0")}
@@ -39,8 +41,9 @@ export function WizardStepLimits({
       </div>
 
       <div>
-        <label style={{ display: "block", fontWeight: 500, marginBottom: "0.5rem" }}>
+        <label style={{ display: "flex", alignItems: "center", gap: "0.375rem", fontWeight: 500, marginBottom: "0.5rem" }}>
           {t("maxTotal.label")}
+          <HelpLink concept="delegation-limits" />
         </label>
         <StroopsInput
           value={BigInt(maxTotal || "0")}
