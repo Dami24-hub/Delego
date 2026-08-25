@@ -40,6 +40,7 @@ export function ApprovalCard({
         <span className="status-badge order-status-pending_approval">
           Pending approval
         </span>
+        <ApprovalAgeBadge createdAt={order.createdAt} />
         <span className="approval-flag" title="Exceeds the high-value threshold">
           ⚠ High value
         </span>

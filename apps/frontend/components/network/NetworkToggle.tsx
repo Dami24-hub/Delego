@@ -38,6 +38,17 @@ export function NetworkToggle() {
   }, [open]);
 
   function handleSelect(id: NetworkId) {
+    const next = networks.find((item) => item.id === id);
+    if (next?.isLive) {
+      const confirmed = window.confirm(
+        "Switch to Mainnet? This network uses real funds. Only continue if you intend to submit live Stellar transactions."
+      );
+      if (!confirmed) {
+        setOpen(false);
+        return;
+      }
+    }
+
     setNetwork(id);
     setOpen(false);
   }
@@ -59,6 +70,7 @@ export function NetworkToggle() {
           aria-hidden="true"
         />
         <span className="network-toggle-label">{network.label}</span>
+        {network.isLive && <span className="network-live-badge">LIVE</span>}
         <span className="network-toggle-caret" aria-hidden="true">
           ▾
         </span>
@@ -87,6 +99,7 @@ export function NetworkToggle() {
                       {net.isLive ? "Real funds" : "Test funds only"}
                     </span>
                   </span>
+                  {net.isLive && <span className="network-live-badge">LIVE</span>}
                   {isActive && (
                     <span className="network-menu-check" aria-hidden="true">
                       ✓

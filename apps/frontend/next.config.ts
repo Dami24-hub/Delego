@@ -13,6 +13,7 @@ const isDev = process.env.NODE_ENV !== "production";
  * - `connect-src` permits the API plus Stellar Horizon / Soroban RPC endpoints
  *   (testnet + mainnet) used by the multi-network wallet features.
  * - `img-src` allows Stellar-hosted images (see images.remotePatterns).
+ * - `worker-src` allows the /sw.js service worker (PWA offline support).
  */
 const connectSrc = [
   "'self'",
@@ -31,6 +32,7 @@ const cspDirectives = [
   "style-src 'self' 'unsafe-inline'",
   "img-src 'self' data: blob: https://*.stellar.org",
   "font-src 'self' data:",
+  "worker-src 'self'",
   `connect-src ${connectSrc}`,
   "frame-ancestors 'none'",
   "form-action 'self'",

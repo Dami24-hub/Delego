@@ -27,7 +27,10 @@ export function OrderTrackingCard({ order }: OrderTrackingCardProps) {
       title={`Order ${order.id}`}
       ariaLabel={`Tracking for order ${order.id}`}
     >
-      <StatusTimeline status={order.status} />
+      <ActivityTimeline
+        events={orderToTimelineEvents(order)}
+        ariaLabel="Order progress"
+      />
 
       <dl className="wallet-detail-list">
         <div className="wallet-detail-row">
