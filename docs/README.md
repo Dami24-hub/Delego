@@ -32,6 +32,7 @@ docs/
 ├── README.md                    # This file - documentation index
 ├── vision.md                    # Product vision and goals
 ├── problem.md                   # Problem statement and motivation
+├── feature-flags.md             # Feature flag system & dark-launch guide
 ├── architecture/                # Technical architecture documentation
 │   └── system-design.md         # System design details
 └── grant-deliverables.md        # Grant milestone tracking
