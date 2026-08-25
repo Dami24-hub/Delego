@@ -9,7 +9,9 @@ import { DelegationList } from "../../components/delegations/DelegationList";
 import { NotificationPermissionPrompt } from "../../components/notifications/NotificationPermissionPrompt";
 import { OPEN_DELEGATION_FORM_KEY } from "../../lib/delegationFormIntent";
 
-/** Delegation management page — create, view, edit, pause/resume, and revoke delegations. */
+import type { Delegation } from "@delegolabs/types";
+
+/** Delegation management page — create, view, edit, pause/resume, duplicate, and revoke delegations. */
 export default function DelegationsPage() {
   const {
     delegations,
@@ -22,6 +24,7 @@ export default function DelegationsPage() {
   } = useDelegations();
   const { address } = useWallet();
   const [showForm, setShowForm] = useState(false);
+  const [duplicateSource, setDuplicateSource] = useState<Delegation | null>(null);
   const [showNotifyPrompt, setShowNotifyPrompt] = useState(false);
 
   // Opened via the command palette's "New delegation" quick action.
@@ -41,8 +44,15 @@ export default function DelegationsPage() {
     const created = await createDelegation(input);
     if (created) {
       setShowForm(false);
+      setDuplicateSource(null);
       if (wasFirstDelegation) setShowNotifyPrompt(true);
     }
+  };
+
+  const handleStartDuplicate = (delegation: Delegation) => {
+    setDuplicateSource(delegation);
+    setShowForm(true);
+    window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
   return (
@@ -59,7 +69,18 @@ export default function DelegationsPage() {
       )}
 
       <div className="form-actions">
-        <Button variant="primary" onClick={() => setShowForm((v) => !v)}>
+        <Button
+          variant="primary"
+          onClick={() => {
+            if (showForm) {
+              setShowForm(false);
+              setDuplicateSource(null);
+            } else {
+              setDuplicateSource(null);
+              setShowForm(true);
+            }
+          }}
+        >
           {showForm ? "Close" : "New delegation"}
         </Button>
       </div>
@@ -71,8 +92,12 @@ export default function DelegationsPage() {
       {showForm && (
         <DelegationForm
           defaultWalletId={address ?? ""}
+          initialDelegation={duplicateSource ?? undefined}
           onSubmit={handleCreate}
-          onCancel={() => setShowForm(false)}
+          onCancel={() => {
+            setShowForm(false);
+            setDuplicateSource(null);
+          }}
         />
       )}
 
@@ -82,6 +107,7 @@ export default function DelegationsPage() {
         pendingIds={pendingIds}
         onUpdate={updateDelegation}
         onRevoke={revokeDelegation}
+        onDuplicate={handleStartDuplicate}
       />
     </div>
   );

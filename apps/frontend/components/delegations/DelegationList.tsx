@@ -9,6 +9,7 @@ export interface DelegationListProps {
   pendingIds: Set<string>;
   onUpdate: (id: string, input: UpdateDelegationInput) => void | Promise<unknown>;
   onRevoke: (id: string) => void | Promise<unknown>;
+  onDuplicate?: (delegation: Delegation) => void;
 }
 
 function DelegationSkeletonCard() {
@@ -29,6 +30,7 @@ export function DelegationList({
   pendingIds,
   onUpdate,
   onRevoke,
+  onDuplicate,
 }: DelegationListProps) {
   if (loading && delegations.length === 0) {
     return (
@@ -57,6 +59,7 @@ export function DelegationList({
           pending={pendingIds.has(delegation.id)}
           onUpdate={onUpdate}
           onRevoke={onRevoke}
+          onDuplicate={onDuplicate}
         />
       ))}
     </div>

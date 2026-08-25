@@ -6,8 +6,10 @@ import { useTranslations } from "next-intl";
 import { Button, Card, FormField, StroopsInput } from "@delegolabs/ui";
 import type {
   CreateDelegationInput,
+  Delegation,
   DelegationPermissionLevel,
 } from "@delegolabs/types";
+import { isDelegationExpired } from "../../lib/delegations";
 
 const PERMISSION_LEVELS: DelegationPermissionLevel[] = [
   "VIEW_ONLY",
@@ -26,6 +28,8 @@ function parseCsv(value: string): string[] {
 export interface DelegationFormProps {
   /** Wallet ID pre-filled from the connected wallet, if known */
   defaultWalletId?: string;
+  /** Optional source delegation to clone/duplicate */
+  initialDelegation?: Delegation;
   /** Called with the new delegation payload. May be async (creation is optimistic either way). */
   onSubmit: (input: CreateDelegationInput) => void | Promise<unknown>;
   onCancel?: () => void;
@@ -34,19 +38,43 @@ export interface DelegationFormProps {
 /** Form for granting a new delegation to an AI agent. */
 export function DelegationForm({
   defaultWalletId = "",
+  initialDelegation,
   onSubmit,
   onCancel,
 }: DelegationFormProps) {
-  const [agentId, setAgentId] = useState("");
-  const [walletId, setWalletId] = useState(defaultWalletId);
-  const [label, setLabel] = useState("");
-  const [permissionLevel, setPermissionLevel] =
-    useState<DelegationPermissionLevel>("AUTO_APPROVE");
-  const [maxPerTransaction, setMaxPerTransaction] = useState<bigint>(0n);
-  const [maxTotal, setMaxTotal] = useState<bigint>(0n);
-  const [allowedMerchants, setAllowedMerchants] = useState("");
-  const [allowedCategories, setAllowedCategories] = useState("");
-  const [expiresAt, setExpiresAt] = useState("");
+  const isDuplicate = Boolean(initialDelegation);
+  const isExpiredSource = initialDelegation ? isDelegationExpired(initialDelegation) : false;
+
+  const [agentId, setAgentId] = useState(initialDelegation?.agentId ?? "");
+  const [walletId, setWalletId] = useState(initialDelegation?.walletId ?? defaultWalletId);
+  const [label, setLabel] = useState(
+    initialDelegation
+      ? initialDelegation.label
+        ? `${initialDelegation.label} (Copy)`
+        : `${initialDelegation.agentId} (Copy)`
+      : ""
+  );
+  const [permissionLevel, setPermissionLevel] = useState<DelegationPermissionLevel>(
+    initialDelegation?.permissionLevel ?? "AUTO_APPROVE"
+  );
+  const [maxPerTransaction, setMaxPerTransaction] = useState<bigint>(
+    initialDelegation?.policy.maxPerTransaction ?? 0n
+  );
+  const [maxTotal, setMaxTotal] = useState<bigint>(
+    initialDelegation?.policy.maxTotal ?? 0n
+  );
+  const [allowedMerchants, setAllowedMerchants] = useState(
+    initialDelegation?.policy.allowedMerchants.join(", ") ?? ""
+  );
+  const [allowedCategories, setAllowedCategories] = useState(
+    initialDelegation?.policy.allowedCategories?.join(", ") ?? ""
+  );
+  // Auto-clear past expiry dates for cloned delegations
+  const initialExpiry =
+    initialDelegation?.policy.expiresAt && !isExpiredSource
+      ? initialDelegation.policy.expiresAt.split("T")[0]
+      : "";
+  const [expiresAt, setExpiresAt] = useState(initialExpiry);
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const t = useTranslations("delegations.wizard");
@@ -102,7 +130,15 @@ export function DelegationForm({
   };
 
   return (
-    <Card title={t("title")} ariaLabel={t("ariaLabel")}>
+    <Card
+      title={isDuplicate ? "Duplicate Delegation" : t("title")}
+      ariaLabel={isDuplicate ? "Duplicate delegation form" : t("ariaLabel")}
+    >
+      {isExpiredSource && (
+        <div className="settings-status warning" style={{ marginBottom: "1rem", padding: "0.5rem 0.75rem", borderRadius: "0.375rem", backgroundColor: "#fffbe6", border: "1px solid #ffe58f", fontSize: "0.84375rem" }}>
+          ⚠️ The source delegation has expired. Expiry date has been cleared; please set a new valid date before submitting.
+        </div>
+      )}
       <form className="settings-section" onSubmit={handleSubmit} noValidate>
         <FormField
           label={t("agentId.label")}

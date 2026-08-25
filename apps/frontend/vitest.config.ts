@@ -23,6 +23,8 @@ export default defineConfig({
   resolve: {
     alias: {
       "@": path.resolve(__dirname),
+      "@delegolabs/ui": path.resolve(__dirname, "../../packages/ui/src/index.ts"),
+      "@delegolabs/types": path.resolve(__dirname, "../../packages/types/index.d.ts"),
     },
   },
 });
