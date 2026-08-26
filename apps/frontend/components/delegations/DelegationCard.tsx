@@ -7,6 +7,7 @@ import type { Delegation, UpdateDelegationInput } from "@delegolabs/types";
 import { DelegationQR } from "./DelegationQR";
 import { LimitUsageBar } from "./LimitUsageBar";
 import { PauseResumeConfirmModal } from "./PauseResumeConfirmModal";
+import { MerchantWhitelistPicker } from "./MerchantWhitelistPicker";
 import { useCurrency } from "../../hooks/useCurrency";
 
 export interface DelegationCardProps {
@@ -30,14 +31,24 @@ export function DelegationCard({
   const [showQr, setShowQr] = useState(false);
   const [showPauseModal, setShowPauseModal] = useState(false);
   const [modalLoading, setModalLoading] = useState(false);
+
   const [maxPerTransaction, setMaxPerTransaction] = useState(
     delegation.policy.maxPerTransaction
   );
+
   const [maxTotal, setMaxTotal] = useState(delegation.policy.maxTotal);
-  const [allowedMerchants, setAllowedMerchants] = useState(
-    delegation.policy.allowedMerchants.join(", ")
+
+  const [allowedMerchants, setAllowedMerchants] = useState<string[]>(
+    delegation.policy.allowedMerchants
   );
+
+  const [unrestrictedMerchants, setUnrestrictedMerchants] = useState(
+    delegation.policy.allowedMerchants.length === 0
+  );
+
+  const [showEmptyWhitelistError, setShowEmptyWhitelistError] = useState(false);
   const [saving, setSaving] = useState(false);
+
   const { currencyId, rate } = useCurrency();
 
   const isPaused = delegation.status === "paused";
@@ -48,9 +59,14 @@ export function DelegationCard({
 
   const handleConfirmPauseToggle = async () => {
     setModalLoading(true);
+
     try {
       const nextStatus = isPaused ? "active" : "paused";
-      await onUpdate(delegation.id, { status: nextStatus });
+
+      await onUpdate(delegation.id, {
+        status: nextStatus,
+      });
+
       setShowPauseModal(false);
     } finally {
       setModalLoading(false);
@@ -58,24 +74,33 @@ export function DelegationCard({
   };
 
   const handleRevoke = () => {
-    if (window.confirm(`Revoke delegation "${delegation.agentId}"? This cannot be undone.`)) {
+    if (
+      window.confirm(
+        `Revoke delegation "${delegation.agentId}"? This cannot be undone.`
+      )
+    ) {
       onRevoke(delegation.id);
     }
   };
 
   const handleSavePolicy = async () => {
+    if (!unrestrictedMerchants && allowedMerchants.length === 0) {
+      setShowEmptyWhitelistError(true);
+      return;
+    }
+
+    setShowEmptyWhitelistError(false);
     setSaving(true);
+
     try {
       await onUpdate(delegation.id, {
         policy: {
           maxPerTransaction: maxPerTransaction.toString(),
           maxTotal: maxTotal.toString(),
-          allowedMerchants: allowedMerchants
-            .split(",")
-            .map((s) => s.trim())
-            .filter(Boolean),
+          allowedMerchants: unrestrictedMerchants ? [] : allowedMerchants,
         },
       });
+
       setEditing(false);
     } finally {
       setSaving(false);
@@ -89,34 +114,65 @@ export function DelegationCard({
         ariaLabel={`Delegation for agent ${delegation.agentId}`}
         style={{
           opacity: isPending ? 0.6 : isPaused ? 0.8 : 1,
-          borderColor: isPaused ? "var(--color-border-paused, #d1d5db)" : undefined,
-          backgroundColor: isPaused ? "var(--color-bg-paused, #f9fafb)" : undefined,
-          transition: "opacity 0.15s ease-in-out, border-color 0.15s ease-in-out",
+          borderColor: isPaused
+            ? "var(--color-border-paused, #d1d5db)"
+            : undefined,
+          backgroundColor: isPaused
+            ? "var(--color-bg-paused, #f9fafb)"
+            : undefined,
+          transition:
+            "opacity 0.15s ease-in-out, border-color 0.15s ease-in-out",
         }}
       >
-        <div className="delegation-card-header" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <div
+          className="delegation-card-header"
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+          }}
+        >
           <div>
             <span className={`status-badge status-${delegation.status}`}>
               {delegation.status}
             </span>
+
             {isPaused && (
-              <span style={{ marginLeft: "0.5rem", fontSize: "0.75rem", color: "#6b7280", fontStyle: "italic" }}>
+              <span
+                style={{
+                  marginLeft: "0.5rem",
+                  fontSize: "0.75rem",
+                  color: "#6b7280",
+                  fontStyle: "italic",
+                }}
+              >
                 (Spends blocked)
               </span>
             )}
           </div>
+
           <Link
             href={`/delegations/${delegation.id}`}
-            style={{ fontSize: "0.8125rem", color: "var(--color-primary, #2563eb)", fontWeight: 500 }}
+            style={{
+              fontSize: "0.8125rem",
+              color: "var(--color-primary, #2563eb)",
+              fontWeight: 500,
+            }}
           >
             View detail →
           </Link>
-          {isPending && <span className="delegation-pending-hint">Saving…</span>}
+
+          {isPending && (
+            <span className="delegation-pending-hint">Saving…</span>
+          )}
         </div>
 
         {!editing ? (
           <>
-            <dl className="wallet-detail-list" style={{ marginTop: "0.5rem" }}>
+            <dl
+              className="wallet-detail-list"
+              style={{ marginTop: "0.5rem" }}
+            >
               <div className="wallet-detail-row">
                 <dt>Max / transaction</dt>
                 <dd>
@@ -127,6 +183,7 @@ export function DelegationCard({
                   />
                 </dd>
               </div>
+
               <div className="wallet-detail-row">
                 <dt>Total limit</dt>
                 <dd>
@@ -137,6 +194,7 @@ export function DelegationCard({
                   />
                 </dd>
               </div>
+
               <div className="wallet-detail-row">
                 <dt>Merchants</dt>
                 <dd>
@@ -145,13 +203,13 @@ export function DelegationCard({
                     : "All merchants"}
                 </dd>
               </div>
+
               <div className="wallet-detail-row">
                 <dt>Expires</dt>
                 <dd>{delegation.policy.expiresAt ?? "Never"}</dd>
               </div>
             </dl>
 
-            {/* Compact LimitUsageBar showing spend headroom */}
             <LimitUsageBar
               spent={0n}
               cap={delegation.policy.maxTotal}
@@ -162,33 +220,64 @@ export function DelegationCard({
         ) : (
           <div className="settings-section">
             <div>
-              <label style={{ display: "block", fontSize: "0.875rem", marginBottom: "0.25rem" }}>
+              <label
+                style={{
+                  display: "block",
+                  fontSize: "0.875rem",
+                  marginBottom: "0.25rem",
+                }}
+              >
                 Max per transaction
               </label>
+
               <StroopsInput
                 value={maxPerTransaction}
                 onChange={setMaxPerTransaction}
                 style={{ width: "100%" }}
               />
             </div>
+
             <div>
-              <label style={{ display: "block", fontSize: "0.875rem", marginBottom: "0.25rem" }}>
+              <label
+                style={{
+                  display: "block",
+                  fontSize: "0.875rem",
+                  marginBottom: "0.25rem",
+                }}
+              >
                 Max total
               </label>
+
               <StroopsInput
                 value={maxTotal}
                 onChange={setMaxTotal}
                 style={{ width: "100%" }}
               />
             </div>
+
             <div>
-              <label style={{ display: "block", fontSize: "0.875rem", marginBottom: "0.25rem" }}>
-                Allowed merchants (comma-separated)
+              <label
+                style={{
+                  display: "block",
+                  fontSize: "0.875rem",
+                  marginBottom: "0.25rem",
+                }}
+              >
+                Allowed merchants
               </label>
-              <input
+
+              <MerchantWhitelistPicker
                 value={allowedMerchants}
-                onChange={(e) => setAllowedMerchants(e.target.value)}
-                style={{ width: "100%", padding: "0.5rem", borderRadius: "0.375rem" }}
+                onChange={setAllowedMerchants}
+                unrestricted={unrestrictedMerchants}
+                onUnrestrictedChange={(next) => {
+                  setUnrestrictedMerchants(next);
+
+                  if (next) {
+                    setShowEmptyWhitelistError(false);
+                  }
+                }}
+                showEmptyWhitelistError={showEmptyWhitelistError}
               />
             </div>
           </div>
@@ -197,31 +286,64 @@ export function DelegationCard({
         <div className="form-actions delegation-actions">
           {!isTerminal && !editing && (
             <>
-              <Button variant="secondary" onClick={() => setShowPauseModal(true)} disabled={isPending}>
+              <Button
+                variant="secondary"
+                onClick={() => setShowPauseModal(true)}
+                disabled={isPending}
+              >
                 {isPaused ? "Resume" : "Pause"}
               </Button>
+
               {onDuplicate && (
-                <Button variant="secondary" onClick={() => onDuplicate(delegation)} disabled={isPending}>
+                <Button
+                  variant="secondary"
+                  onClick={() => onDuplicate(delegation)}
+                  disabled={isPending}
+                >
                   Duplicate
                 </Button>
               )}
-              <Button variant="secondary" onClick={() => setEditing(true)} disabled={isPending}>
+
+              <Button
+                variant="secondary"
+                onClick={() => setEditing(true)}
+                disabled={isPending}
+              >
                 Edit
               </Button>
-              <Button variant="ghost" onClick={() => setShowQr((v) => !v)}>
+
+              <Button
+                variant="ghost"
+                onClick={() => setShowQr((v) => !v)}
+              >
                 {showQr ? "Hide QR" : "Share QR"}
               </Button>
-              <Button variant="ghost" onClick={handleRevoke} disabled={isPending}>
+
+              <Button
+                variant="ghost"
+                onClick={handleRevoke}
+                disabled={isPending}
+              >
                 Revoke
               </Button>
             </>
           )}
+
           {editing && (
             <>
-              <Button variant="primary" onClick={handleSavePolicy} disabled={saving}>
+              <Button
+                variant="primary"
+                onClick={handleSavePolicy}
+                disabled={saving}
+              >
                 {saving ? "Saving…" : "Save"}
               </Button>
-              <Button variant="ghost" onClick={() => setEditing(false)} disabled={saving}>
+
+              <Button
+                variant="ghost"
+                onClick={() => setEditing(false)}
+                disabled={saving}
+              >
                 Cancel
               </Button>
             </>
@@ -248,4 +370,3 @@ export function DelegationCard({
     </>
   );
 }
-

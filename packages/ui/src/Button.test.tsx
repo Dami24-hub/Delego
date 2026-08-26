@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { render, screen } from "@testing-library/react";
+import { axe } from "vitest-axe";
 import { Button } from "./Button.js";
 
 describe("Button", () => {
@@ -34,6 +35,26 @@ describe("Button", () => {
   });
 
   describe("Accessibility", () => {
+    it("has no accessibility violations", async () => {
+      const { container } = render(<Button>Click Button</Button>);
+      const results = await axe(container);
+      expect(results).toHaveNoViolations();
+    });
+
+    it("has no accessibility violations across variants and states", async () => {
+      const { container } = render(
+        <>
+          <Button variant="primary">Primary</Button>
+          <Button variant="secondary">Secondary</Button>
+          <Button variant="ghost">Ghost</Button>
+          <Button disabled>Disabled</Button>
+          <Button ariaLabel="Close dialog">X</Button>
+        </>
+      );
+      const results = await axe(container);
+      expect(results).toHaveNoViolations();
+    });
+
     it("renders with proper button type", () => {
       const { container } = render(<Button>Click Button</Button>);
       const button = container.querySelector("button");
@@ -65,3 +86,4 @@ describe("Button", () => {
     });
   });
 });
+

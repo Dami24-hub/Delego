@@ -1,22 +1,41 @@
 "use client";
 
-import { useCallback, useMemo } from "react";
-import { Amount, Card } from "@delegolabs/ui";
+import { useCallback, useEffect, useMemo, useRef } from "react";
+import { Amount, Button, Card } from "@delegolabs/ui";
 import { useOrders } from "../../hooks/useOrders";
 import { useAnnounce } from "../../hooks/useAnnounce";
 import { useCurrency } from "../../hooks/useCurrency";
-import { HIGH_VALUE_THRESHOLD_STROOPS, needsApproval, sumOrderTotals } from "../../lib/orders";
+import { useNow } from "../../hooks/useNow";
+import { useNotifications } from "../../hooks/useNotifications";
+import { useApprovalHotkeys } from "../../hooks/useApprovalHotkeys";
+import { useApprovalNotifications } from "../../hooks/useApprovalNotifications";
+import { useQueryParamState } from "../../hooks/useQueryParamState";
+import { HIGH_VALUE_THRESHOLD_STROOPS, needsApproval, sortOrders, sumOrderTotals } from "../../lib/orders";
+import { STALE_DIGEST_THRESHOLD_HOURS, countStaleApprovals } from "../../lib/approvals";
 import { ApprovalCard } from "../../components/orders/ApprovalCard";
 import { ApprovalDrawer } from "../../components/orders/ApprovalDrawer";
 import { HotkeyCheatSheet } from "../../components/orders/HotkeyCheatSheet";
 import { UndoSnackbar } from "../../components/orders/UndoSnackbar";
+import { CopyViewLinkButton } from "../../components/filters/CopyViewLinkButton";
+import { HelpLink } from "../../components/help/HelpLink";
+
+import { ConflictResolutionCard } from "../../components/offline/ConflictResolutionCard";
 
 const POLL_INTERVAL_MS = 15_000;
-const DIGEST_CHECK_INTERVAL_MS = 5 * 60_000;
 
 /** Approval workflow — review and approve/reject high-value orders. */
 export default function ApprovalsPage() {
-  const { orders, loading, error, pendingIds, approveOrder, rejectOrder } = useOrders({
+  const {
+    orders,
+    loading,
+    error,
+    pendingIds,
+    pendingOfflineIds,
+    conflictMutations,
+    approveOrder,
+    rejectOrder,
+    refresh,
+  } = useOrders({
     pollIntervalMs: POLL_INTERVAL_MS,
   });
   const { announce } = useAnnounce();
@@ -44,8 +63,17 @@ export default function ApprovalsPage() {
     [rejectOrder, announce]
   );
 
-  const [oldestFirst, setOldestFirst] = useState(false);
-  const [drawerOrderId, setDrawerOrderId] = useState<string | null>(null);
+  const now = useNow();
+  const { add: addNotification } = useNotifications();
+
+  const [oldestFirst, setOldestFirst] = useQueryParamState<boolean>({
+    key: "oldestFirst",
+    defaultValue: false,
+  });
+  const [drawerOrderId, setDrawerOrderId] = useQueryParamState<string | null>({
+    key: "focus",
+    defaultValue: null,
+  });
   const rowRefs = useRef<Map<string, HTMLDivElement>>(new Map());
 
   const queue = useMemo(() => {
@@ -85,32 +113,46 @@ export default function ApprovalsPage() {
   }, [focusedId]);
 
   // Deep link from a background-tab notification: /approvals?focus=<orderId>.
+  // `drawerOrderId` is itself sourced from the `focus` query param above, so
+  // this only needs to mirror it into the roving-focus hotkey state.
   useEffect(() => {
-    const focusParam = searchParams.get("focus");
-    if (focusParam) {
-      setDrawerOrderId(focusParam);
-      setFocusedId(focusParam);
-    }
-  }, [searchParams, setFocusedId]);
+    if (drawerOrderId) setFocusedId(drawerOrderId);
+  }, [drawerOrderId, setFocusedId]);
 
   const drawerOrder = queue.find((order) => order.id === drawerOrderId) ?? null;
 
   return (
     <div className="settings-page">
       <header className="header">
-        <h1>Approvals</h1>
-        <p>
-          Review high-value orders (over{" "}
-          <Amount stroops={HIGH_VALUE_THRESHOLD_STROOPS} currency={currencyId} xlmUsdRate={rate?.xlmUsdRate} />)
-          that require your sign-off before they proceed
-        </p>
+        <div className="header-row">
+          <div>
+            <h1>Approvals</h1>
+            <p style={{ display: "flex", alignItems: "center", gap: "0.375rem", flexWrap: "wrap" }}>
+              Review high-value orders (over{" "}
+              <Amount stroops={HIGH_VALUE_THRESHOLD_STROOPS} currency={currencyId} xlmUsdRate={rate?.xlmUsdRate} />)
+              that require your sign-off before they proceed
+              <HelpLink concept="approval" />
+            </p>
+          </div>
+          <CopyViewLinkButton />
+        </div>
       </header>
+
+      {/* Conflict Resolution Cards for HTTP 409 offline replay conflicts (#618) */}
+      {conflictMutations.map((mutation) => (
+        <ConflictResolutionCard
+          key={mutation.id}
+          mutation={mutation}
+          onResolved={() => refresh()}
+        />
+      ))}
 
       {error && (
         <div className="settings-status error" role="alert">
           {error}
         </div>
       )}
+
 
       <div className="grid">
         <Card title="Awaiting review">
@@ -128,7 +170,7 @@ export default function ApprovalsPage() {
       <div className="form-actions">
         <Button
           variant="ghost"
-          onClick={() => setOldestFirst((v) => !v)}
+          onClick={() => setOldestFirst(!oldestFirst)}
           ariaLabel="Toggle sort order"
         >
           Sort: {oldestFirst ? "Oldest first" : "Newest first"}
@@ -169,9 +211,11 @@ export default function ApprovalsPage() {
               <ApprovalCard
                 order={order}
                 pending={pendingIds.has(order.id)}
+                pendingOffline={pendingOfflineIds.has(order.id)}
                 onApprove={handleApprove}
                 onReject={handleReject}
               />
+
             </div>
           ))}
         </div>
@@ -184,6 +228,13 @@ export default function ApprovalsPage() {
         onReject={handleReject}
         onClose={() => setDrawerOrderId(null)}
       />
+      {/*
+        `explainability` is intentionally omitted here: the orders payload
+        doesn't carry agent-reasoning data yet (orchestrator events #130/#206
+        aren't surfaced to the frontend). ApprovalDrawer already collapses
+        every optional section cleanly, so it just renders without them until
+        the payload is extended — see lib/approvalExplainability.ts.
+      */}
 
       {showCheatSheet && <HotkeyCheatSheet onClose={() => setShowCheatSheet(false)} />}
 

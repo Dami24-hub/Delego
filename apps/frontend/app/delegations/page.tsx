@@ -1,17 +1,22 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import type { Delegation } from "@delegolabs/types";
 import { Button } from "@delegolabs/ui";
 import { useDelegations } from "../../hooks/useDelegations";
 import { useWallet } from "../../hooks/useWallet";
-import { DelegationForm } from "../../components/delegations/DelegationForm";
+import { useQueryParamState } from "../../hooks/useQueryParamState";
+import { useAnnounce } from "../../hooks/useAnnounce";
+import { DelegationWizard } from "../../components/delegations/DelegationWizard";
+import { DelegationFilters } from "../../components/delegations/DelegationFilters";
 import { DelegationList } from "../../components/delegations/DelegationList";
 import { NotificationPermissionPrompt } from "../../components/notifications/NotificationPermissionPrompt";
+import { CopyViewLinkButton } from "../../components/filters/CopyViewLinkButton";
 import { OPEN_DELEGATION_FORM_KEY } from "../../lib/delegationFormIntent";
 
-import type { Delegation } from "@delegolabs/types";
+type DelegationStatus = Delegation["status"];
 
-/** Delegation management page — create, view, edit, pause/resume, duplicate, and revoke delegations. */
+/** Delegation management page — create, view, edit, pause/resume, and revoke delegations. */
 export default function DelegationsPage() {
   const {
     delegations,
@@ -22,10 +27,48 @@ export default function DelegationsPage() {
     updateDelegation,
     revokeDelegation,
   } = useDelegations();
+
   const { address } = useWallet();
   const [showForm, setShowForm] = useState(false);
-  const [duplicateSource, setDuplicateSource] = useState<Delegation | null>(null);
   const [showNotifyPrompt, setShowNotifyPrompt] = useState(false);
+  const { announce } = useAnnounce();
+
+  const [search, setSearch] = useQueryParamState<string>({
+    key: "q",
+    defaultValue: "",
+  });
+
+  const [selectedStatuses, setSelectedStatuses] = useQueryParamState<
+    DelegationStatus[]
+  >({
+    key: "status",
+    defaultValue: [],
+  });
+
+  const visibleDelegations = useMemo(() => {
+    const term = search.trim().toLowerCase();
+
+    return delegations.filter((d) => {
+      const matchesSearch =
+        term === "" ||
+        d.agentId.toLowerCase().includes(term) ||
+        d.walletId.toLowerCase().includes(term);
+
+      const matchesStatus =
+        selectedStatuses.length === 0 ||
+        selectedStatuses.includes(d.status);
+
+      return matchesSearch && matchesStatus;
+    });
+  }, [delegations, search, selectedStatuses]);
+
+  const toggleStatus = (status: DelegationStatus) => {
+    setSelectedStatuses(
+      selectedStatuses.includes(status)
+        ? selectedStatuses.filter((s) => s !== status)
+        : [...selectedStatuses, status]
+    );
+  };
 
   // Opened via the command palette's "New delegation" quick action.
   useEffect(() => {
@@ -39,27 +82,35 @@ export default function DelegationsPage() {
     }
   }, []);
 
-  const handleCreate = async (input: Parameters<typeof createDelegation>[0]) => {
+  const handleCreate = async (
+    input: Parameters<typeof createDelegation>[0]
+  ) => {
     const wasFirstDelegation = delegations.length === 0;
     const created = await createDelegation(input);
+
     if (created) {
       setShowForm(false);
-      setDuplicateSource(null);
-      if (wasFirstDelegation) setShowNotifyPrompt(true);
-    }
-  };
+      announce("Delegation created successfully.", "polite");
 
-  const handleStartDuplicate = (delegation: Delegation) => {
-    setDuplicateSource(delegation);
-    setShowForm(true);
-    window.scrollTo({ top: 0, behavior: "smooth" });
+      if (wasFirstDelegation) {
+        setShowNotifyPrompt(true);
+      }
+    }
   };
 
   return (
     <div className="settings-page">
       <header className="header">
-        <h1>Delegations</h1>
-        <p>Grant, adjust, and revoke scoped spending authority for AI agents</p>
+        <div className="header-row">
+          <div>
+            <h1>Delegations</h1>
+            <p>
+              Grant, adjust, and revoke scoped spending authority for AI agents
+            </p>
+          </div>
+
+          <CopyViewLinkButton />
+        </div>
       </header>
 
       {error && (
@@ -71,15 +122,12 @@ export default function DelegationsPage() {
       <div className="form-actions">
         <Button
           variant="primary"
-          onClick={() => {
-            if (showForm) {
-              setShowForm(false);
-              setDuplicateSource(null);
-            } else {
-              setDuplicateSource(null);
-              setShowForm(true);
-            }
-          }}
+          onClick={() => setShowForm((v) => !v)}
+          ariaLabel={
+            showForm ? "Close delegation form" : "Create new delegation"
+          }
+          aria-expanded={showForm}
+          aria-controls="delegation-wizard-region"
         >
           {showForm ? "Close" : "New delegation"}
         </Button>
@@ -90,24 +138,34 @@ export default function DelegationsPage() {
       )}
 
       {showForm && (
-        <DelegationForm
-          defaultWalletId={address ?? ""}
-          initialDelegation={duplicateSource ?? undefined}
-          onSubmit={handleCreate}
-          onCancel={() => {
-            setShowForm(false);
-            setDuplicateSource(null);
-          }}
+        <div id="delegation-wizard-region">
+          <DelegationWizard
+            defaultWalletId={address ?? ""}
+            onSubmit={handleCreate}
+            onCancel={() => setShowForm(false)}
+          />
+        </div>
+      )}
+
+      {delegations.length > 0 && (
+        <DelegationFilters
+          search={search}
+          onSearchChange={setSearch}
+          selectedStatuses={selectedStatuses}
+          onToggleStatus={toggleStatus}
         />
       )}
 
       <DelegationList
-        delegations={delegations}
+        delegations={visibleDelegations}
         loading={loading}
         pendingIds={pendingIds}
         onUpdate={updateDelegation}
         onRevoke={revokeDelegation}
-        onDuplicate={handleStartDuplicate}
+        filtered={
+          delegations.length > 0 &&
+          visibleDelegations.length !== delegations.length
+        }
       />
     </div>
   );

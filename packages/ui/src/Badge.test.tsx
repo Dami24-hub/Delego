@@ -1,8 +1,23 @@
 import { describe, it, expect } from "vitest";
 import { render, screen } from "@testing-library/react";
+import { axe } from "vitest-axe";
 import { Badge } from "./Badge.js";
 
 describe("Badge", () => {
+  it("has no accessibility violations", async () => {
+    const { container } = render(
+      <>
+        <Badge tone="neutral">Neutral</Badge>
+        <Badge tone="info">Info</Badge>
+        <Badge tone="success">Success</Badge>
+        <Badge tone="warning">Warning</Badge>
+        <Badge tone="error">Error</Badge>
+      </>
+    );
+    const results = await axe(container);
+    expect(results).toHaveNoViolations();
+  });
+
   it("renders children text", () => {
     render(<Badge>New</Badge>);
     expect(screen.getByText("New")).toBeDefined();
@@ -37,3 +52,4 @@ describe("Badge", () => {
     expect(screen.getByTestId("my-badge")).toBeDefined();
   });
 });
+

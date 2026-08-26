@@ -10,6 +10,7 @@ import type {
   DelegationPermissionLevel,
 } from "@delegolabs/types";
 import { isDelegationExpired } from "../../lib/delegations";
+import { MerchantWhitelistPicker } from "./MerchantWhitelistPicker";
 
 const PERMISSION_LEVELS: DelegationPermissionLevel[] = [
   "VIEW_ONLY",
@@ -43,10 +44,15 @@ export function DelegationForm({
   onCancel,
 }: DelegationFormProps) {
   const isDuplicate = Boolean(initialDelegation);
-  const isExpiredSource = initialDelegation ? isDelegationExpired(initialDelegation) : false;
+  const isExpiredSource = initialDelegation
+    ? isDelegationExpired(initialDelegation)
+    : false;
 
   const [agentId, setAgentId] = useState(initialDelegation?.agentId ?? "");
-  const [walletId, setWalletId] = useState(initialDelegation?.walletId ?? defaultWalletId);
+  const [walletId, setWalletId] = useState(
+    initialDelegation?.walletId ?? defaultWalletId
+  );
+
   const [label, setLabel] = useState(
     initialDelegation
       ? initialDelegation.label
@@ -54,29 +60,44 @@ export function DelegationForm({
         : `${initialDelegation.agentId} (Copy)`
       : ""
   );
-  const [permissionLevel, setPermissionLevel] = useState<DelegationPermissionLevel>(
-    initialDelegation?.permissionLevel ?? "AUTO_APPROVE"
-  );
+
+  const [permissionLevel, setPermissionLevel] =
+    useState<DelegationPermissionLevel>(
+      initialDelegation?.permissionLevel ?? "AUTO_APPROVE"
+    );
+
   const [maxPerTransaction, setMaxPerTransaction] = useState<bigint>(
     initialDelegation?.policy.maxPerTransaction ?? 0n
   );
+
   const [maxTotal, setMaxTotal] = useState<bigint>(
     initialDelegation?.policy.maxTotal ?? 0n
   );
-  const [allowedMerchants, setAllowedMerchants] = useState(
-    initialDelegation?.policy.allowedMerchants.join(", ") ?? ""
+
+  const [allowedMerchants, setAllowedMerchants] = useState<string[]>(
+    initialDelegation?.policy.allowedMerchants ?? []
   );
+
+  const [unrestrictedMerchants, setUnrestrictedMerchants] = useState(
+    (initialDelegation?.policy.allowedMerchants?.length ?? 0) === 0
+  );
+
+  const [showEmptyWhitelistError, setShowEmptyWhitelistError] =
+    useState(false);
+
   const [allowedCategories, setAllowedCategories] = useState(
     initialDelegation?.policy.allowedCategories?.join(", ") ?? ""
   );
-  // Auto-clear past expiry dates for cloned delegations
+
   const initialExpiry =
     initialDelegation?.policy.expiresAt && !isExpiredSource
       ? initialDelegation.policy.expiresAt.split("T")[0]
       : "";
+
   const [expiresAt, setExpiresAt] = useState(initialExpiry);
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
+
   const t = useTranslations("delegations.wizard");
   const tCommon = useTranslations("common");
   const tForms = useTranslations("forms");
@@ -89,10 +110,19 @@ export function DelegationForm({
       setFormError(t("errors.missingFields"));
       return;
     }
+
     if (maxTotal <= 0n) {
       setFormError(t("errors.invalidTotal"));
       return;
     }
+
+    if (!unrestrictedMerchants && allowedMerchants.length === 0) {
+      setShowEmptyWhitelistError(true);
+      setFormError(t("errors.emptyWhitelist"));
+      return;
+    }
+
+    setShowEmptyWhitelistError(false);
 
     const input: CreateDelegationInput = {
       agentId: agentId.trim(),
@@ -102,7 +132,7 @@ export function DelegationForm({
       policy: {
         maxPerTransaction: maxPerTransaction.toString(),
         maxTotal: maxTotal.toString(),
-        allowedMerchants: parseCsv(allowedMerchants),
+        allowedMerchants: unrestrictedMerchants ? [] : allowedMerchants,
         allowedCategories: parseCsv(allowedCategories),
         ...(expiresAt && {
           expiresAt: new Date(expiresAt).toISOString(),
@@ -111,13 +141,17 @@ export function DelegationForm({
     };
 
     setSubmitting(true);
+
     try {
       await onSubmit(input);
+
       setAgentId("");
       setLabel("");
       setMaxPerTransaction(0n);
       setMaxTotal(0n);
-      setAllowedMerchants("");
+      setAllowedMerchants([]);
+      setUnrestrictedMerchants(true);
+      setShowEmptyWhitelistError(false);
       setAllowedCategories("");
       setExpiresAt("");
     } catch (err) {
@@ -135,11 +169,27 @@ export function DelegationForm({
       ariaLabel={isDuplicate ? "Duplicate delegation form" : t("ariaLabel")}
     >
       {isExpiredSource && (
-        <div className="settings-status warning" style={{ marginBottom: "1rem", padding: "0.5rem 0.75rem", borderRadius: "0.375rem", backgroundColor: "#fffbe6", border: "1px solid #ffe58f", fontSize: "0.84375rem" }}>
-          ⚠️ The source delegation has expired. Expiry date has been cleared; please set a new valid date before submitting.
+        <div
+          className="settings-status warning"
+          style={{
+            marginBottom: "1rem",
+            padding: "0.5rem 0.75rem",
+            borderRadius: "0.375rem",
+            backgroundColor: "#fffbe6",
+            border: "1px solid #ffe58f",
+            fontSize: "0.84375rem",
+          }}
+        >
+          ⚠️ The source delegation has expired. Expiry date has been cleared;
+          please set a new valid date before submitting.
         </div>
       )}
-      <form className="settings-section" onSubmit={handleSubmit} noValidate>
+
+      <form
+        className="settings-section"
+        onSubmit={handleSubmit}
+        noValidate
+      >
         <FormField
           label={t("agentId.label")}
           required
@@ -177,16 +227,30 @@ export function DelegationForm({
         />
 
         <div>
-          <label htmlFor="permission-level" style={{ display: "block", fontWeight: 500, marginBottom: "0.5rem" }}>
+          <label
+            htmlFor="permission-level"
+            style={{
+              display: "block",
+              fontWeight: 500,
+              marginBottom: "0.5rem",
+            }}
+          >
             {t("permissionLevel.label")}
           </label>
+
           <select
             id="permission-level"
             value={permissionLevel}
             onChange={(e) =>
-              setPermissionLevel(e.target.value as DelegationPermissionLevel)
+              setPermissionLevel(
+                e.target.value as DelegationPermissionLevel
+              )
             }
-            style={{ width: "100%", padding: "0.5rem", borderRadius: "0.375rem" }}
+            style={{
+              width: "100%",
+              padding: "0.5rem",
+              borderRadius: "0.375rem",
+            }}
           >
             {PERMISSION_LEVELS.map((level) => (
               <option key={level} value={level}>
@@ -197,9 +261,16 @@ export function DelegationForm({
         </div>
 
         <div>
-          <label style={{ display: "block", fontWeight: 500, marginBottom: "0.5rem" }}>
+          <label
+            style={{
+              display: "block",
+              fontWeight: 500,
+              marginBottom: "0.5rem",
+            }}
+          >
             {t("maxPerTransaction.label")}
           </label>
+
           <StroopsInput
             value={maxPerTransaction}
             onChange={setMaxPerTransaction}
@@ -208,9 +279,16 @@ export function DelegationForm({
         </div>
 
         <div>
-          <label style={{ display: "block", fontWeight: 500, marginBottom: "0.5rem" }}>
+          <label
+            style={{
+              display: "block",
+              fontWeight: 500,
+              marginBottom: "0.5rem",
+            }}
+          >
             {t("maxTotal.label")}
           </label>
+
           <StroopsInput
             value={maxTotal}
             onChange={setMaxTotal}
@@ -218,16 +296,31 @@ export function DelegationForm({
           />
         </div>
 
-        <FormField
-          label={t("allowedMerchants.label")}
-          hint={tForms("commaSeparatedHint")}
-          inputProps={{
-            value: allowedMerchants,
-            onChange: (e) => setAllowedMerchants(e.target.value),
-            placeholder: t("allowedMerchants.placeholder"),
-            style: { width: "100%" },
-          }}
-        />
+        <div>
+          <label
+            style={{
+              display: "block",
+              fontWeight: 500,
+              marginBottom: "0.5rem",
+            }}
+          >
+            {t("allowedMerchants.label")}
+          </label>
+
+          <MerchantWhitelistPicker
+            value={allowedMerchants}
+            onChange={setAllowedMerchants}
+            unrestricted={unrestrictedMerchants}
+            onUnrestrictedChange={(next) => {
+              setUnrestrictedMerchants(next);
+
+              if (next) {
+                setShowEmptyWhitelistError(false);
+              }
+            }}
+            showEmptyWhitelistError={showEmptyWhitelistError}
+          />
+        </div>
 
         <FormField
           label={t("allowedCategories.label")}
@@ -258,11 +351,20 @@ export function DelegationForm({
         )}
 
         <div className="form-actions">
-          <Button variant="primary" type="submit" disabled={submitting}>
+          <Button
+            variant="primary"
+            type="submit"
+            disabled={submitting}
+          >
             {submitting ? t("submitting") : t("submit")}
           </Button>
+
           {onCancel && (
-            <Button variant="ghost" type="button" onClick={onCancel}>
+            <Button
+              variant="ghost"
+              type="button"
+              onClick={onCancel}
+            >
               {tCommon("cancel")}
             </Button>
           )}

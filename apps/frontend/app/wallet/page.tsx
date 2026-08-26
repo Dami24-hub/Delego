@@ -1,11 +1,14 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useState } from "react";
 import { Card } from "@delegolabs/ui";
 import { useWallet } from "../../hooks/useWallet";
 import { useNetwork } from "../../hooks/useNetwork";
 import { useNotifications } from "../../hooks/useNotifications";
+import { useBalanceHistory } from "../../hooks/useBalanceHistory";
 import { WalletConnectButton } from "../../components/wallet/WalletConnectButton";
+import { BalanceSparkline } from "../../components/wallet/BalanceSparkline";
+import { AssetBreakdownTable } from "../../components/wallet/AssetBreakdownTable";
 
 const STATUS_LABEL: Record<string, string> = {
   checking: "Checking for Freighter…",
@@ -16,62 +19,24 @@ const STATUS_LABEL: Record<string, string> = {
   error: "Connection error",
 };
 
-type AccountBalance = {
-  asset_type: string;
-  balance: string;
-};
-
-function readNativeBalance(records: AccountBalance[] | undefined): number {
-  const native = records?.find((entry) => entry.asset_type === "native");
-  return native ? Number(native.balance) : 0;
-}
-
 export default function WalletPage() {
   const { status, address, network, networkPassphrase, error } = useWallet();
   const { network: activeNetwork } = useNetwork();
   const notifications = useNotifications();
-  const [balance, setBalance] = useState<number | null>(null);
-  const [balanceStatus, setBalanceStatus] = useState<"idle" | "loading" | "error">("idle");
   const [funding, setFunding] = useState(false);
   const [fundError, setFundError] = useState<string | null>(null);
 
-  const loadBalance = useCallback(async () => {
-    if (!address || activeNetwork.isLive) {
-      setBalance(null);
-      setBalanceStatus("idle");
-      return;
-    }
+  const isConnected = status === "connected" && !!address;
+  const balanceState = useBalanceHistory(
+    address,
+    activeNetwork.horizonUrl,
+    isConnected
+  );
 
-    setBalanceStatus("loading");
-    try {
-      const response = await fetch(
-        `${activeNetwork.horizonUrl}/accounts/${encodeURIComponent(address)}`
-      );
+  const nativeBalance = balanceState.balances.find((b) => b.asset_type === "native");
+  const nativeBalanceNum = nativeBalance ? parseFloat(nativeBalance.balance) : 0;
 
-      if (response.status === 404) {
-        setBalance(0);
-        setBalanceStatus("idle");
-        return;
-      }
-
-      if (!response.ok) {
-        throw new Error("Could not read account balance");
-      }
-
-      const account = (await response.json()) as { balances?: AccountBalance[] };
-      setBalance(readNativeBalance(account.balances));
-      setBalanceStatus("idle");
-    } catch {
-      setBalance(null);
-      setBalanceStatus("error");
-    }
-  }, [activeNetwork.horizonUrl, activeNetwork.isLive, address]);
-
-  useEffect(() => {
-    void loadBalance();
-  }, [loadBalance]);
-
-  async function fundAccount() {
+  const fundAccount = useCallback(async () => {
     if (!address || funding) return;
 
     setFunding(true);
@@ -89,12 +54,12 @@ export default function WalletPage() {
         );
       }
 
-      await loadBalance();
       notifications.add({
         type: "success",
         title: "Testnet account funded",
         message: "Friendbot sent test XLM to your connected wallet.",
       });
+      void balanceState.refetch();
     } catch (err) {
       const message =
         err instanceof Error
@@ -105,14 +70,13 @@ export default function WalletPage() {
     } finally {
       setFunding(false);
     }
-  }
+  }, [address, funding, notifications, balanceState]);
 
-  const showFriendbotCard =
-    status === "connected" &&
-    !!address &&
+  const showZeroState =
+    isConnected &&
     !activeNetwork.isLive &&
-    balanceStatus !== "loading" &&
-    balance === 0;
+    balanceState.status !== "loading" &&
+    (balanceState.accountNotFound || balanceState.isUnfunded || nativeBalanceNum === 0);
 
   return (
     <div className="settings-page">
@@ -143,10 +107,10 @@ export default function WalletPage() {
                 <dt>Network</dt>
                 <dd>{network ?? "Unknown"}</dd>
               </div>
-              {!activeNetwork.isLive && balance !== null && (
+              {nativeBalance !== undefined && (
                 <div className="wallet-detail-row">
-                  <dt>Testnet balance</dt>
-                  <dd>{balance.toLocaleString(undefined, { maximumFractionDigits: 7 })} XLM</dd>
+                  <dt>Current XLM Balance</dt>
+                  <dd>{nativeBalanceNum.toLocaleString(undefined, { maximumFractionDigits: 7 })} XLM</dd>
                 </div>
               )}
               {networkPassphrase && (
@@ -176,37 +140,66 @@ export default function WalletPage() {
             </p>
           )}
 
-          {showFriendbotCard && (
-            <div className="friendbot-card" role="status">
-              <div>
-                <h2>Fund your testnet account</h2>
-                <p>
-                  This connected testnet account has no XLM yet. Friendbot can send free test funds so demos and contract calls can continue.
-                </p>
-                {fundError && <p className="settings-status error">{fundError}</p>}
-              </div>
-              <button
-                type="button"
-                className="friendbot-button"
-                onClick={fundAccount}
-                disabled={funding}
-              >
-                {funding ? "Funding…" : "Fund your account"}
-              </button>
-            </div>
-          )}
-
-          {balanceStatus === "error" && !activeNetwork.isLive && (
-            <p className="settings-status error" role="alert">
-              Could not read the testnet balance right now.
-            </p>
-          )}
-
           <div className="form-actions">
             <WalletConnectButton showDetails={false} />
           </div>
         </div>
       </Card>
+
+      {/* Historical View & Asset Breakdown Card */}
+      {isConnected && (
+        <Card title="Balance History & Asset Breakdown" ariaLabel="Balance History and Assets">
+          <div className="wallet-balance-card">
+            {balanceState.status === "loading" ? (
+              <div className="skeleton-form">
+                <div className="skeleton-title" style={{ width: "40%" }} />
+                <div className="skeleton-input" style={{ height: "120px" }} />
+                <div className="skeleton-text" />
+              </div>
+            ) : balanceState.status === "error" ? (
+              <p className="settings-status error" role="alert">
+                Could not load account balance and history from Horizon.
+              </p>
+            ) : (
+              <>
+                <BalanceSparkline series={balanceState.series} />
+
+                {balanceState.balances.length > 0 ? (
+                  <div style={{ marginTop: "1.5rem" }}>
+                    <h3 style={{ fontSize: "1rem", marginBottom: "0.75rem" }}>Holdings</h3>
+                    <AssetBreakdownTable
+                      balances={balanceState.balances}
+                      horizonUrl={activeNetwork.horizonUrl}
+                      isLiveNetwork={activeNetwork.isLive}
+                    />
+                  </div>
+                ) : null}
+
+                {/* Inviting zero state card linking to testnet faucet */}
+                {showZeroState && (
+                  <div className="friendbot-card wallet-zero-state" role="status" style={{ marginTop: "1.5rem" }}>
+                    <div>
+                      <h2>Fund your testnet account</h2>
+                      <p>
+                        This connected account does not have an active XLM balance yet. Use the Friendbot testnet faucet to fund it with free testnet tokens.
+                      </p>
+                      {fundError && <p className="settings-status error" style={{ marginTop: "0.5rem" }}>{fundError}</p>}
+                    </div>
+                    <button
+                      type="button"
+                      className="friendbot-button"
+                      onClick={fundAccount}
+                      disabled={funding}
+                    >
+                      {funding ? "Funding…" : "Fund your account"}
+                    </button>
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+        </Card>
+      )}
 
       <Card title="About Soroban Permissions">
         <p>
