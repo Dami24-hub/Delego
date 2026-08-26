@@ -13,6 +13,8 @@ import { useAnnounce } from "./useAnnounce";
 
 export type NotificationType = "info" | "success" | "warning" | "error";
 
+export type NotificationRetention = "7" | "30" | "90" | "all";
+
 export interface AppNotification {
   id: string;
   type: NotificationType;
@@ -38,17 +40,62 @@ export type NewNotification = Omit<
 interface NotificationContextValue {
   notifications: AppNotification[];
   unreadCount: number;
+  retention: NotificationRetention;
+  setRetention: (retention: NotificationRetention) => void;
   add: (notification: NewNotification) => string;
   markAsRead: (id: string) => void;
   markAllAsRead: () => void;
   remove: (id: string) => void;
   clearAll: () => void;
+  undoClearAll: () => void;
+  dismissUndo: () => void;
+  canUndoClear: boolean;
+  pruneNow: () => void;
 }
 
 const NotificationContext = createContext<NotificationContextValue | null>(null);
 
 const STORAGE_KEY = "delego_notifications";
-const MAX_NOTIFICATIONS = 50;
+const RETENTION_STORAGE_KEY = "delego_notification_retention";
+export const MAX_NOTIFICATIONS = 500; // Cap to keep storage footprint minimal even under heavy usage (#605)
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+export const RETENTION_MS_MAP: Record<Exclude<NotificationRetention, "all">, number> = {
+  "7": 7 * DAY_MS,
+  "30": 30 * DAY_MS,
+  "90": 90 * DAY_MS,
+};
+
+/**
+ * Pure prune function (#605):
+ * - Prunes read notifications older than retention cutoff (based on epoch millis).
+ * - EXPLICIT RULE: Unread notifications (!n.read) ALWAYS survive past retention cutoff.
+ * - Enforces hard cap of MAX_NOTIFICATIONS to prevent storage quota exhaustion.
+ */
+export function pruneNotifications(
+  items: AppNotification[],
+  retention: NotificationRetention,
+  now: number = Date.now()
+): AppNotification[] {
+  if (!Array.isArray(items)) return [];
+
+  const pruned = items.filter((n) => {
+    if (!n || typeof n.createdAt !== "number") return false;
+    // Unread items always survive past the retention window
+    if (!n.read) return true;
+    if (retention === "all") return true;
+
+    const retentionMs = RETENTION_MS_MAP[retention];
+    if (typeof retentionMs !== "number") return true;
+
+    // Prune if read and age exceeds retention window
+    const ageMs = now - n.createdAt;
+    return ageMs <= retentionMs;
+  });
+
+  return pruned.slice(0, MAX_NOTIFICATIONS);
+}
 
 function generateId(): string {
   if (
@@ -78,22 +125,38 @@ function loadStored(): AppNotification[] {
   }
 }
 
+function loadStoredRetention(): NotificationRetention {
+  try {
+    const raw = window.localStorage.getItem(RETENTION_STORAGE_KEY);
+    if (raw === "7" || raw === "30" || raw === "90" || raw === "all") {
+      return raw;
+    }
+  } catch {
+    /* ignore */
+  }
+  return "30";
+}
+
 /**
  * In-app notification store backed by localStorage.
- *
- * Notifications are read on mount (client only) and persisted on every change,
- * capped at MAX_NOTIFICATIONS most-recent entries. Other tabs stay in sync via
- * the `storage` event.
+ * Includes retention preference pruning, unread survival, and soft-delete clear-all with undo.
  */
 export function NotificationProvider({ children }: { children: ReactNode }) {
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
+  const [retention, setRetentionState] = useState<NotificationRetention>("30");
+  const [clearedBackup, setClearedBackup] = useState<AppNotification[] | null>(null);
   const { announce } = useAnnounce();
 
+  // Initial load + lazy boot pruning (#605)
   useEffect(() => {
-    setNotifications(loadStored());
+    const initialRetention = loadStoredRetention();
+    setRetentionState(initialRetention);
+    const loaded = loadStored();
+    const pruned = pruneNotifications(loaded, initialRetention);
+    setNotifications(pruned);
   }, []);
 
-  // Persist on change.
+  // Persist notifications on change.
   useEffect(() => {
     try {
       window.localStorage.setItem(STORAGE_KEY, JSON.stringify(notifications));
@@ -102,16 +165,35 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
     }
   }, [notifications]);
 
+  // Persist retention setting on change.
+  const setRetention = useCallback((nextRetention: NotificationRetention) => {
+    setRetentionState(nextRetention);
+    try {
+      window.localStorage.setItem(RETENTION_STORAGE_KEY, nextRetention);
+    } catch {
+      /* ignore */
+    }
+    setNotifications((prev) => pruneNotifications(prev, nextRetention));
+  }, []);
+
   // Cross-tab sync.
   useEffect(() => {
     function onStorage(event: StorageEvent) {
       if (event.key === STORAGE_KEY) {
-        setNotifications(loadStored());
+        setNotifications(pruneNotifications(loadStored(), retention));
+      } else if (event.key === RETENTION_STORAGE_KEY) {
+        const updatedRetention = loadStoredRetention();
+        setRetentionState(updatedRetention);
+        setNotifications((prev) => pruneNotifications(prev, updatedRetention));
       }
     }
     window.addEventListener("storage", onStorage);
     return () => window.removeEventListener("storage", onStorage);
-  }, []);
+  }, [retention]);
+
+  const pruneNow = useCallback(() => {
+    setNotifications((prev) => pruneNotifications(prev, retention));
+  }, [retention]);
 
   const add = useCallback((notification: NewNotification) => {
     const id = notification.id ?? generateId();
@@ -125,14 +207,14 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
       read: false,
     };
     setNotifications((prev) =>
-      [entry, ...prev.filter((n) => n.id !== id)].slice(0, MAX_NOTIFICATIONS)
+      pruneNotifications([entry, ...prev.filter((n) => n.id !== id)], retention)
     );
     announce(
       entry.title,
       entry.type === "error" ? "assertive" : "polite"
     );
     return id;
-  }, [announce]);
+  }, [announce, retention]);
 
   const markAsRead = useCallback((id: string) => {
     setNotifications((prev) =>
@@ -148,8 +230,25 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
     setNotifications((prev) => prev.filter((n) => n.id !== id));
   }, []);
 
+  // Soft-delete clear all with undo capability (#605)
   const clearAll = useCallback(() => {
-    setNotifications([]);
+    setNotifications((prev) => {
+      setClearedBackup(prev);
+      return [];
+    });
+    announce("All notifications cleared.", "polite");
+  }, [announce]);
+
+  const undoClearAll = useCallback(() => {
+    if (clearedBackup) {
+      setNotifications(clearedBackup);
+      setClearedBackup(null);
+      announce("Notifications restored.", "polite");
+    }
+  }, [clearedBackup, announce]);
+
+  const dismissUndo = useCallback(() => {
+    setClearedBackup(null);
   }, []);
 
   const value = useMemo<NotificationContextValue>(() => {
@@ -160,13 +259,32 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
     return {
       notifications,
       unreadCount,
+      retention,
+      setRetention,
       add,
       markAsRead,
       markAllAsRead,
       remove,
       clearAll,
+      undoClearAll,
+      dismissUndo,
+      canUndoClear: clearedBackup !== null && clearedBackup.length > 0,
+      pruneNow,
     };
-  }, [notifications, add, markAsRead, markAllAsRead, remove, clearAll]);
+  }, [
+    notifications,
+    retention,
+    setRetention,
+    add,
+    markAsRead,
+    markAllAsRead,
+    remove,
+    clearAll,
+    undoClearAll,
+    dismissUndo,
+    clearedBackup,
+    pruneNow,
+  ]);
 
   return (
     <NotificationContext.Provider value={value}>

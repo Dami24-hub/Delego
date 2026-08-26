@@ -15,3 +15,11 @@ export {
   type StepperStep,
   type StepStatus,
 } from "./Stepper.js";
+export { Badge, type BadgeProps, type BadgeTone } from "./Badge.js";
+export {
+  ActivityTimeline,
+  type ActivityTimelineProps,
+  type ActivityTimelineEvent,
+  type ActivityTone,
+} from "./ActivityTimeline.js";
+

@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { render, screen } from "@testing-library/react";
+import { axe } from "vitest-axe";
 import { ActivityTimeline, type ActivityTimelineEvent } from "./ActivityTimeline.js";
 
 const baseEvents: ActivityTimelineEvent[] = [
@@ -27,6 +28,20 @@ const baseEvents: ActivityTimelineEvent[] = [
 ];
 
 describe("ActivityTimeline", () => {
+  it("has no accessibility violations", async () => {
+    const { container } = render(<ActivityTimeline events={baseEvents} />);
+    const results = await axe(container);
+    expect(results).toHaveNoViolations();
+  });
+
+  it("has no accessibility violations when empty", async () => {
+    const { container } = render(
+      <ActivityTimeline events={[]} emptyMessage="No activity recorded" />
+    );
+    const results = await axe(container);
+    expect(results).toHaveNoViolations();
+  });
+
   it("renders events in the order given", () => {
     render(<ActivityTimeline events={baseEvents} />);
     const items = screen.getAllByRole("listitem");
@@ -81,3 +96,4 @@ describe("ActivityTimeline", () => {
     expect(screen.getByText("via ApprovalCard")).toBeDefined();
   });
 });
+

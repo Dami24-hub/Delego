@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { render, screen } from "@testing-library/react";
+import { axe } from "vitest-axe";
 import { Card } from "./Card.js";
 
 describe("Card", () => {
@@ -30,6 +31,26 @@ describe("Card", () => {
   });
 
   describe("Accessibility", () => {
+    it("has no accessibility violations", async () => {
+      const { container } = render(
+        <Card title="Delegation details" ariaLabel="Delegation details">
+          <p>Card body text</p>
+        </Card>
+      );
+      const results = await axe(container);
+      expect(results).toHaveNoViolations();
+    });
+
+    it("has no accessibility violations with custom aria attributes", async () => {
+      const { container } = render(
+        <Card aria-expanded="true" ariaLabel="Expanded card">
+          <p>Expanded details</p>
+        </Card>
+      );
+      const results = await axe(container);
+      expect(results).toHaveNoViolations();
+    });
+
     it("renders with region role", () => {
       const { container } = render(<Card>Content</Card>);
       const card = container.querySelector("[role='region']");
@@ -79,3 +100,4 @@ describe("Card", () => {
     });
   });
 });
+
