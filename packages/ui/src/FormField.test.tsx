@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { render, screen } from "@testing-library/react";
+import { axe } from "vitest-axe";
 import { FormField } from "./FormField.js";
 
 describe("FormField", () => {
@@ -41,6 +42,31 @@ describe("FormField", () => {
   });
 
   describe("Accessibility", () => {
+    it("has no accessibility violations in default state", async () => {
+      const { container } = render(
+        <FormField
+          label="Username"
+          hint="Choose a unique username"
+          inputProps={{ type: "text" }}
+        />
+      );
+      const results = await axe(container);
+      expect(results).toHaveNoViolations();
+    });
+
+    it("has no accessibility violations in error state", async () => {
+      const { container } = render(
+        <FormField
+          label="Email address"
+          error="Please enter a valid email"
+          required
+          inputProps={{ type: "email" }}
+        />
+      );
+      const results = await axe(container);
+      expect(results).toHaveNoViolations();
+    });
+
     it("connects label to input with htmlFor", () => {
       render(
         <FormField
@@ -114,3 +140,4 @@ describe("FormField", () => {
     });
   });
 });
+

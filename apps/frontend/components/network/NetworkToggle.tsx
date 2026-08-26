@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useNetwork } from "../../hooks/useNetwork";
 import type { NetworkId } from "../../lib/networks";
+import { HelpLink } from "../help/HelpLink";
 
 /**
  * Header control for switching between the Stellar test and public networks.
@@ -55,6 +56,7 @@ export function NetworkToggle() {
 
   return (
     <div className="network-toggle" ref={containerRef}>
+      <div style={{ display: "flex", alignItems: "center", gap: "0.25rem" }}>
       <button
         type="button"
         className={`network-toggle-button${network.isLive ? " live" : ""}`}
@@ -75,6 +77,8 @@ export function NetworkToggle() {
           ▾
         </span>
       </button>
+      <HelpLink concept="network" />
+      </div>
 
       {open && (
         <ul className="network-menu" role="listbox" aria-label="Select network">

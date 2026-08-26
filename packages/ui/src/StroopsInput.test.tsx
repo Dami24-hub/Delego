@@ -1,9 +1,26 @@
 import { describe, it, expect, vi } from "vitest";
 import { render } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { axe } from "vitest-axe";
 import { StroopsInput } from "./StroopsInput.js";
 
 describe("StroopsInput", () => {
+  it("has no accessibility violations", async () => {
+    const { container } = render(
+      <StroopsInput value={10_000_000n} currencySymbol="XLM" />
+    );
+    const results = await axe(container);
+    expect(results).toHaveNoViolations();
+  });
+
+  it("has no accessibility violations with error state", async () => {
+    const { container } = render(
+      <StroopsInput value={10_000_000n} error="Amount exceeds limit" />
+    );
+    const results = await axe(container);
+    expect(results).toHaveNoViolations();
+  });
+
   it("displays XLM value when stroops provided", () => {
     const { container } = render(<StroopsInput value={10_000_000n} />);
     const input = container.querySelector("input");
@@ -129,3 +146,4 @@ describe("StroopsInput", () => {
     expect(input?.value).toBe("100000");
   });
 });
+

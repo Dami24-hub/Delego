@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import type {
   ApiResponse,
   CreateDelegationInput,
@@ -8,6 +8,8 @@ import type {
   UpdateDelegationInput,
 } from "@delegolabs/types";
 import { api } from "../lib/api";
+import { enqueueMutation, subscribeToQueue, type QueuedMutation } from "../lib/offlineQueue";
+
 
 /**
  * Fetch the current user's delegations from the Delego API.
@@ -76,11 +78,16 @@ function applyOptimisticUpdate(
 }
 
 export interface UseDelegationsResult {
+
   delegations: Delegation[];
   loading: boolean;
   error: string | null;
   /** Delegation IDs with an in-flight mutation — render as pending/disabled in the UI */
   pendingIds: Set<string>;
+  /** Delegation IDs queued offline awaiting reconnect replay */
+  pendingOfflineIds: Set<string>;
+  /** Queued mutations in conflict state for delegations */
+  conflictMutations: QueuedMutation[];
   refresh: () => Promise<void>;
   createDelegation: (input: CreateDelegationInput) => Promise<Delegation | null>;
   updateDelegation: (
@@ -96,6 +103,33 @@ export function useDelegations(): UseDelegationsResult {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [pendingIds, setPendingIds] = useState<Set<string>>(new Set());
+  const [queuedMutations, setQueuedMutations] = useState<QueuedMutation[]>([]);
+
+  // Subscribe to offline queue changes (#618)
+  useEffect(() => {
+    return subscribeToQueue(setQueuedMutations);
+  }, []);
+
+  const pendingOfflineIds = useMemo(() => {
+    const ids = new Set<string>();
+    for (const m of queuedMutations) {
+      if (
+        (m.mutationClass === "update_delegation" || m.mutationClass === "revoke_delegation") &&
+        (m.status === "pending" || m.status === "replaying")
+      ) {
+        ids.add(m.resourceId);
+      }
+    }
+    return ids;
+  }, [queuedMutations]);
+
+  const conflictMutations = useMemo(() => {
+    return queuedMutations.filter(
+      (m) =>
+        (m.mutationClass === "update_delegation" || m.mutationClass === "revoke_delegation") &&
+        m.status === "conflict"
+    );
+  }, [queuedMutations]);
 
   const setPending = useCallback((id: string, isPending: boolean) => {
     setPendingIds((prev) => {
@@ -178,9 +212,21 @@ export function useDelegations(): UseDelegationsResult {
         setError("Delegation not found");
         return null;
       }
+
+      const optimistic = applyOptimisticUpdate(original, input);
+
+      // Offline check (#618)
+      if (typeof navigator !== "undefined" && !navigator.onLine) {
+        await enqueueMutation("update_delegation", id, input as Record<string, unknown>);
+        setDelegations((prev) =>
+          prev.map((d) => (d.id === id ? optimistic : d))
+        );
+        return optimistic;
+      }
+
       setPending(id, true);
       setDelegations((prev) =>
-        prev.map((d) => (d.id === id ? applyOptimisticUpdate(original, input) : d))
+        prev.map((d) => (d.id === id ? optimistic : d))
       );
       try {
         const res: ApiResponse<Delegation> = await api.updateDelegation(id, input);
@@ -196,13 +242,11 @@ export function useDelegations(): UseDelegationsResult {
         setDelegations((prev) => prev.map((d) => (d.id === id ? updated : d)));
         setPending(id, false);
         return updated;
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "Failed to update delegation");
-        setDelegations((prev) =>
-          prev.map((d) => (d.id === id ? original : d))
-        );
+      } catch {
+        // Fallback offline queue on network exception
+        await enqueueMutation("update_delegation", id, input as Record<string, unknown>);
         setPending(id, false);
-        return null;
+        return optimistic;
       }
     },
     [delegations, setPending]
@@ -211,6 +255,14 @@ export function useDelegations(): UseDelegationsResult {
   const revokeDelegation = useCallback(
     async (id: string): Promise<boolean> => {
       const original = delegations;
+
+      // Offline check (#618)
+      if (typeof navigator !== "undefined" && !navigator.onLine) {
+        await enqueueMutation("revoke_delegation", id);
+        setDelegations((prev) => prev.filter((d) => d.id !== id));
+        return true;
+      }
+
       setPending(id, true);
       setDelegations((prev) => prev.filter((d) => d.id !== id));
       try {
@@ -224,11 +276,11 @@ export function useDelegations(): UseDelegationsResult {
         }
         setPending(id, false);
         return true;
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "Failed to revoke delegation");
-        setDelegations(original);
+      } catch {
+        // Fallback offline queue on network exception
+        await enqueueMutation("revoke_delegation", id);
         setPending(id, false);
-        return false;
+        return true;
       }
     },
     [delegations, setPending]
@@ -245,9 +297,12 @@ export function useDelegations(): UseDelegationsResult {
     loading,
     error,
     pendingIds,
+    pendingOfflineIds,
+    conflictMutations,
     refresh,
     createDelegation,
     updateDelegation,
     revokeDelegation,
   };
 }
+

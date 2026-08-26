@@ -235,4 +235,105 @@ describe("useNotifications", () => {
       "useNotifications must be used within a NotificationProvider"
     );
   });
+
+  describe("Retention pruning & Soft-delete Undo (#605)", () => {
+    it("prunes read notifications older than retention window", async () => {
+      const now = Date.now();
+      const DAY_MS = 24 * 60 * 60 * 1000;
+      window.localStorage.setItem(
+        STORAGE_KEY,
+        JSON.stringify([
+          { id: "1", type: "info", title: "Fresh read", createdAt: now - 5 * DAY_MS, read: true },
+          { id: "2", type: "info", title: "Old read", createdAt: now - 35 * DAY_MS, read: true },
+        ])
+      );
+
+      const { result } = renderHook(() => useNotifications(), { wrapper });
+      await waitFor(() => expect(result.current.notifications).toHaveLength(1));
+      expect(result.current.notifications[0].id).toBe("1");
+    });
+
+    it("ensures unread notifications ALWAYS survive past retention window (explicit rule)", async () => {
+      const now = Date.now();
+      const DAY_MS = 24 * 60 * 60 * 1000;
+      window.localStorage.setItem(
+        STORAGE_KEY,
+        JSON.stringify([
+          { id: "read-old", type: "info", title: "Read Old", createdAt: now - 100 * DAY_MS, read: true },
+          { id: "unread-ancient", type: "warning", title: "Unread Ancient", createdAt: now - 365 * DAY_MS, read: false },
+        ])
+      );
+
+      const { result } = renderHook(() => useNotifications(), { wrapper });
+      await waitFor(() => expect(result.current.notifications).toHaveLength(1));
+      expect(result.current.notifications[0].id).toBe("unread-ancient");
+      expect(result.current.unreadCount).toBe(1);
+    });
+
+    it("handles boundary timestamps and timezone drift precisely", async () => {
+      const now = Date.now();
+      const DAY_MS = 24 * 60 * 60 * 1000;
+      const window7Days = 7 * DAY_MS;
+
+      const items = [
+        { id: "exact-boundary", type: "info" as const, title: "Exact", createdAt: now - window7Days, read: true },
+        { id: "just-past", type: "info" as const, title: "Past", createdAt: now - (window7Days + 1000), read: true },
+      ];
+
+      const { result } = renderHook(() => useNotifications(), { wrapper });
+      act(() => {
+        result.current.setRetention("7");
+      });
+
+      // exact boundary survives, just past is pruned
+      const { pruneNotifications } = await import("./useNotifications");
+      const pruned = pruneNotifications(items, "7", now);
+      expect(pruned).toHaveLength(1);
+      expect(pruned[0].id).toBe("exact-boundary");
+    });
+
+    it("supports soft-delete clearAll with undo restore within session", async () => {
+      const { result } = renderHook(() => useNotifications(), { wrapper });
+      await waitFor(() => expect(result.current.notifications).toHaveLength(0));
+
+      act(() => {
+        result.current.add({ type: "info", title: "Item 1" });
+        result.current.add({ type: "info", title: "Item 2" });
+      });
+      expect(result.current.notifications).toHaveLength(2);
+
+      act(() => {
+        result.current.clearAll();
+      });
+      expect(result.current.notifications).toHaveLength(0);
+      expect(result.current.canUndoClear).toBe(true);
+
+      act(() => {
+        result.current.undoClearAll();
+      });
+      expect(result.current.notifications).toHaveLength(2);
+      expect(result.current.canUndoClear).toBe(false);
+    });
+
+    it("caps storage footprint with a seeded 10k-entry stress fixture", async () => {
+      const { pruneNotifications, MAX_NOTIFICATIONS } = await import("./useNotifications");
+      const now = Date.now();
+
+      const largeFixture = Array.from({ length: 10_000 }, (_, i) => ({
+        id: `stress-${i}`,
+        type: "info" as const,
+        title: `Stress notification ${i}`,
+        createdAt: now - (i * 1000),
+        read: i % 2 === 0,
+      }));
+
+      const start = performance.now();
+      const pruned = pruneNotifications(largeFixture, "30", now);
+      const duration = performance.now() - start;
+
+      expect(pruned.length).toBeLessThanOrEqual(MAX_NOTIFICATIONS);
+      expect(duration).toBeLessThan(100); // Must run quickly without freezing thread
+    });
+  });
 });
+

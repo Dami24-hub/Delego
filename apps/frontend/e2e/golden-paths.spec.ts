@@ -27,13 +27,22 @@ test.describe("golden path: create a delegation", () => {
 
     await page.getByRole("button", { name: /new delegation/i }).click();
 
+    // Step 1 — choose agent.
     await page.getByPlaceholder("agent-shopping-01").fill("agent-groceries");
+    await page.getByRole("button", { name: /next/i }).click();
+
+    // Step 2 — scope.
     await page.getByPlaceholder("wallet-id").fill(E2E_WALLET_ADDRESS);
     await page.getByPlaceholder("Groceries agent").fill("Groceries agent");
+    await page.getByRole("button", { name: /next/i }).click();
 
+    // Step 3 — limits.
     const maxTotalInput = page.getByLabel(/amount in xlm/i).last();
     await maxTotalInput.fill("100");
+    await page.getByRole("button", { name: /next/i }).click();
 
+    // Step 4 — review & confirm.
+    await expect(page.getByText("Groceries agent").or(page.getByText("agent-groceries"))).toBeVisible();
     await page.getByRole("button", { name: /create delegation/i }).click();
 
     await expect(page.getByText("Groceries agent").or(page.getByText("agent-groceries"))).toBeVisible();

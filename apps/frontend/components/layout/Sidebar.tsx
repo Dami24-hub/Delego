@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { navItems } from "./navItems";
+import { useTour } from "../tour/TourProvider";
 
 /**
  * Desktop sidebar navigation.
@@ -14,6 +15,7 @@ export function Sidebar() {
   const pathname = usePathname();
   const t = useTranslations("nav");
   const tApp = useTranslations("app");
+  const { start } = useTour();
 
   return (
     <aside className="sidebar" aria-label={t("primaryNavigation")}>
@@ -31,6 +33,7 @@ export function Sidebar() {
                   href={item.href}
                   className={`nav-link${isActive ? " active" : ""}`}
                   aria-current={isActive ? "page" : undefined}
+                  data-nav={item.labelKey}
                 >
                   <span className="nav-icon" aria-hidden="true">
                     {item.icon}
@@ -42,6 +45,31 @@ export function Sidebar() {
           })}
         </ul>
       </nav>
+
+      {/* Help section — replay tour (#637) */}
+      <div style={{ marginTop: "auto", padding: "1rem 0.5rem 0.5rem" }}>
+        <button
+          type="button"
+          onClick={start}
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: "0.5rem",
+            width: "100%",
+            background: "none",
+            border: "none",
+            cursor: "pointer",
+            padding: "0.5rem 0.75rem",
+            borderRadius: "0.5rem",
+            fontSize: "0.875rem",
+            color: "var(--color-text-secondary, #4b5563)",
+            textAlign: "left",
+          }}
+          aria-label="Replay product tour"
+        >
+          <span aria-hidden="true">🎯</span> Take the tour
+        </button>
+      </div>
     </aside>
   );
 }

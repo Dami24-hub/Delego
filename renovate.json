@@ -1,0 +1,111 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": [
+    "config:recommended",
+    ":dependencyDashboard",
+    ":semanticCommits",
+    ":separatePatchReleases"
+  ],
+  "labels": ["dependencies"],
+  "reviewers": ["team:maintainers"],
+
+  "schedule": ["every weekend"],
+  "timezone": "UTC",
+
+  "lockFileMaintenance": {
+    "enabled": true,
+    "schedule": ["before 6am on monday"],
+    "automerge": true,
+    "commitMessageAction": "refresh lockfile"
+  },
+
+  "packageRules": [
+    {
+      "description": "Batch all minor + patch updates (non-major) into a single weekly PR",
+      "matchUpdateTypes": ["minor", "patch"],
+      "matchPackagePatterns": ["*"],
+      "excludePackagePatterns": ["^@delegolabs/"],
+      "groupName": "all non-major dependencies",
+      "schedule": ["every weekend"],
+      "labels": ["dependencies", "non-major"]
+    },
+
+    {
+      "description": "Automerge patch-level devDependency bumps when CI passes. Covers test tooling, linters, type stubs, and bundler plugins — low-risk categories unlikely to introduce runtime regressions.",
+      "matchUpdateTypes": ["patch"],
+      "matchDepTypes": ["devDependencies"],
+      "excludePackagePatterns": ["^@delegolabs/"],
+      "automerge": true,
+      "automergeType": "pr",
+      "automergeStrategy": "squash",
+      "labels": ["dependencies", "automerge", "patch-devdep"]
+    },
+
+    {
+      "description": "Major updates are always separate, clearly labeled, and require human review",
+      "matchUpdateTypes": ["major"],
+      "excludePackagePatterns": ["^react$", "^react-dom$", "^next$", "^@delegolabs/"],
+      "groupName": null,
+      "labels": ["dependencies", "major"],
+      "automerge": false,
+      "addLabels": ["needs-migration-notes"]
+    },
+
+    {
+      "description": "React and Next.js major versions require explicit human approval and a migration-notes issue. These changes can involve breaking API surface, build config changes, or peer dependency shifts across the whole app.",
+      "matchPackageNames": ["react", "react-dom", "next"],
+      "matchUpdateTypes": ["major"],
+      "labels": ["dependencies", "major", "react-ecosystem", "needs-migration-notes"],
+      "automerge": false,
+      "prBodyNotes": [
+        "⚠️ **React/Next.js major upgrade**. Before merging:",
+        "1. Open a migration-notes issue using the `major-dependency-migration` template.",
+        "2. Validate SSR/streaming changes, App Router behavior, and React 19+ API surface.",
+        "3. Run the full test suite and E2E golden paths locally.",
+        "4. Get a second maintainer approval."
+      ]
+    },
+
+    {
+      "description": "Internal @delegolabs/* packages are pinned to released tags. Bumps must be explicit PRs — they imply SDK/types/ui contract changes and need a changelog review.",
+      "matchPackagePatterns": ["^@delegolabs/"],
+      "versioning": "semver",
+      "rangeStrategy": "pin",
+      "labels": ["dependencies", "internal-package"],
+      "automerge": false,
+      "prBodyNotes": [
+        "📦 **Internal package bump**. Review the package CHANGELOG before merging.",
+        "Ensure no breaking API surface changes affect consuming features."
+      ]
+    },
+
+    {
+      "description": "Security vulnerability alerts bypass grouping and get individual PRs immediately, regardless of the normal weekly schedule.",
+      "matchUpdateTypes": ["patch", "minor", "major"],
+      "isVulnerabilityAlert": true,
+      "groupName": null,
+      "schedule": ["at any time"],
+      "labels": ["dependencies", "security", "high-priority"],
+      "automerge": false,
+      "prPriority": 10,
+      "prBodyNotes": [
+        "🔒 **Security advisory fix**. This PR was opened out of band due to a vulnerability alert.",
+        "Review the advisory and confirm the fix resolves the CVE before merging."
+      ]
+    }
+  ],
+
+  "prCreation": "not-pending",
+  "prHourlyLimit": 2,
+  "prConcurrentLimit": 5,
+
+  "ignoreDeps": [],
+
+  "vulnerabilityAlerts": {
+    "enabled": true,
+    "labels": ["security", "high-priority"]
+  },
+
+  "commitMessagePrefix": "chore(deps):",
+  "commitMessageExtra": "to {{newVersion}}"
+}

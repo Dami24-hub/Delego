@@ -2,6 +2,7 @@ import type { Escrow } from "@delegolabs/types";
 import { ESCROW_STATUS_META } from "@delegolabs/types";
 import { Amount, Card } from "@delegolabs/ui";
 import { useCurrency } from "../../hooks/useCurrency";
+import { HelpLink } from "../help/HelpLink";
 
 /** Approximate Stellar ledger close time in seconds */
 const LEDGER_CLOSE_SECONDS = 5;
@@ -78,8 +79,9 @@ export function EscrowCard({ escrow }: EscrowCardProps) {
             gap: "0.5rem",
           }}
         >
-          <span style={{ fontWeight: 600, fontSize: "0.875rem", color: "#374151" }}>
+          <span style={{ fontWeight: 600, fontSize: "0.875rem", color: "#374151", display: "flex", alignItems: "center", gap: "0.375rem" }}>
             Escrow #{escrow.escrowId}
+            <HelpLink concept="escrow" />
           </span>
 
           <span

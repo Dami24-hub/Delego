@@ -1,24 +1,26 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
-import type { ApiResponse, Order } from "@delegolabs/types";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import type { Order } from "@delegolabs/types";
 import { api } from "../lib/api";
+import {
+  adaptOrders,
+  adaptOrder,
+  type ListOrdersResponse,
+  type ApproveOrderResponse,
+  type RejectOrderResponse,
+} from "@delegolabs/api-generated";
+import { enqueueMutation, subscribeToQueue, type QueuedMutation } from "../lib/offlineQueue";
 
 /**
  * Fetch (and optionally poll) the current user's orders from the Delego API,
  * with optimistic approve/reject mutations for the approval workflow.
+ *
+ * The approvals module is fully typed end-to-end from the OpenAPI spec via
+ * @delegolabs/api-generated (#633). Raw API responses are adapted to the
+ * application domain model (Date, bigint) by adaptOrder(s) before being
+ * stored in state — no hand-written interfaces remain in this module.
  */
-function isOrderArray(data: unknown): data is Order[] {
-  if (!Array.isArray(data)) return false;
-  return data.every(
-    (item) =>
-      typeof item === "object" &&
-      item !== null &&
-      "id" in item &&
-      "userId" in item &&
-      "status" in item
-  );
-}
 
 export interface UseOrdersOptions {
   /**
@@ -29,6 +31,7 @@ export interface UseOrdersOptions {
 }
 
 export interface UseOrdersResult {
+
   orders: Order[];
   loading: boolean;
   error: string | null;
@@ -36,6 +39,10 @@ export interface UseOrdersResult {
   lastUpdated: Date | null;
   /** Order IDs with an in-flight approve/reject mutation. */
   pendingIds: Set<string>;
+  /** Order IDs queued offline awaiting reconnect replay. */
+  pendingOfflineIds: Set<string>;
+  /** Queued mutations in conflict state for approval orders */
+  conflictMutations: QueuedMutation[];
   refresh: () => Promise<void>;
   approveOrder: (id: string) => Promise<Order | null>;
   rejectOrder: (id: string, reason?: string) => Promise<Order | null>;
@@ -48,6 +55,33 @@ export function useOrders(options: UseOrdersOptions = {}): UseOrdersResult {
   const [error, setError] = useState<string | null>(null);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [pendingIds, setPendingIds] = useState<Set<string>>(new Set());
+  const [queuedMutations, setQueuedMutations] = useState<QueuedMutation[]>([]);
+
+  // Subscribe to offline queue changes (#618)
+  useEffect(() => {
+    return subscribeToQueue(setQueuedMutations);
+  }, []);
+
+  const pendingOfflineIds = useMemo(() => {
+    const ids = new Set<string>();
+    for (const m of queuedMutations) {
+      if (
+        (m.mutationClass === "approve_order" || m.mutationClass === "reject_order") &&
+        (m.status === "pending" || m.status === "replaying")
+      ) {
+        ids.add(m.resourceId);
+      }
+    }
+    return ids;
+  }, [queuedMutations]);
+
+  const conflictMutations = useMemo(() => {
+    return queuedMutations.filter(
+      (m) =>
+        (m.mutationClass === "approve_order" || m.mutationClass === "reject_order") &&
+        m.status === "conflict"
+    );
+  }, [queuedMutations]);
 
   // Guards against setting state after unmount during polling / async work.
   const mountedRef = useRef(true);
@@ -66,14 +100,16 @@ export function useOrders(options: UseOrdersOptions = {}): UseOrdersResult {
 
   const load = useCallback(async (signal?: AbortSignal) => {
     try {
-      const res: ApiResponse<Order[]> = await api.getOrders({ signal });
+      // Typed against the generated ListOrdersResponse from the OpenAPI spec.
+      const res = (await api.getOrders({ signal })) as ListOrdersResponse;
       if (signal?.aborted || !mountedRef.current) return;
       if (res.error) {
         setError(res.error.message);
-      } else if (!isOrderArray(res.data)) {
+      } else if (!Array.isArray(res.data)) {
         setError("Invalid response format");
       } else {
-        setOrders(res.data);
+        // Adapt generated API order shape → domain order shape (Date, bigint).
+        setOrders(adaptOrders(res.data));
         setLastUpdated(new Date());
         setError(null);
       }
@@ -108,21 +144,28 @@ export function useOrders(options: UseOrdersOptions = {}): UseOrdersResult {
     };
   }, [load, pollIntervalMs]);
 
-  const runMutation = useCallback(
-    async (
-      id: string,
-      call: () => Promise<ApiResponse<Order>>
-    ): Promise<Order | null> => {
+  const approveOrder = useCallback(
+    async (id: string): Promise<Order | null> => {
+      // Offline queue check (#618)
+      if (typeof navigator !== "undefined" && !navigator.onLine) {
+        await enqueueMutation("approve_order", id);
+        // Optimistically set order status to approved offline
+        setOrders((prev) =>
+          prev.map((o) => (o.id === id ? { ...o, status: "approved" } : o))
+        );
+        return orders.find((o) => o.id === id) ?? null;
+      }
+
       setPending(id, true);
       setError(null);
       try {
-        const res = await call();
+        const res = (await api.approveOrder(id)) as ApproveOrderResponse;
         if (res.error) {
           setError(res.error.message);
           return null;
         }
         if (res.data) {
-          const updated = res.data;
+          const updated = adaptOrder(res.data);
           setOrders((prev) =>
             prev.map((order) => (order.id === id ? updated : order))
           );
@@ -130,24 +173,58 @@ export function useOrders(options: UseOrdersOptions = {}): UseOrdersResult {
         }
         return null;
       } catch {
-        setError("Failed to update order");
+        // Fallback offline queue on network exception
+        await enqueueMutation("approve_order", id);
+        setOrders((prev) =>
+          prev.map((o) => (o.id === id ? { ...o, status: "approved" } : o))
+        );
         return null;
       } finally {
         setPending(id, false);
       }
     },
-    [setPending]
-  );
-
-  const approveOrder = useCallback(
-    (id: string) => runMutation(id, () => api.approveOrder(id)),
-    [runMutation]
+    [orders, setPending]
   );
 
   const rejectOrder = useCallback(
-    (id: string, reason?: string) =>
-      runMutation(id, () => api.rejectOrder(id, reason)),
-    [runMutation]
+    async (id: string, reason?: string): Promise<Order | null> => {
+      // Offline queue check (#618)
+      if (typeof navigator !== "undefined" && !navigator.onLine) {
+        await enqueueMutation("reject_order", id, { reason });
+        setOrders((prev) =>
+          prev.map((o) => (o.id === id ? { ...o, status: "rejected" } : o))
+        );
+        return orders.find((o) => o.id === id) ?? null;
+      }
+
+      setPending(id, true);
+      setError(null);
+      try {
+        const res = (await api.rejectOrder(id, reason)) as RejectOrderResponse;
+        if (res.error) {
+          setError(res.error.message);
+          return null;
+        }
+        if (res.data) {
+          const updated = adaptOrder(res.data);
+          setOrders((prev) =>
+            prev.map((order) => (order.id === id ? updated : order))
+          );
+          return updated;
+        }
+        return null;
+      } catch {
+        // Fallback offline queue on network exception
+        await enqueueMutation("reject_order", id, { reason });
+        setOrders((prev) =>
+          prev.map((o) => (o.id === id ? { ...o, status: "rejected" } : o))
+        );
+        return null;
+      } finally {
+        setPending(id, false);
+      }
+    },
+    [orders, setPending]
   );
 
   return {
@@ -156,8 +233,11 @@ export function useOrders(options: UseOrdersOptions = {}): UseOrdersResult {
     error,
     lastUpdated,
     pendingIds,
+    pendingOfflineIds,
+    conflictMutations,
     refresh,
     approveOrder,
     rejectOrder,
   };
 }
+

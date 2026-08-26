@@ -1,8 +1,9 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import type { OrderStatus } from "@delegolabs/types";
 import { useOrders } from "../../hooks/useOrders";
+import { useQueryParamState } from "../../hooks/useQueryParamState";
 import {
   filterOrders,
   paginate,
@@ -13,6 +14,7 @@ import {
 import { OrderFilters } from "../../components/orders/OrderFilters";
 import { OrderTable } from "../../components/orders/OrderTable";
 import { Pagination } from "../../components/orders/Pagination";
+import { CopyViewLinkButton } from "../../components/filters/CopyViewLinkButton";
 
 const PAGE_SIZE = 10;
 
@@ -20,11 +22,26 @@ const PAGE_SIZE = 10;
 export default function OrdersPage() {
   const { orders, loading, error } = useOrders();
 
-  const [search, setSearch] = useState("");
-  const [selectedStatuses, setSelectedStatuses] = useState<OrderStatus[]>([]);
-  const [sortField, setSortField] = useState<OrderSortField>("createdAt");
-  const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
-  const [page, setPage] = useState(1);
+  const [search, setSearch] = useQueryParamState<string>({
+    key: "q",
+    defaultValue: "",
+  });
+  const [selectedStatuses, setSelectedStatuses] = useQueryParamState<OrderStatus[]>({
+    key: "status",
+    defaultValue: [],
+  });
+  const [sortField, setSortFieldRaw] = useQueryParamState<OrderSortField>({
+    key: "sortField",
+    defaultValue: "createdAt",
+  });
+  const [sortDirection, setSortDirectionRaw] = useQueryParamState<SortDirection>({
+    key: "sortDir",
+    defaultValue: "desc",
+  });
+  const [page, setPage] = useQueryParamState<number>({
+    key: "page",
+    defaultValue: 1,
+  });
 
   // Recompute the derived view whenever the data, filters, or sort change.
   // Resetting to page 1 on filter change is handled by the change callbacks.
@@ -39,10 +56,10 @@ export default function OrdersPage() {
 
   const toggleStatus = (status: OrderStatus) => {
     setPage(1);
-    setSelectedStatuses((prev) =>
-      prev.includes(status)
-        ? prev.filter((s) => s !== status)
-        : [...prev, status]
+    setSelectedStatuses(
+      selectedStatuses.includes(status)
+        ? selectedStatuses.filter((s) => s !== status)
+        : [...selectedStatuses, status]
     );
   };
 
@@ -52,8 +69,8 @@ export default function OrdersPage() {
   };
 
   const handleSort = (field: OrderSortField, direction: SortDirection) => {
-    setSortField(field);
-    setSortDirection(direction);
+    setSortFieldRaw(field);
+    setSortDirectionRaw(direction);
   };
 
   const handleReset = () => {
@@ -65,8 +82,13 @@ export default function OrdersPage() {
   return (
     <div className="settings-page">
       <header className="header">
-        <h1>Transaction History</h1>
-        <p>Browse, search, and filter every order across your delegations</p>
+        <div className="header-row">
+          <div>
+            <h1>Transaction History</h1>
+            <p>Browse, search, and filter every order across your delegations</p>
+          </div>
+          <CopyViewLinkButton />
+        </div>
       </header>
 
       {error && (

@@ -9,6 +9,8 @@ import { AppProviders } from "../components/providers/AppProviders";
 import { AnnouncementBanner } from "../components/announcements/AnnouncementBanner";
 import { ServiceWorkerRegistration } from "../components/pwa/ServiceWorkerRegistration";
 import { InstallPromptCard } from "../components/pwa/InstallPromptCard";
+import { themeBootstrapScript } from "../hooks/useTheme";
+import { a11yBootstrapScript } from "../hooks/useAccessibility";
 
 export const metadata: Metadata = {
   title: {
@@ -50,6 +52,14 @@ export default async function RootLayout({
 
   return (
     <html lang={locale}>
+      {/* Inline theme and accessibility bootstrap: reads localStorage and sets data attributes
+          and root font-size before React hydrates, preventing flashes (#639, #607). */}
+      {/* eslint-disable-next-line @next/next/no-before-interactive-script-outside-document */}
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: themeBootstrapScript }} />
+        <script dangerouslySetInnerHTML={{ __html: a11yBootstrapScript }} />
+      </head>
+
       <body>
         <StrictMode>
           <NextIntlClientProvider locale={locale} messages={messages}>

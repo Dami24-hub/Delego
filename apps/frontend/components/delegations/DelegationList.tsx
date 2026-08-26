@@ -9,6 +9,8 @@ export interface DelegationListProps {
   pendingIds: Set<string>;
   onUpdate: (id: string, input: UpdateDelegationInput) => void | Promise<unknown>;
   onRevoke: (id: string) => void | Promise<unknown>;
+  /** True when `delegations` has been narrowed by an active filter, for a more specific empty state. */
+  filtered?: boolean;
 }
 
 function DelegationSkeletonCard() {
@@ -29,6 +31,7 @@ export function DelegationList({
   pendingIds,
   onUpdate,
   onRevoke,
+  filtered = false,
 }: DelegationListProps) {
   if (loading && delegations.length === 0) {
     return (
@@ -43,7 +46,11 @@ export function DelegationList({
   if (delegations.length === 0) {
     return (
       <div className="card">
-        <p>No delegations yet. Grant one to let an AI agent shop on your behalf.</p>
+        <p>
+          {filtered
+            ? "No delegations match the current filters."
+            : "No delegations yet. Grant one to let an AI agent shop on your behalf."}
+        </p>
       </div>
     );
   }
