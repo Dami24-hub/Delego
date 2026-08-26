@@ -6,6 +6,7 @@ import { NetworkProvider } from "../../hooks/useNetwork";
 import { NotificationProvider } from "../../hooks/useNotifications";
 import { AnnounceProvider } from "../../hooks/useAnnounce";
 import { CurrencyProvider } from "../../hooks/useCurrency";
+import { FeatureFlagProvider } from "./FeatureFlagProvider";
 import { MockApiProvider } from "./MockApiProvider";
 import { SentryBreadcrumbs } from "./SentryBreadcrumbs";
 import { WebVitalsReporter } from "./WebVitalsReporter";
@@ -24,22 +25,24 @@ export function AppProviders({ children }: { children: ReactNode }) {
   }, []);
 
   return (
-    <MockApiProvider>
-      <NetworkProvider>
-        <CurrencyProvider>
-          <AnnounceProvider>
-            <NotificationProvider>
-              <TourProvider>
-                <SentryBreadcrumbs />
-                <WebVitalsReporter />
-                <QueueInspectorModal />
-                {children}
-                <NetworkMismatchModal />
-              </TourProvider>
-            </NotificationProvider>
-          </AnnounceProvider>
-        </CurrencyProvider>
-      </NetworkProvider>
-    </MockApiProvider>
+    <FeatureFlagProvider>
+      <MockApiProvider>
+        <NetworkProvider>
+          <CurrencyProvider>
+            <AnnounceProvider>
+              <NotificationProvider>
+                <TourProvider>
+                  <SentryBreadcrumbs />
+                  <WebVitalsReporter />
+                  <QueueInspectorModal />
+                  {children}
+                  <NetworkMismatchModal />
+                </TourProvider>
+              </NotificationProvider>
+            </AnnounceProvider>
+          </CurrencyProvider>
+        </NetworkProvider>
+      </MockApiProvider>
+    </FeatureFlagProvider>
   );
 }
