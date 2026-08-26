@@ -1,5 +1,14 @@
 import { DelegoClient } from "@delegolabs/sdk";
 import { env } from "./env";
+import { isDemoMode } from "./demoMode";
+
+/** Thrown when a mutating request is attempted while demo mode is active. */
+export class DemoModeWriteBlockedError extends Error {
+  constructor(method: string, url: string) {
+    super(`Demo mode is read-only — blocked ${method} ${url}`);
+    this.name = "DemoModeWriteBlockedError";
+  }
+}
 
 type RetryOptions = {
   attempts?: number;
@@ -47,6 +56,16 @@ export function createRetryingFetch(baseFetch: typeof fetch = fetch, retryOption
 
   return async (input, init) => {
     const method = (init?.method ?? "GET").toUpperCase();
+
+    // Defense in depth (#632): the UI disables mutating controls in demo
+    // mode, but every write is also rejected here regardless of how the
+    // request was triggered — this is the one place all API calls funnel
+    // through, so it's the backstop if a control is ever missed.
+    if (method !== "GET" && isDemoMode()) {
+      const url = typeof input === "string" ? input : input.toString();
+      throw new DemoModeWriteBlockedError(method, url);
+    }
+
     if (method !== "GET") return baseFetch(input, init);
 
     let lastError: unknown = null;

@@ -16,7 +16,9 @@
     "build": "tsc",
     "typecheck": "tsc --noEmit",
     "lint": "echo 'TODO: add eslint'",
-    "test": "vitest run"
+    "test": "vitest run",
+    "test:coverage": "vitest run --coverage",
+    "check:no-coverage-ignores": "node scripts/check-no-coverage-ignores.mjs"
   },
   "peerDependencies": {
     "react": "^18.0.0 || ^19.0.0",
@@ -27,6 +29,7 @@
     "@testing-library/react": "^16.0.0",
     "@testing-library/user-event": "^14.5.0",
     "@types/react": "^19.0.0",
+    "@vitest/coverage-v8": "^2.0.0",
     "axe-core": "^4.13.0",
     "jsdom": "^25.0.0",
     "react": "^19.0.0",

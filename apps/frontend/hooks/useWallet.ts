@@ -1,6 +1,12 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import {
+  isDemoMode,
+  DEMO_WALLET_ADDRESS,
+  DEMO_NETWORK,
+  DEMO_NETWORK_PASSPHRASE,
+} from "../lib/demoMode";
 
 export type WalletConnectionStatus =
   | "checking"
@@ -26,15 +32,30 @@ const initialState: WalletState = {
   error: null,
 };
 
+/** Synthetic connected-wallet state reported while demo mode is active (#632). */
+const demoState: WalletState = {
+  status: "connected",
+  address: DEMO_WALLET_ADDRESS,
+  network: DEMO_NETWORK,
+  networkPassphrase: DEMO_NETWORK_PASSPHRASE,
+  error: null,
+};
+
 /**
  * Connects to the Freighter browser extension via `@stellar/freighter-api`.
  * Freighter only exists in the browser, so the SDK is dynamically imported
  * the same way the QR code library is lazy-loaded in DelegationQR.
  */
 export function useWallet() {
-  const [state, setState] = useState<WalletState>(initialState);
+  const [state, setState] = useState<WalletState>(
+    isDemoMode() ? demoState : initialState
+  );
 
   const refresh = useCallback(async () => {
+    if (isDemoMode()) {
+      setState(demoState);
+      return;
+    }
     setState((prev) => ({ ...prev, status: "checking", error: null }));
     try {
       const freighter = await import("@stellar/freighter-api");
@@ -56,7 +77,7 @@ export function useWallet() {
         setState({
           ...initialState,
           status: "error",
-          error: addressRes.error?.message ?? "Could not read wallet address",
+          error: addressRes.error?.message ?? "Couldn't read the wallet address. Please try again.",
         });
         return;
       }
@@ -86,6 +107,10 @@ export function useWallet() {
   }, [refresh]);
 
   const connect = useCallback(async () => {
+    if (isDemoMode()) {
+      setState(demoState);
+      return;
+    }
     setState((prev) => ({ ...prev, status: "connecting", error: null }));
     try {
       const freighter = await import("@stellar/freighter-api");

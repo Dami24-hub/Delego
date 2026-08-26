@@ -1,0 +1,42 @@
+{
+  "$schema": "https://turbo.build/schema.json",
+  "tasks": {
+    "build": {
+      "dependsOn": ["^build"],
+      "outputs": ["dist/**", ".next/**", "!.next/cache/**"],
+      "inputs": ["src/**", "app/**", "components/**", "hooks/**", "lib/**", "mocks/**", "styles/**", "*.ts", "*.tsx", "*.json", "!**/*.test.*", "!**/*.spec.*"]
+    },
+    "typecheck": {
+      "dependsOn": ["^build"],
+      "outputs": []
+    },
+    "lint": {
+      "outputs": []
+    },
+    "test": {
+      "dependsOn": ["^build"],
+      "outputs": ["coverage/**"],
+      "inputs": ["src/**", "app/**", "components/**", "hooks/**", "lib/**", "mocks/**", "*.test.*", "*.spec.*", "vitest.config.*"]
+    },
+    "test:coverage": {
+      "dependsOn": ["^build"],
+      "outputs": ["coverage/**"]
+    },
+    "check:i18n": {
+      "outputs": []
+    },
+    "check:microcopy": {
+      "outputs": []
+    },
+    "check:no-coverage-ignores": {
+      "outputs": []
+    },
+    "check:drift": {
+      "outputs": []
+    },
+    "dev": {
+      "cache": false,
+      "persistent": true
+    }
+  }
+}

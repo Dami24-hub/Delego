@@ -44,11 +44,26 @@ jobs:
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN || secrets.GITHUB_TOKEN }}
 
+      # Task-output caching (#635): keyed on the runner OS plus a hash of
+      # every file turbo's task graph reads (see turbo.json "inputs") and
+      # the lockfile, so a change anywhere relevant invalidates it — restore
+      # keys fall back to the closest prior cache for a partial hit.
+      - name: Restore turbo cache
+        uses: actions/cache@v4
+        with:
+          path: .turbo
+          key: turbo-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml', '**/src/**', '**/app/**', '**/components/**', '**/hooks/**', '**/lib/**', '**/*.ts', '**/*.tsx') }}
+          restore-keys: |
+            turbo-${{ runner.os }}-
+
       - name: Run linter
         run: pnpm lint
 
       - name: Check i18n message key parity
         run: pnpm --filter @delegolabs/web check:i18n
+
+      - name: Check microcopy consistency
+        run: pnpm --filter @delegolabs/web check:microcopy
 
   type-check:
     name: Type Check
@@ -74,8 +89,13 @@ jobs:
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN || secrets.GITHUB_TOKEN }}
 
-      - name: Build shared packages
-        run: pnpm --filter "./packages/*" --filter "./apps/frontend" build
+      - name: Restore turbo cache
+        uses: actions/cache@v4
+        with:
+          path: .turbo
+          key: turbo-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml', '**/src/**', '**/app/**', '**/components/**', '**/hooks/**', '**/lib/**', '**/*.ts', '**/*.tsx') }}
+          restore-keys: |
+            turbo-${{ runner.os }}-
 
       - name: Run type check
         run: pnpm typecheck
@@ -105,11 +125,25 @@ jobs:
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN || secrets.GITHUB_TOKEN }}
 
+      - name: Restore turbo cache
+        uses: actions/cache@v4
+        with:
+          path: .turbo
+          key: turbo-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml', '**/src/**', '**/app/**', '**/components/**', '**/hooks/**', '**/lib/**', '**/*.ts', '**/*.tsx') }}
+          restore-keys: |
+            turbo-${{ runner.os }}-
+
       - name: Build shared packages
         run: pnpm --filter "./packages/*" --filter "./apps/frontend" build
 
-      - name: Run tests
-        run: pnpm --filter "./packages/*" test
+      - name: Ban coverage-ignore directives in packages/ui
+        run: pnpm --filter @delegolabs/ui check:no-coverage-ignores
+
+      - name: Run packages/ui tests with coverage
+        run: pnpm --filter @delegolabs/ui test:coverage
+
+      - name: Run remaining package tests
+        run: pnpm --filter "./packages/*" --filter '!@delegolabs/ui' test
 
       - name: Run frontend tests with coverage
         run: pnpm --filter @delegolabs/web test:coverage
@@ -120,6 +154,14 @@ jobs:
         with:
           name: coverage-report
           path: apps/frontend/coverage
+          retention-days: 7
+
+      - name: Upload packages/ui coverage report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ui-coverage-report
+          path: packages/ui/coverage
           retention-days: 7
 
   build:
@@ -146,6 +188,14 @@ jobs:
         run: pnpm install --frozen-lockfile
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN || secrets.GITHUB_TOKEN }}
+
+      - name: Restore turbo cache
+        uses: actions/cache@v4
+        with:
+          path: .turbo
+          key: turbo-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml', '**/src/**', '**/app/**', '**/components/**', '**/hooks/**', '**/lib/**', '**/*.ts', '**/*.tsx') }}
+          restore-keys: |
+            turbo-${{ runner.os }}-
 
       - name: Build project
         run: pnpm build

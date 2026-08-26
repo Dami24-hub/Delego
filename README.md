@@ -49,6 +49,10 @@ Open http://localhost:3001
 
 > **Note**: The app talks to the Delego API gateway (`apps/backend/gateway` in [DelegoLabs/Delego-backend](https://github.com/DelegoLabs/Delego-backend)). Start the backend repo first, or point `NEXT_PUBLIC_API_URL` at a deployed gateway.
 
+### 🧪 Demo Mode
+
+No backend, wallet, or funds needed — visit `/demo` (e.g. `http://localhost:3001/demo`) after `pnpm dev` and it drops you into a fully click-through-able app running against MSW fixtures, with a synthetic connected wallet. Every mutating action is disabled in the UI and rejected at the API-client layer if attempted anyway. Exit via the banner's "Exit demo" button, or just close the tab — the flag is session-scoped (`sessionStorage`) and never persists. See `apps/frontend/lib/demoMode.ts`.
+
 ## 🔧 Prerequisites
 
 - **Node.js** >= 20.0.0

@@ -6,6 +6,7 @@ import { Button, Card, Stepper } from "@delegolabs/ui";
 import type { CreateDelegationInput, DelegationPermissionLevel } from "@delegolabs/types";
 import { useDelegationWizardDraft } from "../../hooks/useDelegationWizardDraft";
 import { useAnnounce } from "../../hooks/useAnnounce";
+import { useDemoModeGuard, DEMO_MODE_BLOCKED_MESSAGE } from "../../hooks/useDemoModeGuard";
 import {
   DELEGATION_WIZARD_STEPS,
   draftToCreateInput,
@@ -47,6 +48,7 @@ export function DelegationWizard({
   const tSteps = useTranslations("delegations.wizard.steps");
   const tCommon = useTranslations("common");
   const { announce } = useAnnounce();
+  const { isDemoMode, guard } = useDemoModeGuard();
 
   const {
     draft,
@@ -123,7 +125,7 @@ export function DelegationWizard({
     onCancel?.();
   };
 
-  const handleSubmit = async () => {
+  const handleSubmit = guard(async () => {
     setFormError(null);
     setSubmitting(true);
     try {
@@ -138,7 +140,7 @@ export function DelegationWizard({
     } finally {
       setSubmitting(false);
     }
-  };
+  });
 
   const showError = (field: string) =>
     touchedSteps.has(stepId) ? Boolean((errors as Record<string, string | undefined>)[field]) : false;
@@ -251,7 +253,13 @@ export function DelegationWizard({
             {tSteps("back")}
           </Button>
         )}
-        <Button variant="primary" type="button" onClick={handleNext} disabled={submitting}>
+        <Button
+          variant="primary"
+          type="button"
+          onClick={handleNext}
+          disabled={submitting || (isLastStep && isDemoMode)}
+          title={isLastStep && isDemoMode ? DEMO_MODE_BLOCKED_MESSAGE : undefined}
+        >
           {isLastStep ? (submitting ? t("submitting") : t("submit")) : tSteps("next")}
         </Button>
         {onCancel && (

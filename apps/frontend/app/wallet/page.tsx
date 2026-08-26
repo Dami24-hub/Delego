@@ -9,6 +9,7 @@ import { useBalanceHistory } from "../../hooks/useBalanceHistory";
 import { WalletConnectButton } from "../../components/wallet/WalletConnectButton";
 import { BalanceSparkline } from "../../components/wallet/BalanceSparkline";
 import { AssetBreakdownTable } from "../../components/wallet/AssetBreakdownTable";
+import { useDemoModeGuard, DEMO_MODE_BLOCKED_MESSAGE } from "../../hooks/useDemoModeGuard";
 
 const STATUS_LABEL: Record<string, string> = {
   checking: "Checking for Freighter…",
@@ -25,6 +26,7 @@ export default function WalletPage() {
   const notifications = useNotifications();
   const [funding, setFunding] = useState(false);
   const [fundError, setFundError] = useState<string | null>(null);
+  const { isDemoMode } = useDemoModeGuard();
 
   const isConnected = status === "connected" && !!address;
   const balanceState = useBalanceHistory(
@@ -37,7 +39,7 @@ export default function WalletPage() {
   const nativeBalanceNum = nativeBalance ? parseFloat(nativeBalance.balance) : 0;
 
   const fundAccount = useCallback(async () => {
-    if (!address || funding) return;
+    if (!address || funding || isDemoMode) return;
 
     setFunding(true);
     setFundError(null);
@@ -70,7 +72,7 @@ export default function WalletPage() {
     } finally {
       setFunding(false);
     }
-  }, [address, funding, notifications, balanceState]);
+  }, [address, funding, isDemoMode, notifications, balanceState]);
 
   const showZeroState =
     isConnected &&
@@ -189,7 +191,8 @@ export default function WalletPage() {
                       type="button"
                       className="friendbot-button"
                       onClick={fundAccount}
-                      disabled={funding}
+                      disabled={funding || isDemoMode}
+                      title={isDemoMode ? DEMO_MODE_BLOCKED_MESSAGE : undefined}
                     >
                       {funding ? "Funding…" : "Fund your account"}
                     </button>
