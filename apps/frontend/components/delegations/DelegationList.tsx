@@ -7,8 +7,12 @@ export interface DelegationListProps {
   delegations: Delegation[];
   loading: boolean;
   pendingIds: Set<string>;
-  onUpdate: (id: string, input: UpdateDelegationInput) => void | Promise<unknown>;
+  onUpdate: (
+    id: string,
+    input: UpdateDelegationInput
+  ) => void | Promise<unknown>;
   onRevoke: (id: string) => void | Promise<unknown>;
+  onDuplicate?: (delegation: Delegation) => void;
   /** True when `delegations` has been narrowed by an active filter, for a more specific empty state. */
   filtered?: boolean;
 }
@@ -31,6 +35,7 @@ export function DelegationList({
   pendingIds,
   onUpdate,
   onRevoke,
+  onDuplicate,
   filtered = false,
 }: DelegationListProps) {
   if (loading && delegations.length === 0) {
@@ -64,6 +69,7 @@ export function DelegationList({
           pending={pendingIds.has(delegation.id)}
           onUpdate={onUpdate}
           onRevoke={onRevoke}
+          onDuplicate={onDuplicate}
         />
       ))}
     </div>

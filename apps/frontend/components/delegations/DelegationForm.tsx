@@ -1,180 +1,375 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import type { Delegation } from "@delegolabs/types";
-import { Button } from "@delegolabs/ui";
-import { useDelegations } from "../../hooks/useDelegations";
-import { useWallet } from "../../hooks/useWallet";
-import { useNetworkMismatch } from "../../hooks/useNetworkMismatch";
-import { useQueryParamState } from "../../hooks/useQueryParamState";
-import { useAnnounce } from "../../hooks/useAnnounce";
-import { DelegationWizard } from "../../components/delegations/DelegationWizard";
-import { DelegationFilters } from "../../components/delegations/DelegationFilters";
-import { DelegationList } from "../../components/delegations/DelegationList";
-import { NotificationPermissionPrompt } from "../../components/notifications/NotificationPermissionPrompt";
-import { CopyViewLinkButton } from "../../components/filters/CopyViewLinkButton";
-import { OPEN_DELEGATION_FORM_KEY } from "../../lib/delegationFormIntent";
+import { useState } from "react";
+import type { FormEvent } from "react";
+import { useTranslations } from "next-intl";
+import { Button, Card, FormField, StroopsInput } from "@delegolabs/ui";
+import type {
+  CreateDelegationInput,
+  Delegation,
+  DelegationPermissionLevel,
+} from "@delegolabs/types";
+import { isDelegationExpired } from "../../lib/delegations";
+import { MerchantWhitelistPicker } from "./MerchantWhitelistPicker";
 
-type DelegationStatus = Delegation["status"];
+const PERMISSION_LEVELS: DelegationPermissionLevel[] = [
+  "VIEW_ONLY",
+  "AUTO_APPROVE",
+  "SIGNER",
+  "ADMIN",
+];
 
-/** Delegation management page — create, view, edit, pause/resume, and revoke delegations. */
-export default function DelegationsPage() {
-  const {
-    delegations,
-    loading,
-    error,
-    pendingIds,
-    createDelegation,
-    updateDelegation,
-    revokeDelegation,
-  } = useDelegations();
+function parseCsv(value: string): string[] {
+  return value
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
+}
 
-  const { address } = useWallet();
-  const { isMismatched } = useNetworkMismatch();
-  const [showForm, setShowForm] = useState(false);
-  const [showNotifyPrompt, setShowNotifyPrompt] = useState(false);
-  const { announce } = useAnnounce();
+export interface DelegationFormProps {
+  /** Wallet ID pre-filled from the connected wallet, if known */
+  defaultWalletId?: string;
+  /** Optional source delegation to clone/duplicate */
+  initialDelegation?: Delegation;
+  /** Called with the new delegation payload. May be async (creation is optimistic either way). */
+  onSubmit: (input: CreateDelegationInput) => void | Promise<unknown>;
+  onCancel?: () => void;
+}
 
-  const [search, setSearch] = useQueryParamState<string>({
-    key: "q",
-    defaultValue: "",
-  });
+/** Form for granting a new delegation to an AI agent. */
+export function DelegationForm({
+  defaultWalletId = "",
+  initialDelegation,
+  onSubmit,
+  onCancel,
+}: DelegationFormProps) {
+  const isDuplicate = Boolean(initialDelegation);
+  const isExpiredSource = initialDelegation
+    ? isDelegationExpired(initialDelegation)
+    : false;
 
-  const [selectedStatuses, setSelectedStatuses] = useQueryParamState<
-    DelegationStatus[]
-  >({
-    key: "status",
-    defaultValue: [],
-  });
+  const [agentId, setAgentId] = useState(initialDelegation?.agentId ?? "");
+  const [walletId, setWalletId] = useState(
+    initialDelegation?.walletId ?? defaultWalletId
+  );
 
-  const visibleDelegations = useMemo(() => {
-    const term = search.trim().toLowerCase();
+  const [label, setLabel] = useState(
+    initialDelegation
+      ? initialDelegation.label
+        ? `${initialDelegation.label} (Copy)`
+        : `${initialDelegation.agentId} (Copy)`
+      : ""
+  );
 
-    return delegations.filter((d) => {
-      const matchesSearch =
-        term === "" ||
-        d.agentId.toLowerCase().includes(term) ||
-        d.walletId.toLowerCase().includes(term);
-
-      const matchesStatus =
-        selectedStatuses.length === 0 ||
-        selectedStatuses.includes(d.status);
-
-      return matchesSearch && matchesStatus;
-    });
-  }, [delegations, search, selectedStatuses]);
-
-  const toggleStatus = (status: DelegationStatus) => {
-    setSelectedStatuses(
-      selectedStatuses.includes(status)
-        ? selectedStatuses.filter((s) => s !== status)
-        : [...selectedStatuses, status]
+  const [permissionLevel, setPermissionLevel] =
+    useState<DelegationPermissionLevel>(
+      initialDelegation?.permissionLevel ?? "AUTO_APPROVE"
     );
-  };
 
-  // Opened via the command palette's "New delegation" quick action.
-  useEffect(() => {
-    try {
-      if (window.sessionStorage.getItem(OPEN_DELEGATION_FORM_KEY)) {
-        window.sessionStorage.removeItem(OPEN_DELEGATION_FORM_KEY);
-        setShowForm(true);
-      }
-    } catch {
-      // sessionStorage may be unavailable (private mode) — just skip auto-open.
+  const [maxPerTransaction, setMaxPerTransaction] = useState<bigint>(
+    initialDelegation?.policy.maxPerTransaction ?? 0n
+  );
+
+  const [maxTotal, setMaxTotal] = useState<bigint>(
+    initialDelegation?.policy.maxTotal ?? 0n
+  );
+
+  const [allowedMerchants, setAllowedMerchants] = useState<string[]>(
+    initialDelegation?.policy.allowedMerchants ?? []
+  );
+
+  const [unrestrictedMerchants, setUnrestrictedMerchants] = useState(
+    (initialDelegation?.policy.allowedMerchants?.length ?? 0) === 0
+  );
+
+  const [showEmptyWhitelistError, setShowEmptyWhitelistError] =
+    useState(false);
+
+  const [allowedCategories, setAllowedCategories] = useState(
+    initialDelegation?.policy.allowedCategories?.join(", ") ?? ""
+  );
+
+  const initialExpiry =
+    initialDelegation?.policy.expiresAt && !isExpiredSource
+      ? initialDelegation.policy.expiresAt.split("T")[0]
+      : "";
+
+  const [expiresAt, setExpiresAt] = useState(initialExpiry);
+  const [submitting, setSubmitting] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
+
+  const t = useTranslations("delegations.wizard");
+  const tCommon = useTranslations("common");
+  const tForms = useTranslations("forms");
+
+  const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    setFormError(null);
+
+    if (!agentId.trim() || !walletId.trim() || !label.trim()) {
+      setFormError(t("errors.missingFields"));
+      return;
     }
-  }, []);
 
-  const handleCreate = async (
-    input: Parameters<typeof createDelegation>[0]
-  ) => {
-    const wasFirstDelegation = delegations.length === 0;
-    const created = await createDelegation(input);
+    if (maxTotal <= 0n) {
+      setFormError(t("errors.invalidTotal"));
+      return;
+    }
 
-    if (created) {
-      setShowForm(false);
-      announce("Delegation created successfully.", "polite");
+    if (!unrestrictedMerchants && allowedMerchants.length === 0) {
+      setShowEmptyWhitelistError(true);
+      setFormError(t("errors.emptyWhitelist"));
+      return;
+    }
 
-      if (wasFirstDelegation) {
-        setShowNotifyPrompt(true);
-      }
+    setShowEmptyWhitelistError(false);
+
+    const input: CreateDelegationInput = {
+      agentId: agentId.trim(),
+      walletId: walletId.trim(),
+      label: label.trim(),
+      permissionLevel,
+      policy: {
+        maxPerTransaction: maxPerTransaction.toString(),
+        maxTotal: maxTotal.toString(),
+        allowedMerchants: unrestrictedMerchants ? [] : allowedMerchants,
+        allowedCategories: parseCsv(allowedCategories),
+        ...(expiresAt && {
+          expiresAt: new Date(expiresAt).toISOString(),
+        }),
+      },
+    };
+
+    setSubmitting(true);
+
+    try {
+      await onSubmit(input);
+
+      setAgentId("");
+      setLabel("");
+      setMaxPerTransaction(0n);
+      setMaxTotal(0n);
+      setAllowedMerchants([]);
+      setUnrestrictedMerchants(true);
+      setShowEmptyWhitelistError(false);
+      setAllowedCategories("");
+      setExpiresAt("");
+    } catch (err) {
+      setFormError(
+        err instanceof Error ? err.message : t("errors.createFailed")
+      );
+    } finally {
+      setSubmitting(false);
     }
   };
 
   return (
-    <div className="settings-page">
-      <header className="header">
-        <div className="header-row">
-          <div>
-            <h1>Delegations</h1>
-            <p>
-              Grant, adjust, and revoke scoped spending authority for AI agents
-            </p>
-          </div>
-
-          <CopyViewLinkButton />
-        </div>
-      </header>
-
-      {error && (
-        <div className="settings-status error" role="alert">
-          {error}
-        </div>
-      )}
-
-      <div className="form-actions">
-        <Button
-          variant="primary"
-          onClick={() => setShowForm((v) => !v)}
-          disabled={isMismatched && !showForm}
-          title={
-            isMismatched
-              ? "Cannot create delegation while wallet and app network are mismatched"
-              : undefined
-          }
-          ariaLabel={
-            showForm ? "Close delegation form" : "Create new delegation"
-          }
-          aria-expanded={showForm}
-          aria-controls="delegation-wizard-region"
+    <Card
+      title={isDuplicate ? "Duplicate Delegation" : t("title")}
+      ariaLabel={isDuplicate ? "Duplicate delegation form" : t("ariaLabel")}
+    >
+      {isExpiredSource && (
+        <div
+          className="settings-status warning"
+          style={{
+            marginBottom: "1rem",
+            padding: "0.5rem 0.75rem",
+            borderRadius: "0.375rem",
+            backgroundColor: "#fffbe6",
+            border: "1px solid #ffe58f",
+            fontSize: "0.84375rem",
+          }}
         >
-          {showForm ? "Close" : "New delegation"}
-        </Button>
-      </div>
-
-      {showNotifyPrompt && (
-        <NotificationPermissionPrompt message="Get notified about approvals for this delegation, even when this tab isn't in focus." />
+          ⚠️ The source delegation has expired. Expiry date has been cleared;
+          please set a new valid date before submitting.
+        </div>
       )}
 
-      {showForm && (
-        <div id="delegation-wizard-region">
-          <DelegationWizard
-            defaultWalletId={address ?? ""}
-            onSubmit={handleCreate}
-            onCancel={() => setShowForm(false)}
+      <form
+        className="settings-section"
+        onSubmit={handleSubmit}
+        noValidate
+      >
+        <FormField
+          label={t("agentId.label")}
+          required
+          hint={t("agentId.hint")}
+          inputProps={{
+            value: agentId,
+            onChange: (e) => setAgentId(e.target.value),
+            placeholder: t("agentId.placeholder"),
+            style: { width: "100%" },
+          }}
+        />
+
+        <FormField
+          label={t("walletId.label")}
+          required
+          hint={t("walletId.hint")}
+          inputProps={{
+            value: walletId,
+            onChange: (e) => setWalletId(e.target.value),
+            placeholder: t("walletId.placeholder"),
+            style: { width: "100%" },
+          }}
+        />
+
+        <FormField
+          label={t("label.label")}
+          required
+          hint={t("label.hint")}
+          inputProps={{
+            value: label,
+            onChange: (e) => setLabel(e.target.value),
+            placeholder: t("label.placeholder"),
+            style: { width: "100%" },
+          }}
+        />
+
+        <div>
+          <label
+            htmlFor="permission-level"
+            style={{
+              display: "block",
+              fontWeight: 500,
+              marginBottom: "0.5rem",
+            }}
+          >
+            {t("permissionLevel.label")}
+          </label>
+
+          <select
+            id="permission-level"
+            value={permissionLevel}
+            onChange={(e) =>
+              setPermissionLevel(
+                e.target.value as DelegationPermissionLevel
+              )
+            }
+            style={{
+              width: "100%",
+              padding: "0.5rem",
+              borderRadius: "0.375rem",
+            }}
+          >
+            {PERMISSION_LEVELS.map((level) => (
+              <option key={level} value={level}>
+                {level.replace("_", " ")}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div>
+          <label
+            style={{
+              display: "block",
+              fontWeight: 500,
+              marginBottom: "0.5rem",
+            }}
+          >
+            {t("maxPerTransaction.label")}
+          </label>
+
+          <StroopsInput
+            value={maxPerTransaction}
+            onChange={setMaxPerTransaction}
+            style={{ width: "100%" }}
           />
         </div>
-      )}
 
-      {delegations.length > 0 && (
-        <DelegationFilters
-          search={search}
-          onSearchChange={setSearch}
-          selectedStatuses={selectedStatuses}
-          onToggleStatus={toggleStatus}
+        <div>
+          <label
+            style={{
+              display: "block",
+              fontWeight: 500,
+              marginBottom: "0.5rem",
+            }}
+          >
+            {t("maxTotal.label")}
+          </label>
+
+          <StroopsInput
+            value={maxTotal}
+            onChange={setMaxTotal}
+            style={{ width: "100%" }}
+          />
+        </div>
+
+        <div>
+          <label
+            style={{
+              display: "block",
+              fontWeight: 500,
+              marginBottom: "0.5rem",
+            }}
+          >
+            {t("allowedMerchants.label")}
+          </label>
+
+          <MerchantWhitelistPicker
+            value={allowedMerchants}
+            onChange={setAllowedMerchants}
+            unrestricted={unrestrictedMerchants}
+            onUnrestrictedChange={(next) => {
+              setUnrestrictedMerchants(next);
+
+              if (next) {
+                setShowEmptyWhitelistError(false);
+              }
+            }}
+            showEmptyWhitelistError={showEmptyWhitelistError}
+          />
+        </div>
+
+        <FormField
+          label={t("allowedCategories.label")}
+          hint={tForms("commaSeparatedHint")}
+          inputProps={{
+            value: allowedCategories,
+            onChange: (e) => setAllowedCategories(e.target.value),
+            placeholder: t("allowedCategories.placeholder"),
+            style: { width: "100%" },
+          }}
         />
-      )}
 
-      <DelegationList
-        delegations={visibleDelegations}
-        loading={loading}
-        pendingIds={pendingIds}
-        onUpdate={updateDelegation}
-        onRevoke={revokeDelegation}
-        filtered={
-          delegations.length > 0 &&
-          visibleDelegations.length !== delegations.length
-        }
-      />
-    </div>
+        <FormField
+          label={t("expiresAt.label")}
+          hint={t("expiresAt.hint")}
+          inputProps={{
+            type: "date",
+            value: expiresAt,
+            onChange: (e) => setExpiresAt(e.target.value),
+            style: { width: "100%" },
+          }}
+        />
+
+        {formError && (
+          <div className="settings-status error" role="alert">
+            {formError}
+          </div>
+        )}
+
+        <div className="form-actions">
+          <Button
+            variant="primary"
+            type="submit"
+            disabled={submitting}
+          >
+            {submitting ? t("submitting") : t("submit")}
+          </Button>
+
+          {onCancel && (
+            <Button
+              variant="ghost"
+              type="button"
+              onClick={onCancel}
+            >
+              {tCommon("cancel")}
+            </Button>
+          )}
+        </div>
+      </form>
+    </Card>
   );
 }

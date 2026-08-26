@@ -1,0 +1,7 @@
+{
+  "name": "@delegolabs/types",
+  "version": "0.0.1",
+  "private": true,
+  "main": "index.d.ts",
+  "types": "index.d.ts"
+}
