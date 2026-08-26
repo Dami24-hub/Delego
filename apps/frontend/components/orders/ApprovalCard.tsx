@@ -13,6 +13,8 @@ export interface ApprovalCardProps {
   order: Order;
   /** True while an approve/reject request for this order is in flight. */
   pending?: boolean;
+  /** True when a mutation for this order is queued offline awaiting reconnect replay (#618). */
+  pendingOffline?: boolean;
   onApprove: (id: string) => void | Promise<unknown>;
   onReject: (id: string, reason?: string) => void | Promise<unknown>;
 }
@@ -24,6 +26,7 @@ export interface ApprovalCardProps {
 export function ApprovalCard({
   order,
   pending = false,
+  pendingOffline = false,
   onApprove,
   onReject,
 }: ApprovalCardProps) {
@@ -55,17 +58,27 @@ export function ApprovalCard({
     <Card
       title={`Order ${order.id}`}
       ariaLabel={`High-value order ${order.id} awaiting approval`}
-      style={{ opacity: pending ? 0.6 : 1, transition: "opacity 0.15s ease-in-out" }}
+      style={{ opacity: pending || pendingOffline ? 0.7 : 1, transition: "opacity 0.15s ease-in-out" }}
     >
       <div className="approval-card-header">
         <span className="status-badge order-status-pending_approval">
           Pending approval
         </span>
+        {pendingOffline && (
+          <span
+            className="status-badge"
+            style={{ background: "var(--color-warning-bg)", color: "var(--color-warning-text)", border: "1px solid var(--color-warning-border)" }}
+            title="Queued offline — will sync automatically upon reconnect"
+          >
+            ⚡ Pending offline
+          </span>
+        )}
         <ApprovalAgeBadge createdAt={order.createdAt} />
         <span className="approval-flag" title="Exceeds the high-value threshold">
           ⚠ High value
         </span>
       </div>
+
 
       <dl className="wallet-detail-list">
         <div className="wallet-detail-row">

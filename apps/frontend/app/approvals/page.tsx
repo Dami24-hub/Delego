@@ -19,11 +19,23 @@ import { UndoSnackbar } from "../../components/orders/UndoSnackbar";
 import { CopyViewLinkButton } from "../../components/filters/CopyViewLinkButton";
 import { HelpLink } from "../../components/help/HelpLink";
 
+import { ConflictResolutionCard } from "../../components/offline/ConflictResolutionCard";
+
 const POLL_INTERVAL_MS = 15_000;
 
 /** Approval workflow — review and approve/reject high-value orders. */
 export default function ApprovalsPage() {
-  const { orders, loading, error, pendingIds, approveOrder, rejectOrder } = useOrders({
+  const {
+    orders,
+    loading,
+    error,
+    pendingIds,
+    pendingOfflineIds,
+    conflictMutations,
+    approveOrder,
+    rejectOrder,
+    refresh,
+  } = useOrders({
     pollIntervalMs: POLL_INTERVAL_MS,
   });
   const { announce } = useAnnounce();
@@ -126,11 +138,21 @@ export default function ApprovalsPage() {
         </div>
       </header>
 
+      {/* Conflict Resolution Cards for HTTP 409 offline replay conflicts (#618) */}
+      {conflictMutations.map((mutation) => (
+        <ConflictResolutionCard
+          key={mutation.id}
+          mutation={mutation}
+          onResolved={() => refresh()}
+        />
+      ))}
+
       {error && (
         <div className="settings-status error" role="alert">
           {error}
         </div>
       )}
+
 
       <div className="grid">
         <Card title="Awaiting review">
@@ -189,9 +211,11 @@ export default function ApprovalsPage() {
               <ApprovalCard
                 order={order}
                 pending={pendingIds.has(order.id)}
+                pendingOffline={pendingOfflineIds.has(order.id)}
                 onApprove={handleApprove}
                 onReject={handleReject}
               />
+
             </div>
           ))}
         </div>

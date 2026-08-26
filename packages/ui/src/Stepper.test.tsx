@@ -1,5 +1,6 @@
 import { describe, it, expect, vi } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
+import { axe } from "vitest-axe";
 import { Stepper } from "./Stepper.js";
 
 const steps = [
@@ -10,6 +11,12 @@ const steps = [
 ];
 
 describe("Stepper", () => {
+  it("has no accessibility violations", async () => {
+    const { container } = render(<Stepper steps={steps} currentIndex={1} />);
+    const results = await axe(container);
+    expect(results).toHaveNoViolations();
+  });
+
   it("renders every step label", () => {
     render(<Stepper steps={steps} currentIndex={0} />);
     for (const step of steps) {
@@ -52,3 +59,4 @@ describe("Stepper", () => {
     expect(completed.textContent).toContain("✓");
   });
 });
+
