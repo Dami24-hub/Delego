@@ -10,6 +10,10 @@ import {
   PreferencesForm,
   type PreferencesFormValues,
 } from "../../components/settings/PreferencesForm";
+import { NotificationSettingsCard } from "../../components/notifications/NotificationSettingsCard";
+import { AccessibilitySettingsCard } from "../../components/settings/AccessibilitySettingsCard";
+import { LanguageSwitcher } from "../../components/settings/LanguageSwitcher";
+import { CurrencySwitcher } from "../../components/settings/CurrencySwitcher";
 
 /**
  * Placeholder user + preferences until the API exposes `/api/v1/me` endpoints.
@@ -62,6 +66,11 @@ export default function SettingsPage() {
         preferences={preferences}
         onSave={handleSavePreferences}
       />
+      <AccessibilitySettingsCard />
+      <NotificationSettingsCard />
+      <LanguageSwitcher />
+      <CurrencySwitcher />
     </div>
   );
 }
+

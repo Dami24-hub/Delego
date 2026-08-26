@@ -1,20 +1,15 @@
 "use client";
 
-import { Card } from "@delegolabs/ui";
+import { Amount, Card } from "@delegolabs/ui";
 import type { SpendingOverview as SpendingOverviewType } from "../../hooks/useAnalytics";
+import { useCurrency } from "../../hooks/useCurrency";
 
 interface SpendingOverviewProps {
   overview: SpendingOverviewType;
 }
 
 export function SpendingOverview({ overview }: SpendingOverviewProps) {
-  const formatStroops = (stroops: bigint) => {
-    const xlm = Number(stroops) / 10_000_000;
-    return xlm.toLocaleString(undefined, {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    });
-  };
+  const { currencyId, rate } = useCurrency();
 
   return (
     <div className="grid">
@@ -35,14 +30,22 @@ export function SpendingOverview({ overview }: SpendingOverviewProps) {
 
       <Card title="Total Spending Limit">
         <p className="stat-value">
-          {formatStroops(overview.totalSpendingLimit)} XLM
+          <Amount
+            stroops={overview.totalSpendingLimit}
+            currency={currencyId}
+            xlmUsdRate={rate?.xlmUsdRate}
+          />
         </p>
         <p className="stat-label">Across all delegations</p>
       </Card>
 
       <Card title="Average Limit">
         <p className="stat-value">
-          {formatStroops(overview.averageSpendingLimit)} XLM
+          <Amount
+            stroops={overview.averageSpendingLimit}
+            currency={currencyId}
+            xlmUsdRate={rate?.xlmUsdRate}
+          />
         </p>
         <p className="stat-label">Per delegation</p>
       </Card>

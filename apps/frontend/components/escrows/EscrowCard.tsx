@@ -1,18 +1,14 @@
 import type { Escrow } from "@delegolabs/types";
 import { ESCROW_STATUS_META } from "@delegolabs/types";
-import { Card } from "@delegolabs/ui";
+import { Amount, Card } from "@delegolabs/ui";
+import { useCurrency } from "../../hooks/useCurrency";
+import { HelpLink } from "../help/HelpLink";
 
 /** Approximate Stellar ledger close time in seconds */
 const LEDGER_CLOSE_SECONDS = 5;
 
 interface EscrowCardProps {
   escrow: Escrow;
-}
-
-function formatStroops(stroops: string): string {
-  const xlm = Number(stroops) / 10_000_000;
-  if (xlm >= 1) return `${xlm.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} XLM`;
-  return `${xlm.toFixed(7)} XLM`;
 }
 
 function shortenAddress(addr: string): string {
@@ -56,6 +52,7 @@ function computeCountdown(
 }
 
 export function EscrowCard({ escrow }: EscrowCardProps) {
+  const { currencyId, rate } = useCurrency();
   const meta = ESCROW_STATUS_META[escrow.status];
   const countdown = computeCountdown(
     escrow.timeoutLedger,
@@ -82,8 +79,9 @@ export function EscrowCard({ escrow }: EscrowCardProps) {
             gap: "0.5rem",
           }}
         >
-          <span style={{ fontWeight: 600, fontSize: "0.875rem", color: "#374151" }}>
+          <span style={{ fontWeight: 600, fontSize: "0.875rem", color: "#374151", display: "flex", alignItems: "center", gap: "0.375rem" }}>
             Escrow #{escrow.escrowId}
+            <HelpLink concept="escrow" />
           </span>
 
           <span
@@ -118,7 +116,9 @@ export function EscrowCard({ escrow }: EscrowCardProps) {
           <div>
             <span style={{ fontWeight: 500, color: "#9ca3af" }}>Amount</span>
             <br />
-            <span data-testid="escrow-amount">{formatStroops(escrow.amount)}</span>
+            <span data-testid="escrow-amount">
+              <Amount stroops={BigInt(escrow.amount)} currency={currencyId} xlmUsdRate={rate?.xlmUsdRate} />
+            </span>
           </div>
           <div>
             <span style={{ fontWeight: 500, color: "#9ca3af" }}>Buyer</span>

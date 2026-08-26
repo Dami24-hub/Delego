@@ -1,5 +1,6 @@
 import type { InputHTMLAttributes } from "react";
 import { useState } from "react";
+import { stroopsHelperText } from "./formatAmount.js";
 
 /** Props accepted by the stroops/XLM conversion input. */
 export interface StroopsInputProps extends Omit<
@@ -16,6 +17,8 @@ export interface StroopsInputProps extends Omit<
   decimals?: number;
   /** Error message to display */
   error?: string;
+  /** Show the raw stroops count as helper text below the input (FE-039, default: false) */
+  showStroopsHint?: boolean;
 }
 
 /** Utility to convert stroops to XLM display value */
@@ -51,6 +54,7 @@ export function StroopsInput({
   decimals = 7,
   error,
   disabled,
+  showStroopsHint = false,
   ...props
 }: StroopsInputProps) {
   const [internalValue, setInternalValue] = useState<string>("");
@@ -58,6 +62,7 @@ export function StroopsInput({
   const displayValue = isControlled
     ? stroopsToXlm(value, decimals)
     : internalValue;
+  const currentStroops = isControlled ? value : xlmToSroops(internalValue, decimals);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const inputValue = e.target.value;
@@ -135,6 +140,11 @@ export function StroopsInput({
           }}
         >
           {error}
+        </div>
+      )}
+      {showStroopsHint && !error && (
+        <div style={{ fontSize: "0.75rem", color: "#9ca3af", marginTop: "0.25rem" }}>
+          {stroopsHelperText(currentStroops)}
         </div>
       )}
     </div>

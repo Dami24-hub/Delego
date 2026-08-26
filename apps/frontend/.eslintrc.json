@@ -1,10 +1,149 @@
 {
   "root": true,
-  "extends": ["next/core-web-vitals", "prettier"],
+  "extends": ["next/core-web-vitals", "prettier", "plugin:boundaries/recommended"],
   "parser": "@typescript-eslint/parser",
-  "plugins": ["@typescript-eslint"],
+  "plugins": ["@typescript-eslint", "boundaries"],
+  "settings": {
+    "boundaries/include": ["components/**/*"],
+    "boundaries/elements": [
+      { "type": "feature-analytics",       "pattern": "components/analytics/**"       },
+      { "type": "feature-announcements",   "pattern": "components/announcements/**"   },
+      { "type": "feature-command-palette", "pattern": "components/command-palette/**" },
+      { "type": "feature-delegations",     "pattern": "components/delegations/**"     },
+      { "type": "feature-escrows",         "pattern": "components/escrows/**"         },
+      { "type": "feature-filters",         "pattern": "components/filters/**"         },
+      { "type": "feature-layout",          "pattern": "components/layout/**"          },
+      { "type": "feature-network",         "pattern": "components/network/**"         },
+      { "type": "feature-notifications",   "pattern": "components/notifications/**"   },
+      { "type": "feature-onboarding",      "pattern": "components/onboarding/**"      },
+      { "type": "feature-orders",          "pattern": "components/orders/**"          },
+      { "type": "feature-providers",       "pattern": "components/providers/**"       },
+      { "type": "feature-pwa",             "pattern": "components/pwa/**"             },
+      { "type": "feature-search",          "pattern": "components/search/**"          },
+      { "type": "feature-settings",        "pattern": "components/settings/**"        },
+      { "type": "feature-wallet",          "pattern": "components/wallet/**"          },
+      { "type": "shared",                  "pattern": "components/*.tsx"              }
+    ]
+  },
   "rules": {
-    "@typescript-eslint/no-unused-vars": ["warn", { "argsIgnorePattern": "^_" }]
+    "@typescript-eslint/no-unused-vars": ["warn", { "argsIgnorePattern": "^_" }],
+    "boundaries/element-types": [
+      "error",
+      {
+        "default": "disallow",
+        "message": "Cross-feature import blocked. Import via the feature's public.ts barrel instead (e.g. 'components/orders/public').",
+        "rules": [
+          {
+            "from": ["shared"],
+            "allow": [
+              "feature-delegations",
+              "feature-orders",
+              "feature-escrows",
+              "feature-wallet",
+              "feature-settings",
+              "feature-notifications",
+              "feature-analytics",
+              "feature-announcements",
+              "feature-command-palette",
+              "feature-filters",
+              "feature-layout",
+              "feature-network",
+              "feature-onboarding",
+              "feature-providers",
+              "feature-pwa",
+              "feature-search"
+            ]
+          },
+          {
+            "from": [
+              "feature-analytics",
+              "feature-announcements",
+              "feature-command-palette",
+              "feature-delegations",
+              "feature-escrows",
+              "feature-filters",
+              "feature-layout",
+              "feature-network",
+              "feature-notifications",
+              "feature-onboarding",
+              "feature-orders",
+              "feature-providers",
+              "feature-pwa",
+              "feature-search",
+              "feature-settings",
+              "feature-wallet"
+            ],
+            "allow": [
+              "shared",
+              {
+                "type": "feature-analytics",
+                "specifiers": ["*/public"]
+              },
+              {
+                "type": "feature-announcements",
+                "specifiers": ["*/public"]
+              },
+              {
+                "type": "feature-command-palette",
+                "specifiers": ["*/public"]
+              },
+              {
+                "type": "feature-delegations",
+                "specifiers": ["*/public"]
+              },
+              {
+                "type": "feature-escrows",
+                "specifiers": ["*/public"]
+              },
+              {
+                "type": "feature-filters",
+                "specifiers": ["*/public"]
+              },
+              {
+                "type": "feature-layout",
+                "specifiers": ["*/public"]
+              },
+              {
+                "type": "feature-network",
+                "specifiers": ["*/public"]
+              },
+              {
+                "type": "feature-notifications",
+                "specifiers": ["*/public"]
+              },
+              {
+                "type": "feature-onboarding",
+                "specifiers": ["*/public"]
+              },
+              {
+                "type": "feature-orders",
+                "specifiers": ["*/public"]
+              },
+              {
+                "type": "feature-providers",
+                "specifiers": ["*/public"]
+              },
+              {
+                "type": "feature-pwa",
+                "specifiers": ["*/public"]
+              },
+              {
+                "type": "feature-search",
+                "specifiers": ["*/public"]
+              },
+              {
+                "type": "feature-settings",
+                "specifiers": ["*/public"]
+              },
+              {
+                "type": "feature-wallet",
+                "specifiers": ["*/public"]
+              }
+            ]
+          }
+        ]
+      }
+    ]
   },
   "ignorePatterns": ["node_modules/", ".next/", "dist/"]
 }

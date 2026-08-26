@@ -1,4 +1,5 @@
 import type { Order, OrderStatus } from "@delegolabs/types";
+import { formatAmount, type FormatAmountContext } from "@delegolabs/ui";
 
 /**
  * Pure helpers for working with orders in the web app: formatting, filtering,
@@ -9,12 +10,17 @@ import type { Order, OrderStatus } from "@delegolabs/types";
 
 const STROOPS_PER_XLM = 10_000_000;
 
-/** Format a stroops amount as a human-readable XLM string (2 decimal places). */
-export function formatXlm(stroops: bigint): string {
-  return (Number(stroops) / STROOPS_PER_XLM).toLocaleString(undefined, {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  });
+/**
+ * Format a stroops amount as a human-readable XLM string (2 decimal places).
+ * Pass the active app locale (from `useLocale()`) to format per the user's
+ * selected language instead of the browser default — see lib/intl.ts.
+ *
+ * Thin wrapper over the canonical `formatAmount` (FE-039, packages/ui) kept
+ * for call-site compatibility; prefer `formatAmount`/`<Amount>` directly for
+ * any new call site that needs the display-currency preference (useCurrency).
+ */
+export function formatXlm(stroops: bigint, locale?: string): string {
+  return formatAmount(stroops, { locale } satisfies FormatAmountContext).value;
 }
 
 /** Human-friendly label for an order status (e.g. "pending_approval" -> "Pending approval"). */
@@ -180,4 +186,47 @@ export function paginate<T>(
 /** Sum the total of every order in the list (in stroops). */
 export function sumOrderTotals(orders: Order[]): bigint {
   return orders.reduce((sum, order) => sum + order.totalStroops, 0n);
+}
+
+/**
+ * Build the normalized events an `ActivityTimeline` renders for an order.
+ *
+ * Orders only carry `createdAt` and `updatedAt` (no per-transition history),
+ * so completed steps are timestamped at `createdAt` and the current step at
+ * `updatedAt` — the best approximation available from the current data model.
+ */
+export function orderToTimelineEvents(order: Order): ActivityTimelineEvent[] {
+  const currentIndex = lifecycleIndex(order.status);
+
+  if (currentIndex === -1) {
+    // Off-path terminal states (cancelled, disputed) aren't part of the
+    // happy-path lifecycle: show the order's creation plus the terminal event.
+    return [
+      {
+        id: `${order.id}-created`,
+        type: "draft",
+        title: orderStatusLabel("draft"),
+        timestamp: order.createdAt,
+        tone: "success",
+      },
+      {
+        id: `${order.id}-${order.status}`,
+        type: order.status,
+        title: orderStatusLabel(order.status),
+        timestamp: order.updatedAt,
+        tone: "failed",
+      },
+    ];
+  }
+
+  return ORDER_LIFECYCLE.slice(0, currentIndex + 1).map((step, index) => {
+    const isCurrent = index === currentIndex;
+    return {
+      id: `${order.id}-${step}`,
+      type: step,
+      title: orderStatusLabel(step),
+      timestamp: isCurrent ? order.updatedAt : order.createdAt,
+      tone: isCurrent && !isTerminal(order) ? "pending" : "success",
+    };
+  });
 }

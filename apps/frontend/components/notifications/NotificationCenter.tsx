@@ -1,8 +1,10 @@
 "use client";
 
+import { useEffect, useRef } from "react";
 import Link from "next/link";
 import type { AppNotification, NotificationType } from "../../hooks/useNotifications";
 import { useNotifications } from "../../hooks/useNotifications";
+import { useFocusTrap } from "../../hooks/useFocusTrap";
 
 const TYPE_ICON: Record<NotificationType, string> = {
   info: "ℹ️",
@@ -100,14 +102,33 @@ export interface NotificationCenterProps {
  * controls. Rendered by NotificationBell when the bell is open.
  */
 export function NotificationCenter({ onClose }: NotificationCenterProps) {
-  const { notifications, unreadCount, markAllAsRead, clearAll } =
-    useNotifications();
+  const {
+    notifications,
+    unreadCount,
+    markAllAsRead,
+    clearAll,
+    undoClearAll,
+    dismissUndo,
+    canUndoClear,
+    pruneNow,
+  } = useNotifications();
+  const panelRef = useRef<HTMLDivElement>(null);
+
+  useFocusTrap(panelRef, true);
+
+  // Lazy prune on center open (#605)
+  useEffect(() => {
+    pruneNow();
+  }, [pruneNow]);
 
   return (
     <div
+      ref={panelRef}
       className="notification-center"
       role="dialog"
+      aria-modal="true"
       aria-label="Notifications"
+      tabIndex={-1}
     >
       <div className="notification-center-header">
         <span className="notification-center-title">
@@ -136,6 +157,53 @@ export function NotificationCenter({ onClose }: NotificationCenterProps) {
         </div>
       </div>
 
+      {canUndoClear && (
+        <div
+          className="notification-undo-bar"
+          style={{
+            padding: "0.5rem 0.875rem",
+            background: "var(--color-accent-bg)",
+            color: "var(--color-accent)",
+            fontSize: "0.8125rem",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            borderBottom: "1px solid var(--color-border)",
+          }}
+        >
+          <span>Notifications cleared</span>
+          <div style={{ display: "flex", gap: "0.5rem" }}>
+            <button
+              type="button"
+              onClick={undoClearAll}
+              style={{
+                fontWeight: 600,
+                background: "none",
+                border: "none",
+                color: "inherit",
+                cursor: "pointer",
+                textDecoration: "underline",
+              }}
+            >
+              Undo
+            </button>
+            <button
+              type="button"
+              onClick={dismissUndo}
+              aria-label="Dismiss undo banner"
+              style={{
+                background: "none",
+                border: "none",
+                color: "inherit",
+                cursor: "pointer",
+              }}
+            >
+              ✕
+            </button>
+          </div>
+        </div>
+      )}
+
       {notifications.length === 0 ? (
         <div className="notification-empty">
           <span className="notification-empty-icon" aria-hidden="true">
@@ -157,3 +225,4 @@ export function NotificationCenter({ onClose }: NotificationCenterProps) {
     </div>
   );
 }
+

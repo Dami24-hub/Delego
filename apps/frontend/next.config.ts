@@ -1,5 +1,7 @@
 import type { NextConfig } from "next";
 import withBundleAnalyzer from "@next/bundle-analyzer";
+import createNextIntlPlugin from "next-intl/plugin";
+import { withSentryConfig } from "@sentry/nextjs";
 
 const isDev = process.env.NODE_ENV !== "production";
 
@@ -12,12 +14,15 @@ const isDev = process.env.NODE_ENV !== "production";
  * - `connect-src` permits the API plus Stellar Horizon / Soroban RPC endpoints
  *   (testnet + mainnet) used by the multi-network wallet features.
  * - `img-src` allows Stellar-hosted images (see images.remotePatterns).
+ * - `worker-src` allows the /sw.js service worker (PWA offline support).
  */
 const connectSrc = [
   "'self'",
   process.env.NEXT_PUBLIC_API_URL || "",
+  process.env.NEXT_PUBLIC_XLM_RATE_URL || "",
   "https://*.stellar.org",
   "https://*.sorobanrpc.com",
+  process.env.NEXT_PUBLIC_SENTRY_DSN ? "https://*.ingest.sentry.io https://*.ingest.us.sentry.io" : "",
   isDev ? "ws:" : "",
 ]
   .filter(Boolean)
@@ -29,6 +34,7 @@ const cspDirectives = [
   "style-src 'self' 'unsafe-inline'",
   "img-src 'self' data: blob: https://*.stellar.org",
   "font-src 'self' data:",
+  "worker-src 'self'",
   `connect-src ${connectSrc}`,
   "frame-ancestors 'none'",
   "form-action 'self'",
@@ -106,4 +112,20 @@ const withAnalyzer = withBundleAnalyzer({
   enabled: process.env.ANALYZE === "true",
 });
 
-export default withAnalyzer(nextConfig);
+const withNextIntl = createNextIntlPlugin("./i18n/request.ts");
+
+/**
+ * Source maps are uploaded during `next build` when `SENTRY_AUTH_TOKEN` is
+ * set (CI only — see .github/workflows/ci.yml); local dev builds skip the
+ * upload silently. Events are tagged with the release set via
+ * NEXT_PUBLIC_SENTRY_RELEASE (the git SHA, injected by CI).
+ */
+export default withSentryConfig(withNextIntl(withAnalyzer(nextConfig)), {
+  silent: true,
+  org: process.env.SENTRY_ORG,
+  project: process.env.SENTRY_PROJECT,
+  authToken: process.env.SENTRY_AUTH_TOKEN,
+  widenClientFileUpload: true,
+  disableLogger: true,
+  automaticVercelMonitors: false,
+});

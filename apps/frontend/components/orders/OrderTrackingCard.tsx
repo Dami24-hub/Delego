@@ -1,8 +1,9 @@
 "use client";
 
-import { Card } from "@delegolabs/ui";
+import { Amount, Card } from "@delegolabs/ui";
 import type { Order } from "@delegolabs/types";
-import { formatXlm, isTerminal } from "../../lib/orders";
+import { isTerminal } from "../../lib/orders";
+import { useCurrency } from "../../hooks/useCurrency";
 import { StatusTimeline } from "./StatusTimeline";
 
 export interface OrderTrackingCardProps {
@@ -19,13 +20,17 @@ function formatTime(date: Date): string {
 /** Live-tracking card: lifecycle timeline plus the latest known order details. */
 export function OrderTrackingCard({ order }: OrderTrackingCardProps) {
   const settled = isTerminal(order);
+  const { currencyId, rate } = useCurrency();
 
   return (
     <Card
       title={`Order ${order.id}`}
       ariaLabel={`Tracking for order ${order.id}`}
     >
-      <StatusTimeline status={order.status} />
+      <ActivityTimeline
+        events={orderToTimelineEvents(order)}
+        ariaLabel="Order progress"
+      />
 
       <dl className="wallet-detail-list">
         <div className="wallet-detail-row">
@@ -34,7 +39,9 @@ export function OrderTrackingCard({ order }: OrderTrackingCardProps) {
         </div>
         <div className="wallet-detail-row">
           <dt>Total</dt>
-          <dd>{formatXlm(order.totalStroops)} XLM</dd>
+          <dd>
+            <Amount stroops={order.totalStroops} currency={currencyId} xlmUsdRate={rate?.xlmUsdRate} />
+          </dd>
         </div>
         <div className="wallet-detail-row">
           <dt>Escrow</dt>
