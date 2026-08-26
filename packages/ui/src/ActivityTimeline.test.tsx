@@ -95,5 +95,42 @@ describe("ActivityTimeline", () => {
     );
     expect(screen.getByText("via ApprovalCard")).toBeDefined();
   });
+
+  it('shows "Xm ago" for an event under an hour old', () => {
+    render(
+      <ActivityTimeline
+        events={[
+          {
+            ...baseEvents[0],
+            timestamp: new Date(Date.now() - 5 * 60_000),
+          },
+        ]}
+      />
+    );
+    expect(screen.getByText("5m ago")).toBeDefined();
+  });
+
+  it('shows "just now" for an event under a minute old', () => {
+    render(
+      <ActivityTimeline
+        events={[{ ...baseEvents[0], timestamp: new Date() }]}
+      />
+    );
+    expect(screen.getByText("just now")).toBeDefined();
+  });
+
+  it('shows "Xh ago" for an event under a day old', () => {
+    render(
+      <ActivityTimeline
+        events={[
+          {
+            ...baseEvents[0],
+            timestamp: new Date(Date.now() - 3 * 60 * 60_000),
+          },
+        ]}
+      />
+    );
+    expect(screen.getByText("3h ago")).toBeDefined();
+  });
 });
 

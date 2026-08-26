@@ -89,4 +89,75 @@ describe("api client", () => {
     expect(baseFetch).toHaveBeenCalledTimes(3);
     vi.useRealTimers();
   });
+
+  describe("demo mode write guard (#632)", () => {
+    afterEach(() => {
+      window.sessionStorage.clear();
+    });
+
+    it("blocks a POST request in demo mode instead of calling the underlying fetch", async () => {
+      const { createRetryingFetch, DemoModeWriteBlockedError } = await import(
+        "./api.js"
+      );
+      const { enableDemoMode } = await import("./demoMode.js");
+      enableDemoMode();
+
+      const baseFetch = vi.fn();
+      const retryingFetch = createRetryingFetch(baseFetch as typeof fetch);
+
+      await expect(
+        retryingFetch("https://api.example.com/orders/1/approve", {
+          method: "POST",
+        })
+      ).rejects.toBeInstanceOf(DemoModeWriteBlockedError);
+      expect(baseFetch).not.toHaveBeenCalled();
+    });
+
+    it("blocks PATCH and DELETE too, not just POST", async () => {
+      const { createRetryingFetch } = await import("./api.js");
+      const { enableDemoMode } = await import("./demoMode.js");
+      enableDemoMode();
+
+      const baseFetch = vi.fn();
+      const retryingFetch = createRetryingFetch(baseFetch as typeof fetch);
+
+      await expect(
+        retryingFetch("https://api.example.com/delegations/1", { method: "PATCH" })
+      ).rejects.toThrow();
+      await expect(
+        retryingFetch("https://api.example.com/delegations/1", { method: "DELETE" })
+      ).rejects.toThrow();
+      expect(baseFetch).not.toHaveBeenCalled();
+    });
+
+    it("still allows GET requests through in demo mode", async () => {
+      const { createRetryingFetch } = await import("./api.js");
+      const { enableDemoMode } = await import("./demoMode.js");
+      enableDemoMode();
+
+      const success = new Response(JSON.stringify(HEALTH_RESPONSE), { status: 200 });
+      const baseFetch = vi.fn().mockResolvedValue(success);
+      const retryingFetch = createRetryingFetch(baseFetch as typeof fetch);
+
+      await expect(
+        retryingFetch("https://api.example.com/health")
+      ).resolves.toBe(success);
+      expect(baseFetch).toHaveBeenCalledTimes(1);
+    });
+
+    it("allows mutating requests through when demo mode is off", async () => {
+      const { createRetryingFetch } = await import("./api.js");
+
+      const success = new Response(null, { status: 204 });
+      const baseFetch = vi.fn().mockResolvedValue(success);
+      const retryingFetch = createRetryingFetch(baseFetch as typeof fetch);
+
+      await expect(
+        retryingFetch("https://api.example.com/orders/1/approve", {
+          method: "POST",
+        })
+      ).resolves.toBe(success);
+      expect(baseFetch).toHaveBeenCalledTimes(1);
+    });
+  });
 });

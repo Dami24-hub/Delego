@@ -1,6 +1,11 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { renderHook, waitFor, act } from "@testing-library/react";
 import { useWallet } from "./useWallet";
+import {
+  enableDemoMode,
+  DEMO_WALLET_ADDRESS,
+  DEMO_NETWORK,
+} from "../lib/demoMode";
 
 const mockIsConnected = vi.fn();
 const mockIsAllowed = vi.fn();
@@ -207,6 +212,49 @@ describe("useWallet", () => {
 
       expect(result.current.status).toBe("connected");
       expect(result.current.address).toBe("GNEW111");
+    });
+  });
+
+  describe("demo mode (#632)", () => {
+    afterEach(() => {
+      window.sessionStorage.clear();
+    });
+
+    it("reports a synthetic connected wallet without touching Freighter", async () => {
+      enableDemoMode();
+      const { result } = renderHook(() => useWallet());
+
+      await waitFor(() => expect(result.current.status).toBe("connected"));
+      expect(result.current.address).toBe(DEMO_WALLET_ADDRESS);
+      expect(result.current.network).toBe(DEMO_NETWORK);
+      expect(result.current.isConnected).toBe(true);
+      expect(mockIsConnected).not.toHaveBeenCalled();
+    });
+
+    it("connect() returns the synthetic wallet without calling Freighter", async () => {
+      enableDemoMode();
+      const { result } = renderHook(() => useWallet());
+      await waitFor(() => expect(result.current.status).toBe("connected"));
+
+      await act(async () => {
+        await result.current.connect();
+      });
+
+      expect(result.current.address).toBe(DEMO_WALLET_ADDRESS);
+      expect(mockRequestAccess).not.toHaveBeenCalled();
+    });
+
+    it("refresh() re-reports the synthetic wallet in demo mode", async () => {
+      enableDemoMode();
+      const { result } = renderHook(() => useWallet());
+      await waitFor(() => expect(result.current.status).toBe("connected"));
+
+      await act(async () => {
+        await result.current.refresh();
+      });
+
+      expect(result.current.address).toBe(DEMO_WALLET_ADDRESS);
+      expect(mockIsConnected).not.toHaveBeenCalled();
     });
   });
 });

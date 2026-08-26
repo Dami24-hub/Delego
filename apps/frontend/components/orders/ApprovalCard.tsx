@@ -8,6 +8,7 @@ import { formatDateTime } from "../../lib/intl";
 import { useCurrency } from "../../hooks/useCurrency";
 import { useAnnounce } from "../../hooks/useAnnounce";
 import { useNetworkMismatch } from "../../hooks/useNetworkMismatch";
+import { useDemoModeGuard, DEMO_MODE_BLOCKED_MESSAGE } from "../../hooks/useDemoModeGuard";
 import { ApprovalAgeBadge } from "./ApprovalAgeBadge";
 
 export interface ApprovalCardProps {
@@ -38,30 +39,33 @@ export function ApprovalCard({
   const locale = useLocale();
   const { currencyId, rate } = useCurrency();
   const { announce } = useAnnounce();
+  const { isDemoMode, guard } = useDemoModeGuard();
 
-  const disabled = pending || isMismatched;
+  const disabled = pending || isMismatched || isDemoMode;
 
-  const mismatchTitle = isMismatched
-    ? "Cannot execute action while wallet and app network are mismatched"
-    : undefined;
+  const actionTitle = isDemoMode
+    ? DEMO_MODE_BLOCKED_MESSAGE
+    : isMismatched
+      ? "Cannot execute action while wallet and app network are mismatched"
+      : undefined;
 
-  const handleApprove = async () => {
+  const handleApprove = guard(async () => {
     try {
       await onApprove(order.id);
       announce(`Order ${order.id} approved.`, "polite");
     } catch {
       announce(`Failed to approve order ${order.id}.`, "assertive");
     }
-  };
+  });
 
-  const handleReject = async () => {
+  const handleReject = guard(async () => {
     try {
       await onReject(order.id, reason.trim() || undefined);
       announce(`Order ${order.id} rejected.`, "polite");
     } catch {
       announce(`Failed to reject order ${order.id}.`, "assertive");
     }
-  };
+  });
 
   return (
     <Card
@@ -179,7 +183,7 @@ export function ApprovalCard({
             variant="primary"
             onClick={handleApprove}
             disabled={disabled}
-            title={mismatchTitle}
+            title={actionTitle}
           >
             Approve
           </Button>
@@ -188,7 +192,7 @@ export function ApprovalCard({
             variant="ghost"
             onClick={() => setRejecting(true)}
             disabled={disabled}
-            title={mismatchTitle}
+            title={actionTitle}
           >
             Reject
           </Button>
@@ -209,7 +213,7 @@ export function ApprovalCard({
             onChange={(e) => setReason(e.target.value)}
             rows={2}
             placeholder="Why is this order being rejected?"
-            disabled={isMismatched}
+            disabled={isMismatched || isDemoMode}
           />
 
           <div className="form-actions">
@@ -217,7 +221,7 @@ export function ApprovalCard({
               variant="primary"
               onClick={handleReject}
               disabled={disabled}
-              title={mismatchTitle}
+              title={actionTitle}
             >
               Confirm rejection
             </Button>
@@ -229,7 +233,7 @@ export function ApprovalCard({
                 setReason("");
               }}
               disabled={disabled}
-              title={mismatchTitle}
+              title={actionTitle}
             >
               Cancel
             </Button>

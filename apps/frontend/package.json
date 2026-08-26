@@ -10,6 +10,7 @@
     "typecheck": "tsc --noEmit",
     "lint": "eslint . --ext .ts,.tsx",
     "check:i18n": "node scripts/check-i18n-keys.mjs",
+    "check:microcopy": "node scripts/check-microcopy.mjs",
     "format": "prettier --write .",
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",

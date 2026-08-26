@@ -76,7 +76,7 @@ export function PrivacyExportCard({ user, preferences }: PrivacyExportCardProps)
         )}
         {status === "error" && (
           <div className="settings-status error" role="status">
-            {error ?? "Export failed."}
+            {error ?? "Couldn't export your data. Please try again."}
           </div>
         )}
 

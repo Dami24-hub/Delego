@@ -110,7 +110,7 @@ export default function EscrowsPage() {
             variant="secondary"
             onClick={() => window.location.reload()}
           >
-            Retry
+            Try again
           </Button>
         </div>
       )}

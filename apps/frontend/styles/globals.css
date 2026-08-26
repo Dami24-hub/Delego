@@ -1676,6 +1676,43 @@ body {
 }
 
 /* ---------------------------------------------------------------------------
+   Demo mode banner (#632)
+   Deliberately never auto-dismisses — unlike announcement-banner, this
+   stays for the entire demo session so it's always clear the app is
+   running against fixtures, not a real account.
+   --------------------------------------------------------------------------- */
+.demo-banner {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  padding: 0.625rem 1.25rem;
+  background: var(--color-warning-bg);
+  color: var(--color-warning-text);
+  border-bottom: 1px solid var(--color-warning-border);
+  font-size: 0.875rem;
+}
+
+.demo-banner-icon {
+  flex-shrink: 0;
+}
+
+.demo-banner-exit {
+  flex-shrink: 0;
+  border: 1px solid currentColor;
+  background: transparent;
+  color: inherit;
+  border-radius: 0.25rem;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  padding: 0.25rem 0.625rem;
+  cursor: pointer;
+}
+
+.demo-banner-exit:hover {
+  opacity: 0.8;
+}
+
+/* ---------------------------------------------------------------------------
    Route cross-fade (View Transitions API)
    Subtle by design — only the swapped content is visually different between
    the old/new snapshots, so unchanged chrome (sidebar, header) never appears

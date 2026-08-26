@@ -145,5 +145,80 @@ describe("StroopsInput", () => {
     const input = container.querySelector("input");
     expect(input?.value).toBe("100000");
   });
+
+  it("reformats the display value to the canonical form on blur", async () => {
+    const user = userEvent.setup();
+    const { container } = render(<StroopsInput />);
+
+    const input = container.querySelector("input") as HTMLInputElement;
+    await user.type(input, "5.100");
+    await user.tab();
+
+    expect(input.value).toBe("5.1");
+  });
+
+  it("calls the caller's onBlur handler when provided", async () => {
+    const user = userEvent.setup();
+    const handleBlur = vi.fn();
+    const { container } = render(
+      <StroopsInput value={10_000_000n} onBlur={handleBlur} />,
+    );
+
+    const input = container.querySelector("input") as HTMLInputElement;
+    await user.click(input);
+    await user.tab();
+
+    expect(handleBlur).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not reformat on blur when the field is empty", async () => {
+    const user = userEvent.setup();
+    const { container } = render(<StroopsInput />);
+
+    const input = container.querySelector("input") as HTMLInputElement;
+    await user.click(input);
+    await user.tab();
+
+    expect(input.value).toBe("");
+  });
+
+  it("shows the raw stroops helper text when showStroopsHint is set", () => {
+    const { container } = render(
+      <StroopsInput value={1_500_000n} showStroopsHint />,
+    );
+
+    expect(container.textContent).toContain("1,500,000 stroops");
+  });
+
+  it("hides the stroops helper text when there is an error", () => {
+    const { container } = render(
+      <StroopsInput
+        value={1_500_000n}
+        showStroopsHint
+        error="Amount exceeds limit"
+      />,
+    );
+
+    expect(container.textContent).not.toContain("stroops");
+  });
+
+  it("does not show the stroops helper text by default", () => {
+    const { container } = render(<StroopsInput value={1_500_000n} />);
+    expect(container.textContent).not.toContain("stroops");
+  });
+
+  it("rejects non-numeric characters and leaves the value unchanged", async () => {
+    const user = userEvent.setup();
+    const handleChange = vi.fn();
+    const { container } = render(<StroopsInput onChange={handleChange} />);
+
+    const input = container.querySelector("input") as HTMLInputElement;
+    await user.type(input, "5");
+    handleChange.mockClear();
+    await user.type(input, "a");
+
+    expect(input.value).toBe("5");
+    expect(handleChange).not.toHaveBeenCalled();
+  });
 });
 
