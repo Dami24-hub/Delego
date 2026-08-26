@@ -11,6 +11,7 @@ import { MockApiProvider } from "./MockApiProvider";
 import { SentryBreadcrumbs } from "./SentryBreadcrumbs";
 import { WebVitalsReporter } from "./WebVitalsReporter";
 import { TourProvider } from "../tour/TourProvider";
+import { NetworkMismatchModal } from "../network/NetworkMismatchModal";
 import { initReplayEngine } from "../../lib/replayEngine";
 import { QueueInspectorModal } from "../offline/QueueInspectorModal";
 
@@ -35,6 +36,7 @@ export function AppProviders({ children }: { children: ReactNode }) {
                   <WebVitalsReporter />
                   <QueueInspectorModal />
                   {children}
+                  <NetworkMismatchModal />
                 </TourProvider>
               </NotificationProvider>
             </AnnounceProvider>
