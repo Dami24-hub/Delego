@@ -7,6 +7,7 @@ import type { Order } from "@delegolabs/types";
 import { formatDateTime } from "../../lib/intl";
 import { useCurrency } from "../../hooks/useCurrency";
 import { useAnnounce } from "../../hooks/useAnnounce";
+import { useNetworkMismatch } from "../../hooks/useNetworkMismatch";
 import { ApprovalAgeBadge } from "./ApprovalAgeBadge";
 
 export interface ApprovalCardProps {
@@ -32,9 +33,17 @@ export function ApprovalCard({
 }: ApprovalCardProps) {
   const [rejecting, setRejecting] = useState(false);
   const [reason, setReason] = useState("");
+
+  const { isMismatched } = useNetworkMismatch();
   const locale = useLocale();
   const { currencyId, rate } = useCurrency();
   const { announce } = useAnnounce();
+
+  const disabled = pending || isMismatched;
+
+  const mismatchTitle = isMismatched
+    ? "Cannot execute action while wallet and app network are mismatched"
+    : undefined;
 
   const handleApprove = async () => {
     try {
@@ -58,37 +67,51 @@ export function ApprovalCard({
     <Card
       title={`Order ${order.id}`}
       ariaLabel={`High-value order ${order.id} awaiting approval`}
-      style={{ opacity: pending || pendingOffline ? 0.7 : 1, transition: "opacity 0.15s ease-in-out" }}
+      style={{
+        opacity: pending || pendingOffline ? 0.7 : 1,
+        transition: "opacity 0.15s ease-in-out",
+      }}
     >
       <div className="approval-card-header">
         <span className="status-badge order-status-pending_approval">
           Pending approval
         </span>
+
         {pendingOffline && (
           <span
             className="status-badge"
-            style={{ background: "var(--color-warning-bg)", color: "var(--color-warning-text)", border: "1px solid var(--color-warning-border)" }}
+            style={{
+              background: "var(--color-warning-bg)",
+              color: "var(--color-warning-text)",
+              border: "1px solid var(--color-warning-border)",
+            }}
             title="Queued offline — will sync automatically upon reconnect"
           >
             ⚡ Pending offline
           </span>
         )}
+
         <ApprovalAgeBadge createdAt={order.createdAt} />
-        <span className="approval-flag" title="Exceeds the high-value threshold">
+
+        <span
+          className="approval-flag"
+          title="Exceeds the high-value threshold"
+        >
           ⚠ High value
         </span>
       </div>
-
 
       <dl className="wallet-detail-list">
         <div className="wallet-detail-row">
           <dt>Merchant</dt>
           <dd>{order.merchantId}</dd>
         </div>
+
         <div className="wallet-detail-row">
           <dt>Delegation</dt>
           <dd>{order.delegationId}</dd>
         </div>
+
         <div className="wallet-detail-row">
           <dt>Requested</dt>
           <dd>{formatDateTime(order.createdAt, locale)}</dd>
@@ -105,11 +128,13 @@ export function ApprovalCard({
               <th scope="col">Subtotal</th>
             </tr>
           </thead>
+
           <tbody>
             {order.lineItems.map((item) => (
               <tr key={item.productId}>
                 <td>{item.productId}</td>
                 <td>{item.quantity}</td>
+
                 <td>
                   <Amount
                     stroops={item.unitPriceStroops}
@@ -118,9 +143,12 @@ export function ApprovalCard({
                     xlmUsdRate={rate?.xlmUsdRate}
                   />
                 </td>
+
                 <td>
                   <Amount
-                    stroops={item.unitPriceStroops * BigInt(item.quantity)}
+                    stroops={
+                      item.unitPriceStroops * BigInt(item.quantity)
+                    }
                     locale={locale}
                     currency={currencyId}
                     xlmUsdRate={rate?.xlmUsdRate}
@@ -134,6 +162,7 @@ export function ApprovalCard({
 
       <div className="approval-total">
         <span>Total</span>
+
         <strong>
           <Amount
             stroops={order.totalStroops}
@@ -149,14 +178,17 @@ export function ApprovalCard({
           <Button
             variant="primary"
             onClick={handleApprove}
-            disabled={pending}
+            disabled={disabled}
+            title={mismatchTitle}
           >
             Approve
           </Button>
+
           <Button
             variant="ghost"
             onClick={() => setRejecting(true)}
-            disabled={pending}
+            disabled={disabled}
+            title={mismatchTitle}
           >
             Reject
           </Button>
@@ -169,6 +201,7 @@ export function ApprovalCard({
           >
             Reason (optional)
           </label>
+
           <textarea
             id={`reject-reason-${order.id}`}
             className="approval-reject-input"
@@ -176,22 +209,27 @@ export function ApprovalCard({
             onChange={(e) => setReason(e.target.value)}
             rows={2}
             placeholder="Why is this order being rejected?"
+            disabled={isMismatched}
           />
+
           <div className="form-actions">
             <Button
               variant="primary"
               onClick={handleReject}
-              disabled={pending}
+              disabled={disabled}
+              title={mismatchTitle}
             >
               Confirm rejection
             </Button>
+
             <Button
               variant="ghost"
               onClick={() => {
                 setRejecting(false);
                 setReason("");
               }}
-              disabled={pending}
+              disabled={disabled}
+              title={mismatchTitle}
             >
               Cancel
             </Button>
