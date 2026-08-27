@@ -1,6 +1,8 @@
 import { delegationHandlers } from "./delegations";
 import { orderHandlers } from "./orders";
 import { escrowHandlers } from "./escrows";
+import { disputeHandlers } from "./disputes";
+import { contractHandlers } from "./contracts";
 import { healthHandlers } from "./health";
 
 /**
@@ -14,6 +16,8 @@ export const handlers = [
   ...delegationHandlers,
   ...orderHandlers,
   ...escrowHandlers,
+  ...disputeHandlers,
+  ...contractHandlers,
   ...healthHandlers,
 ];
 
@@ -37,4 +41,10 @@ export {
   escrowHandlersError,
   escrowHandlersPaginated,
 } from "./escrows";
+export {
+  disputeHandlers,
+  disputeHandlersUnauthorized,
+  resetDisputes,
+} from "./disputes";
+export { contractHandlers } from "./contracts";
 export { healthHandlers } from "./health";
