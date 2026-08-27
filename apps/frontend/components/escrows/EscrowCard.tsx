@@ -1,3 +1,4 @@
+import Link from "next/link";
 import type { Escrow } from "@delegolabs/types";
 import { ESCROW_STATUS_META } from "@delegolabs/types";
 import { Amount, Card } from "@delegolabs/ui";
@@ -9,6 +10,13 @@ const LEDGER_CLOSE_SECONDS = 5;
 
 interface EscrowCardProps {
   escrow: Escrow;
+  /** When set, wraps the escrow id in a link to its detail page. */
+  href?: string;
+  /**
+   * Force the "Disputed" status chip before the confirmed `escrow.status`
+   * catches up — optimistic UI right after submitting a dispute.
+   */
+  disputedOverride?: boolean;
 }
 
 function shortenAddress(addr: string): string {
@@ -51,9 +59,9 @@ function computeCountdown(
   };
 }
 
-export function EscrowCard({ escrow }: EscrowCardProps) {
+export function EscrowCard({ escrow, href, disputedOverride }: EscrowCardProps) {
   const { currencyId, rate } = useCurrency();
-  const meta = ESCROW_STATUS_META[escrow.status];
+  const meta = disputedOverride ? ESCROW_STATUS_META.Disputed : ESCROW_STATUS_META[escrow.status];
   const countdown = computeCountdown(
     escrow.timeoutLedger,
     escrow.currentLedger,
@@ -80,7 +88,13 @@ export function EscrowCard({ escrow }: EscrowCardProps) {
           }}
         >
           <span style={{ fontWeight: 600, fontSize: "0.875rem", color: "#374151", display: "flex", alignItems: "center", gap: "0.375rem" }}>
-            Escrow #{escrow.escrowId}
+            {href ? (
+              <Link href={href} style={{ color: "inherit", textDecoration: "none" }}>
+                Escrow #{escrow.escrowId}
+              </Link>
+            ) : (
+              <>Escrow #{escrow.escrowId}</>
+            )}
             <HelpLink concept="escrow" />
           </span>
 

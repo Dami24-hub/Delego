@@ -46,33 +46,109 @@ export interface UpdateDelegationInput {
   };
 }
 
-export type OrderStatus = "pending" | "approved" | "rejected" | "completed" | "failed" | "canceled";
+export type OrderStatus =
+  | "draft"
+  | "pending_approval"
+  | "approved"
+  | "escrowed"
+  | "fulfilled"
+  | "settled"
+  | "cancelled"
+  | "disputed";
+
+export interface OrderLineItem {
+  productId: string;
+  quantity: number;
+  /** Stroops (1 XLM = 10,000,000 stroops) */
+  unitPriceStroops: bigint;
+}
 
 export interface Order {
   id: string;
+  userId: string;
   delegationId: string;
-  merchantName: string;
-  amount: bigint | string | number;
-  currency: string;
+  merchantId: string;
   status: OrderStatus;
+  /** Stroops (1 XLM = 10,000,000 stroops) */
+  totalStroops: bigint;
+  /** Portion of totalStroops charged as a platform/network fee, when known. */
+  feeStroops?: bigint;
+  lineItems: OrderLineItem[];
+  escrowContractId: string | null;
+  rejectionReason?: string | null;
   createdAt: Date | string;
-  updatedAt?: Date | string;
-  items?: Array<{ name: string; price: number; quantity: number }>;
+  updatedAt: Date | string;
 }
 
-export type EscrowStatus = "funded" | "released" | "disputed" | "refunded";
+export type EscrowStatus = "Funded" | "Released" | "Refunded" | "Disputed";
 
 export interface Escrow {
-  id: string;
+  escrowId: string;
   orderId: string;
-  buyerId: string;
-  sellerId: string;
-  amount: bigint | string | number;
+  /** Stroops as a string-encoded bigint */
+  amount: string;
+  buyer: string;
+  seller: string;
+  token: string;
   status: EscrowStatus;
-  createdAt: Date | string;
+  timeoutLedger: number;
+  currentLedger?: number;
+  /** Arbiter address assigned to resolve a dispute on this escrow, when known. */
+  arbiter?: string | null;
+  createdAt: string;
 }
 
-export const ESCROW_STATUS_META: Record<EscrowStatus, { label: string; tone: "success" | "pending" | "failed" | "refunded" }>;
+export const ESCROW_STATUS_META: Record<
+  EscrowStatus,
+  { label: string; color: string; bg: string }
+>;
+
+// ---------------------------------------------------------------------------
+// Disputes
+// ---------------------------------------------------------------------------
+
+export type DisputeReason = "item_not_received" | "not_as_described" | "other";
+
+export type DisputeStatus =
+  | "open"
+  | "under_review"
+  | "resolved_buyer"
+  | "resolved_seller"
+  | "resolved_split";
+
+export interface Dispute {
+  id: string;
+  escrowId: string;
+  orderId: string;
+  reason: DisputeReason;
+  description: string;
+  evidenceUrls: string[];
+  status: DisputeStatus;
+  arbiter?: string | null;
+  openedBy: string;
+  resolutionNote?: string | null;
+  createdAt: Date | string;
+  updatedAt: Date | string;
+  resolvedAt?: Date | string | null;
+}
+
+export interface CreateDisputeInput {
+  reason: DisputeReason;
+  description: string;
+  evidenceUrls: string[];
+}
+
+// ---------------------------------------------------------------------------
+// Contract registry / versions
+// ---------------------------------------------------------------------------
+
+export type ContractName = "escrow" | "permissions" | "registry";
+
+export interface ContractVersionInfo {
+  name: ContractName;
+  /** Deployed contract version/build identifier, as reported by the contract's version getter. */
+  version: string;
+}
 
 export interface User {
   id: string;

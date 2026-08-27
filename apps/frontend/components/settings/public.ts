@@ -7,4 +7,5 @@ export { ProfileForm } from "./ProfileForm";
 export { PrivacyExportCard } from "./PrivacyExportCard";
 export { CurrencySwitcher } from "./CurrencySwitcher";
 export { LanguageSwitcher } from "./LanguageSwitcher";
+export { NetworkContractsCard } from "./NetworkContractsCard";
 export type { PreferencesFormProps } from "./PreferencesForm";
