@@ -1,7 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { fetchMerchantDirectory, type DirectoryMerchant } from "../lib/merchantDirectory";
+import {
+  fetchMerchantDirectory,
+  type DirectoryMerchant,
+} from "../lib/merchantDirectory";
 
 export interface UseMerchantDirectoryResult {
   merchants: DirectoryMerchant[];

@@ -10,6 +10,13 @@ import {
 } from "react";
 import type { ReactNode } from "react";
 import { useAnnounce } from "./useAnnounce";
+import {
+  DEFAULT_QUIET_HOURS,
+  loadQuietHoursConfig,
+  saveQuietHoursConfig,
+  shouldMuteForQuietHours,
+  type QuietHoursConfig,
+} from "../lib/quietHours";
 
 export type NotificationType = "info" | "success" | "warning" | "error";
 
@@ -26,6 +33,12 @@ export interface AppNotification {
   read: boolean;
   /** Optional in-app link to navigate to when clicked */
   href?: string;
+  /** Optional delegation ID for threading (#604) */
+  delegationId?: string;
+  /** Severity level for Quiet Hours filtering (#602) */
+  severity?: "routine" | "approval";
+  /** Whether item was muted during quiet hours (#602) */
+  mutedDuringQuietHours?: boolean;
 }
 
 /** Shape accepted when pushing a new notification (id/time/read are filled in). */
@@ -37,13 +50,19 @@ export type NewNotification = Omit<
   createdAt?: number;
 };
 
-interface NotificationContextValue {
+export interface NotificationContextValue {
   notifications: AppNotification[];
   unreadCount: number;
   retention: NotificationRetention;
   setRetention: (retention: NotificationRetention) => void;
+  groupingEnabled: boolean;
+  setGroupingEnabled: (enabled: boolean) => void;
+  quietHours: QuietHoursConfig;
+  setQuietHours: (config: QuietHoursConfig) => void;
+  mutedCount: number;
   add: (notification: NewNotification) => string;
   markAsRead: (id: string) => void;
+  markDelegationAsRead: (delegationId: string) => void;
   markAllAsRead: () => void;
   remove: (id: string) => void;
   clearAll: () => void;
@@ -53,26 +72,26 @@ interface NotificationContextValue {
   pruneNow: () => void;
 }
 
-const NotificationContext = createContext<NotificationContextValue | null>(null);
+const NotificationContext = createContext<NotificationContextValue | null>(
+  null
+);
 
 const STORAGE_KEY = "delego_notifications";
 const RETENTION_STORAGE_KEY = "delego_notification_retention";
-export const MAX_NOTIFICATIONS = 500; // Cap to keep storage footprint minimal even under heavy usage (#605)
+const GROUPING_STORAGE_KEY = "delego_notification_grouping";
+export const MAX_NOTIFICATIONS = 500;
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
-export const RETENTION_MS_MAP: Record<Exclude<NotificationRetention, "all">, number> = {
+export const RETENTION_MS_MAP: Record<
+  Exclude<NotificationRetention, "all">,
+  number
+> = {
   "7": 7 * DAY_MS,
   "30": 30 * DAY_MS,
   "90": 90 * DAY_MS,
 };
 
-/**
- * Pure prune function (#605):
- * - Prunes read notifications older than retention cutoff (based on epoch millis).
- * - EXPLICIT RULE: Unread notifications (!n.read) ALWAYS survive past retention cutoff.
- * - Enforces hard cap of MAX_NOTIFICATIONS to prevent storage quota exhaustion.
- */
 export function pruneNotifications(
   items: AppNotification[],
   retention: NotificationRetention,
@@ -82,14 +101,12 @@ export function pruneNotifications(
 
   const pruned = items.filter((n) => {
     if (!n || typeof n.createdAt !== "number") return false;
-    // Unread items always survive past the retention window
     if (!n.read) return true;
     if (retention === "all") return true;
 
     const retentionMs = RETENTION_MS_MAP[retention];
     if (typeof retentionMs !== "number") return true;
 
-    // Prune if read and age exceeds retention window
     const ageMs = now - n.createdAt;
     return ageMs <= retentionMs;
   });
@@ -137,35 +154,60 @@ function loadStoredRetention(): NotificationRetention {
   return "30";
 }
 
-/**
- * In-app notification store backed by localStorage.
- * Includes retention preference pruning, unread survival, and soft-delete clear-all with undo.
- */
+function loadStoredGrouping(): boolean {
+  try {
+    const raw = window.localStorage.getItem(GROUPING_STORAGE_KEY);
+    if (raw !== null) return raw === "true";
+  } catch {
+    /* ignore */
+  }
+  return true;
+}
+
 export function NotificationProvider({ children }: { children: ReactNode }) {
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
   const [retention, setRetentionState] = useState<NotificationRetention>("30");
-  const [clearedBackup, setClearedBackup] = useState<AppNotification[] | null>(null);
-  const { announce } = useAnnounce();
+  const [groupingEnabled, setGroupingEnabledState] = useState<boolean>(true);
+  const [quietHours, setQuietHoursState] =
+    useState<QuietHoursConfig>(DEFAULT_QUIET_HOURS);
+  const [clearedBackup, setClearedBackup] = useState<AppNotification[] | null>(
+    null
+  );
 
-  // Initial load + lazy boot pruning (#605)
+  // Try to useAnnounce safely if provider present
+  let announceFn: (
+    msg: string,
+    politeness?: "polite" | "assertive"
+  ) => void = () => {};
+  try {
+    const announceCtx = useAnnounce();
+    if (announceCtx?.announce) {
+      announceFn = announceCtx.announce;
+    }
+  } catch {
+    // AnnounceProvider not present in some isolated tests
+  }
+
+  // Initial load
   useEffect(() => {
     const initialRetention = loadStoredRetention();
     setRetentionState(initialRetention);
+    setGroupingEnabledState(loadStoredGrouping());
+    setQuietHoursState(loadQuietHoursConfig());
     const loaded = loadStored();
     const pruned = pruneNotifications(loaded, initialRetention);
     setNotifications(pruned);
   }, []);
 
-  // Persist notifications on change.
+  // Persist notifications on change
   useEffect(() => {
     try {
       window.localStorage.setItem(STORAGE_KEY, JSON.stringify(notifications));
     } catch {
-      // Ignore quota / availability errors.
+      /* ignore */
     }
   }, [notifications]);
 
-  // Persist retention setting on change.
   const setRetention = useCallback((nextRetention: NotificationRetention) => {
     setRetentionState(nextRetention);
     try {
@@ -176,7 +218,21 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
     setNotifications((prev) => pruneNotifications(prev, nextRetention));
   }, []);
 
-  // Cross-tab sync.
+  const setGroupingEnabled = useCallback((enabled: boolean) => {
+    setGroupingEnabledState(enabled);
+    try {
+      window.localStorage.setItem(GROUPING_STORAGE_KEY, String(enabled));
+    } catch {
+      /* ignore */
+    }
+  }, []);
+
+  const setQuietHours = useCallback((config: QuietHoursConfig) => {
+    setQuietHoursState(config);
+    saveQuietHoursConfig(config);
+  }, []);
+
+  // Cross-tab sync
   useEffect(() => {
     function onStorage(event: StorageEvent) {
       if (event.key === STORAGE_KEY) {
@@ -185,6 +241,8 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
         const updatedRetention = loadStoredRetention();
         setRetentionState(updatedRetention);
         setNotifications((prev) => pruneNotifications(prev, updatedRetention));
+      } else if (event.key === GROUPING_STORAGE_KEY) {
+        setGroupingEnabledState(loadStoredGrouping());
       }
     }
     window.addEventListener("storage", onStorage);
@@ -195,30 +253,56 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
     setNotifications((prev) => pruneNotifications(prev, retention));
   }, [retention]);
 
-  const add = useCallback((notification: NewNotification) => {
-    const id = notification.id ?? generateId();
-    const entry: AppNotification = {
-      type: notification.type,
-      title: notification.title,
-      message: notification.message,
-      href: notification.href,
-      id,
-      createdAt: notification.createdAt ?? Date.now(),
-      read: false,
-    };
-    setNotifications((prev) =>
-      pruneNotifications([entry, ...prev.filter((n) => n.id !== id)], retention)
-    );
-    announce(
-      entry.title,
-      entry.type === "error" ? "assertive" : "polite"
-    );
-    return id;
-  }, [announce, retention]);
+  const add = useCallback(
+    (notification: NewNotification) => {
+      const id = notification.id ?? generateId();
+      const isMuted = shouldMuteForQuietHours(notification, quietHours);
+
+      const entry: AppNotification = {
+        type: notification.type,
+        title: notification.title,
+        message: notification.message,
+        href: notification.href,
+        delegationId: notification.delegationId,
+        severity:
+          notification.severity ||
+          (notification.type === "error" ? "approval" : "routine"),
+        mutedDuringQuietHours: isMuted,
+        id,
+        createdAt: notification.createdAt ?? Date.now(),
+        read: false,
+      };
+
+      setNotifications((prev) =>
+        pruneNotifications(
+          [entry, ...prev.filter((n) => n.id !== id)],
+          retention
+        )
+      );
+
+      if (!isMuted) {
+        announceFn(
+          entry.title,
+          entry.type === "error" ? "assertive" : "polite"
+        );
+      }
+
+      return id;
+    },
+    [announceFn, quietHours, retention]
+  );
 
   const markAsRead = useCallback((id: string) => {
     setNotifications((prev) =>
       prev.map((n) => (n.id === id ? { ...n, read: true } : n))
+    );
+  }, []);
+
+  const markDelegationAsRead = useCallback((delegationId: string) => {
+    setNotifications((prev) =>
+      prev.map((n) =>
+        n.delegationId === delegationId ? { ...n, read: true } : n
+      )
     );
   }, []);
 
@@ -230,22 +314,21 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
     setNotifications((prev) => prev.filter((n) => n.id !== id));
   }, []);
 
-  // Soft-delete clear all with undo capability (#605)
   const clearAll = useCallback(() => {
     setNotifications((prev) => {
       setClearedBackup(prev);
       return [];
     });
-    announce("All notifications cleared.", "polite");
-  }, [announce]);
+    announceFn("All notifications cleared.", "polite");
+  }, [announceFn]);
 
   const undoClearAll = useCallback(() => {
     if (clearedBackup) {
       setNotifications(clearedBackup);
       setClearedBackup(null);
-      announce("Notifications restored.", "polite");
+      announceFn("Notifications restored.", "polite");
     }
-  }, [clearedBackup, announce]);
+  }, [clearedBackup, announceFn]);
 
   const dismissUndo = useCallback(() => {
     setClearedBackup(null);
@@ -256,13 +339,23 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
       (count, n) => (n.read ? count : count + 1),
       0
     );
+    const mutedCount = notifications.reduce(
+      (count, n) => (n.mutedDuringQuietHours && !n.read ? count + 1 : count),
+      0
+    );
     return {
       notifications,
       unreadCount,
+      mutedCount,
       retention,
       setRetention,
+      groupingEnabled,
+      setGroupingEnabled,
+      quietHours,
+      setQuietHours,
       add,
       markAsRead,
+      markDelegationAsRead,
       markAllAsRead,
       remove,
       clearAll,
@@ -275,8 +368,13 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
     notifications,
     retention,
     setRetention,
+    groupingEnabled,
+    setGroupingEnabled,
+    quietHours,
+    setQuietHours,
     add,
     markAsRead,
+    markDelegationAsRead,
     markAllAsRead,
     remove,
     clearAll,
@@ -293,7 +391,6 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
   );
 }
 
-/** Access the notification store. Must be used within a NotificationProvider. */
 export function useNotifications(): NotificationContextValue {
   const ctx = useContext(NotificationContext);
   if (!ctx) {

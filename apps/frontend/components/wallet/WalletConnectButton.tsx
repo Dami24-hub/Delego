@@ -20,8 +20,7 @@ export interface WalletConnectButtonProps {
 export function WalletConnectButton({
   showDetails = true,
 }: WalletConnectButtonProps) {
-  const { status, address, network, error, connect, disconnect } =
-    useWallet();
+  const { status, address, network, error, connect, disconnect } = useWallet();
 
   if (status === "checking") {
     return (
@@ -36,7 +35,11 @@ export function WalletConnectButton({
       <Button
         variant="secondary"
         onClick={() =>
-          window.open("https://www.freighter.app/", "_blank", "noopener,noreferrer")
+          window.open(
+            "https://www.freighter.app/",
+            "_blank",
+            "noopener,noreferrer"
+          )
         }
       >
         Install Freighter
@@ -53,9 +56,7 @@ export function WalletConnectButton({
             title={address}
             aria-label={`Connected wallet ${address}`}
           >
-            {network && (
-              <span className="wallet-network-badge">{network}</span>
-            )}
+            {network && <span className="wallet-network-badge">{network}</span>}
             {truncateAddress(address)}
           </span>
         )}

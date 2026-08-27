@@ -79,7 +79,16 @@ export function EscrowCard({ escrow }: EscrowCardProps) {
             gap: "0.5rem",
           }}
         >
-          <span style={{ fontWeight: 600, fontSize: "0.875rem", color: "#374151", display: "flex", alignItems: "center", gap: "0.375rem" }}>
+          <span
+            style={{
+              fontWeight: 600,
+              fontSize: "0.875rem",
+              color: "#374151",
+              display: "flex",
+              alignItems: "center",
+              gap: "0.375rem",
+            }}
+          >
             Escrow #{escrow.escrowId}
             <HelpLink concept="escrow" />
           </span>
@@ -117,7 +126,11 @@ export function EscrowCard({ escrow }: EscrowCardProps) {
             <span style={{ fontWeight: 500, color: "#9ca3af" }}>Amount</span>
             <br />
             <span data-testid="escrow-amount">
-              <Amount stroops={BigInt(escrow.amount)} currency={currencyId} xlmUsdRate={rate?.xlmUsdRate} />
+              <Amount
+                stroops={BigInt(escrow.amount)}
+                currency={currencyId}
+                xlmUsdRate={rate?.xlmUsdRate}
+              />
             </span>
           </div>
           <div>

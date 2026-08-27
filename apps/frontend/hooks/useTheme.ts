@@ -20,12 +20,7 @@
  * allowed a subtle crossfade is applied via a CSS class on <html>; when motion
  * is reduced the switch is instant.
  */
-import {
-  useCallback,
-  useEffect,
-  useRef,
-  useState,
-} from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 export type ThemeMode = "light" | "dark" | "system" | "scheduled";
 type ResolvedTheme = "light" | "dark";
@@ -157,9 +152,12 @@ export interface UseThemeReturn {
 
 export function useTheme(): UseThemeReturn {
   const [mode, setModeState] = useState<ThemeMode>("system");
-  const [schedule, setScheduleState] = useState<ScheduleConfig>(DEFAULT_SCHEDULE);
+  const [schedule, setScheduleState] =
+    useState<ScheduleConfig>(DEFAULT_SCHEDULE);
   const [resolved, setResolved] = useState<ResolvedTheme>("light");
-  const intervalRef = useRef<ReturnType<typeof setInterval> | undefined>(undefined);
+  const intervalRef = useRef<ReturnType<typeof setInterval> | undefined>(
+    undefined
+  );
 
   // Initialise from localStorage on mount (client-only)
   useEffect(() => {
@@ -174,7 +172,11 @@ export function useTheme(): UseThemeReturn {
 
   // Re-evaluate whenever mode or schedule changes
   const evaluate = useCallback(
-    (currentMode: ThemeMode, currentSchedule: ScheduleConfig, animate: boolean) => {
+    (
+      currentMode: ThemeMode,
+      currentSchedule: ScheduleConfig,
+      animate: boolean
+    ) => {
       const next = resolveTheme(currentMode, currentSchedule);
       setResolved((prev) => {
         if (prev !== next) {
@@ -240,7 +242,10 @@ export function useTheme(): UseThemeReturn {
     (nextSchedule: ScheduleConfig) => {
       setScheduleState(nextSchedule);
       try {
-        localStorage.setItem(STORAGE_KEY_SCHEDULE, JSON.stringify(nextSchedule));
+        localStorage.setItem(
+          STORAGE_KEY_SCHEDULE,
+          JSON.stringify(nextSchedule)
+        );
       } catch {
         /* ignore */
       }

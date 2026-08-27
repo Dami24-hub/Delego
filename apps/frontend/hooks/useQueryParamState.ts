@@ -47,7 +47,11 @@ export function useQueryParamState<T>({
   key,
   defaultValue,
   codec,
-}: UseQueryParamStateOptions<T>): [T, (value: T) => void, { hydrated: boolean }] {
+}: UseQueryParamStateOptions<T>): [
+  T,
+  (value: T) => void,
+  { hydrated: boolean },
+] {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();

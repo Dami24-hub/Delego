@@ -40,7 +40,8 @@ export function MerchantWhitelistPicker({
     [merchants, value]
   );
   const results = useMemo(
-    () => filterMerchants(merchants, search).filter((m) => !value.includes(m.id)),
+    () =>
+      filterMerchants(merchants, search).filter((m) => !value.includes(m.id)),
     [merchants, search, value]
   );
 
@@ -68,7 +69,10 @@ export function MerchantWhitelistPicker({
       {!unrestricted && (
         <div className="merchant-whitelist-editor">
           {selected.length > 0 && (
-            <ul className="merchant-whitelist-chips" aria-label="Selected merchants">
+            <ul
+              className="merchant-whitelist-chips"
+              aria-label="Selected merchants"
+            >
               {selected.map((merchant) => (
                 <li key={merchant.id}>
                   <Badge tone="info">
@@ -109,11 +113,16 @@ export function MerchantWhitelistPicker({
           {!loading && !error && search && (
             <ul className="merchant-whitelist-results">
               {results.length === 0 ? (
-                <li className="merchant-whitelist-no-results">No matching merchants</li>
+                <li className="merchant-whitelist-no-results">
+                  No matching merchants
+                </li>
               ) : (
                 results.map((merchant) => (
                   <li key={merchant.id}>
-                    <Button variant="ghost" onClick={() => addMerchant(merchant.id)}>
+                    <Button
+                      variant="ghost"
+                      onClick={() => addMerchant(merchant.id)}
+                    >
                       {merchant.name}
                     </Button>
                   </li>
@@ -124,7 +133,8 @@ export function MerchantWhitelistPicker({
 
           {showEmptyWhitelistError && value.length === 0 && (
             <p className="settings-status error" role="alert">
-              Select at least one merchant, or turn on &ldquo;Allow all merchants&rdquo;.
+              Select at least one merchant, or turn on &ldquo;Allow all
+              merchants&rdquo;.
             </p>
           )}
         </div>

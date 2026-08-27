@@ -8,6 +8,8 @@ import type { OrderExplainability } from "../../lib/approvalExplainability";
 import { ApprovalAgeBadge } from "./ApprovalAgeBadge";
 import { useFocusTrap } from "../../hooks/useFocusTrap";
 import { useAnnounce } from "../../hooks/useAnnounce";
+import { DelegationTagBadge } from "../delegations/public";
+import { useDelegationTags } from "../../hooks/useDelegationTags";
 
 export interface ApprovalDrawerProps {
   order: Order | null;
@@ -40,6 +42,8 @@ export function ApprovalDrawer({
   const panelRef = useRef<HTMLDivElement>(null);
   const isOpen = order !== null;
   const { announce } = useAnnounce();
+  const { getTag } = useDelegationTags();
+  const tag = order ? getTag(order.delegationId) : undefined;
 
   useFocusTrap(panelRef, isOpen);
 
@@ -110,7 +114,10 @@ export function ApprovalDrawer({
           </div>
           <div className="wallet-detail-row">
             <dt>Delegation</dt>
-            <dd>{order.delegationId}</dd>
+            <dd className="flex items-center gap-2">
+              <span>{order.delegationId}</span>
+              <DelegationTagBadge label={tag?.label} colorTag={tag?.colorTag} />
+            </dd>
           </div>
           {delegationContext && (
             <div className="wallet-detail-row">
@@ -121,9 +128,14 @@ export function ApprovalDrawer({
         </dl>
 
         {explainability?.reasoning && (
-          <section className="approval-explainability-section" aria-label="Agent reasoning">
+          <section
+            className="approval-explainability-section"
+            aria-label="Agent reasoning"
+          >
             <h3>Why the agent chose this</h3>
-            <p className="approval-reasoning-text">{explainability.reasoning}</p>
+            <p className="approval-reasoning-text">
+              {explainability.reasoning}
+            </p>
           </section>
         )}
 
@@ -159,7 +171,10 @@ export function ApprovalDrawer({
                     </td>
                     <td>{item.quantity}</td>
                     <td>{formatXlm(item.unitPriceStroops)} XLM</td>
-                    <td>{formatXlm(item.unitPriceStroops * BigInt(item.quantity))} XLM</td>
+                    <td>
+                      {formatXlm(item.unitPriceStroops * BigInt(item.quantity))}{" "}
+                      XLM
+                    </td>
                     {priceRangeByProductId && (
                       <td>
                         {range ? (
@@ -171,10 +186,13 @@ export function ApprovalDrawer({
                             }
                             title={range.label}
                           >
-                            {formatXlm(range.lowStroops)}–{formatXlm(range.highStroops)} XLM
+                            {formatXlm(range.lowStroops)}–
+                            {formatXlm(range.highStroops)} XLM
                           </span>
                         ) : (
-                          <span className="approval-price-hint approval-price-hint-unknown">—</span>
+                          <span className="approval-price-hint approval-price-hint-unknown">
+                            —
+                          </span>
                         )}
                       </td>
                     )}
@@ -191,7 +209,10 @@ export function ApprovalDrawer({
         </div>
 
         {evidenceLinks && evidenceLinks.length > 0 && (
-          <section className="approval-explainability-section" aria-label="Decision evidence">
+          <section
+            className="approval-explainability-section"
+            aria-label="Decision evidence"
+          >
             <h3>Decision evidence</h3>
             <ul className="approval-evidence-list">
               {evidenceLinks.map((link) => (

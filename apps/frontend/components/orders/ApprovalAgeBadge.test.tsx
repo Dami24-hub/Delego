@@ -44,7 +44,12 @@ describe("ApprovalAgeBadge", () => {
   });
 
   it("refreshes the label live as time passes", () => {
-    render(<ApprovalAgeBadge createdAt={new Date("2026-01-09T23:59:00Z")} refreshMs={60_000} />);
+    render(
+      <ApprovalAgeBadge
+        createdAt={new Date("2026-01-09T23:59:00Z")}
+        refreshMs={60_000}
+      />
+    );
     expect(screen.getByText("1m")).toBeDefined();
 
     // Advancing fake time also advances the interval's clock reads — don't

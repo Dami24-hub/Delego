@@ -94,13 +94,21 @@ describe("buildAccountExport", () => {
       id: "user-1",
       stellarAddress: "GABC...",
     });
-    expect(envelope.account.preferences.defaultSpendingLimitStroops).toBe("5000000000");
+    expect(envelope.account.preferences.defaultSpendingLimitStroops).toBe(
+      "5000000000"
+    );
     expect(envelope.delegations).toHaveLength(1);
     expect(envelope.delegations[0].policy.maxTotalStroops).toBe("100000000000");
     expect(envelope.orders).toHaveLength(3);
     expect(envelope.approvalDecisions).toEqual([
-      expect.objectContaining({ orderId: "order-approved", decision: "approved" }),
-      expect.objectContaining({ orderId: "order-rejected", decision: "rejected" }),
+      expect.objectContaining({
+        orderId: "order-approved",
+        decision: "approved",
+      }),
+      expect.objectContaining({
+        orderId: "order-rejected",
+        decision: "rejected",
+      }),
     ]);
   });
 
@@ -120,7 +128,9 @@ describe("buildAccountExport", () => {
     expect(envelope.orders).toHaveLength(450);
     expect(envelope.approvalDecisions).toHaveLength(450);
     // More than one batch (BATCH_SIZE=200) means progress fired more than once per phase.
-    expect(progressPhases.filter((p) => p === "assembling-orders").length).toBeGreaterThan(1);
+    expect(
+      progressPhases.filter((p) => p === "assembling-orders").length
+    ).toBeGreaterThan(1);
   });
 
   it("aborts when the signal is already cancelled", async () => {
@@ -130,7 +140,9 @@ describe("buildAccountExport", () => {
     controller.abort();
 
     await expect(
-      buildAccountExport(makeUser(), makePreferences(), { signal: controller.signal })
+      buildAccountExport(makeUser(), makePreferences(), {
+        signal: controller.signal,
+      })
     ).rejects.toThrow();
   });
 });

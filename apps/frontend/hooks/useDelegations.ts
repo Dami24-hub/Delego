@@ -8,8 +8,11 @@ import type {
   UpdateDelegationInput,
 } from "@delegolabs/types";
 import { api } from "../lib/api";
-import { enqueueMutation, subscribeToQueue, type QueuedMutation } from "../lib/offlineQueue";
-
+import {
+  enqueueMutation,
+  subscribeToQueue,
+  type QueuedMutation,
+} from "../lib/offlineQueue";
 
 /**
  * Fetch the current user's delegations from the Delego API.
@@ -33,7 +36,10 @@ function createTempId(): string {
   return `temp-${Date.now()}-${tempIdSequence}`;
 }
 
-function toOptimisticDelegation(input: CreateDelegationInput, tempId: string): Delegation {
+function toOptimisticDelegation(
+  input: CreateDelegationInput,
+  tempId: string
+): Delegation {
   const now = new Date();
   return {
     id: tempId,
@@ -78,7 +84,6 @@ function applyOptimisticUpdate(
 }
 
 export interface UseDelegationsResult {
-
   delegations: Delegation[];
   loading: boolean;
   error: string | null;
@@ -89,7 +94,9 @@ export interface UseDelegationsResult {
   /** Queued mutations in conflict state for delegations */
   conflictMutations: QueuedMutation[];
   refresh: () => Promise<void>;
-  createDelegation: (input: CreateDelegationInput) => Promise<Delegation | null>;
+  createDelegation: (
+    input: CreateDelegationInput
+  ) => Promise<Delegation | null>;
   updateDelegation: (
     id: string,
     input: UpdateDelegationInput
@@ -114,7 +121,8 @@ export function useDelegations(): UseDelegationsResult {
     const ids = new Set<string>();
     for (const m of queuedMutations) {
       if (
-        (m.mutationClass === "update_delegation" || m.mutationClass === "revoke_delegation") &&
+        (m.mutationClass === "update_delegation" ||
+          m.mutationClass === "revoke_delegation") &&
         (m.status === "pending" || m.status === "replaying")
       ) {
         ids.add(m.resourceId);
@@ -126,7 +134,8 @@ export function useDelegations(): UseDelegationsResult {
   const conflictMutations = useMemo(() => {
     return queuedMutations.filter(
       (m) =>
-        (m.mutationClass === "update_delegation" || m.mutationClass === "revoke_delegation") &&
+        (m.mutationClass === "update_delegation" ||
+          m.mutationClass === "revoke_delegation") &&
         m.status === "conflict"
     );
   }, [queuedMutations]);
@@ -194,7 +203,9 @@ export function useDelegations(): UseDelegationsResult {
         return created;
       } catch (err) {
         setDelegations((prev) => prev.filter((d) => d.id !== tempId));
-        setError(err instanceof Error ? err.message : "Failed to create delegation");
+        setError(
+          err instanceof Error ? err.message : "Failed to create delegation"
+        );
         setPending(tempId, false);
         return null;
       }
@@ -217,7 +228,11 @@ export function useDelegations(): UseDelegationsResult {
 
       // Offline check (#618)
       if (typeof navigator !== "undefined" && !navigator.onLine) {
-        await enqueueMutation("update_delegation", id, input as Record<string, unknown>);
+        await enqueueMutation(
+          "update_delegation",
+          id,
+          input as Record<string, unknown>
+        );
         setDelegations((prev) =>
           prev.map((d) => (d.id === id ? optimistic : d))
         );
@@ -225,11 +240,12 @@ export function useDelegations(): UseDelegationsResult {
       }
 
       setPending(id, true);
-      setDelegations((prev) =>
-        prev.map((d) => (d.id === id ? optimistic : d))
-      );
+      setDelegations((prev) => prev.map((d) => (d.id === id ? optimistic : d)));
       try {
-        const res: ApiResponse<Delegation> = await api.updateDelegation(id, input);
+        const res: ApiResponse<Delegation> = await api.updateDelegation(
+          id,
+          input
+        );
         if (res.error || !res.data) {
           setError(res.error?.message ?? "Failed to update delegation");
           setDelegations((prev) =>
@@ -244,7 +260,11 @@ export function useDelegations(): UseDelegationsResult {
         return updated;
       } catch {
         // Fallback offline queue on network exception
-        await enqueueMutation("update_delegation", id, input as Record<string, unknown>);
+        await enqueueMutation(
+          "update_delegation",
+          id,
+          input as Record<string, unknown>
+        );
         setPending(id, false);
         return optimistic;
       }
@@ -305,4 +325,3 @@ export function useDelegations(): UseDelegationsResult {
     revokeDelegation,
   };
 }
-

@@ -46,9 +46,7 @@ export function NotificationBell() {
         aria-haspopup="dialog"
         aria-expanded={open}
         aria-label={
-          hasUnread
-            ? `Notifications, ${unreadCount} unread`
-            : "Notifications"
+          hasUnread ? `Notifications, ${unreadCount} unread` : "Notifications"
         }
       >
         <span className="notification-bell-icon" aria-hidden="true">

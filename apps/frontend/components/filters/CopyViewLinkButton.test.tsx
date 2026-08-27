@@ -17,15 +17,23 @@ function renderButton() {
 
 describe("CopyViewLinkButton", () => {
   beforeEach(() => {
-    Object.assign(navigator, { clipboard: { writeText: vi.fn().mockResolvedValue(undefined) } });
+    Object.assign(navigator, {
+      clipboard: { writeText: vi.fn().mockResolvedValue(undefined) },
+    });
   });
 
   it("copies the current URL and shows confirmation", async () => {
     renderButton();
 
-    fireEvent.click(screen.getByRole("button", { name: "Copy link to this view" }));
+    fireEvent.click(
+      screen.getByRole("button", { name: "Copy link to this view" })
+    );
 
-    await waitFor(() => expect(navigator.clipboard.writeText).toHaveBeenCalledWith(window.location.href));
+    await waitFor(() =>
+      expect(navigator.clipboard.writeText).toHaveBeenCalledWith(
+        window.location.href
+      )
+    );
     expect(await screen.findByText("Link copied")).toBeInTheDocument();
   });
 
@@ -35,9 +43,13 @@ describe("CopyViewLinkButton", () => {
     });
     renderButton();
 
-    fireEvent.click(screen.getByRole("button", { name: "Copy link to this view" }));
+    fireEvent.click(
+      screen.getByRole("button", { name: "Copy link to this view" })
+    );
 
-    await waitFor(() => expect(navigator.clipboard.writeText).toHaveBeenCalled());
+    await waitFor(() =>
+      expect(navigator.clipboard.writeText).toHaveBeenCalled()
+    );
     expect(screen.queryByText("Link copied")).not.toBeInTheDocument();
   });
 });

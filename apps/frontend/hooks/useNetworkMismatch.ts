@@ -70,8 +70,7 @@ export function useNetworkMismatch(): NetworkMismatchState {
     // Determine mismatch by passphrase (most reliable), then by network name fallback
     if (networkPassphrase) {
       const match =
-        networkPassphrase.trim() ===
-        appNetworkConfig.networkPassphrase.trim();
+        networkPassphrase.trim() === appNetworkConfig.networkPassphrase.trim();
       setIsMismatched(!match);
     } else if (walletNetworkName) {
       const match =
@@ -82,10 +81,10 @@ export function useNetworkMismatch(): NetworkMismatchState {
       // Wallet connected but no network info available — cannot determine mismatch
       setIsMismatched(false);
     }
-  // We intentionally list individual wallet fields instead of the entire `wallet`
-  // object, because useWallet returns a new object reference on every render.
-  // Listing `wallet` directly would cause this effect to run on every render.
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // We intentionally list individual wallet fields instead of the entire `wallet`
+    // object, because useWallet returns a new object reference on every render.
+    // Listing `wallet` directly would cause this effect to run on every render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     wallet.isConnected,
     wallet.networkPassphrase,

@@ -15,7 +15,7 @@ function mockSystemTheme(prefersDark: boolean) {
       addListener: vi.fn(),
       removeListener: vi.fn(),
       dispatchEvent: vi.fn(),
-    })),
+    }))
   );
 }
 
@@ -32,10 +32,9 @@ describe("ThemeToggle", () => {
     render(<ThemeToggle />);
 
     expect(document.documentElement.dataset.theme).toBe("dark");
-    expect(screen.getByRole("button", { name: /switch to light mode/i })).toHaveAttribute(
-      "aria-pressed",
-      "true",
-    );
+    expect(
+      screen.getByRole("button", { name: /switch to light mode/i })
+    ).toHaveAttribute("aria-pressed", "true");
   });
 
   it("uses a saved preference instead of the system preference", () => {
@@ -45,23 +44,23 @@ describe("ThemeToggle", () => {
     render(<ThemeToggle />);
 
     expect(document.documentElement.dataset.theme).toBe("light");
-    expect(screen.getByRole("button", { name: /switch to dark mode/i })).toHaveAttribute(
-      "aria-pressed",
-      "false",
-    );
+    expect(
+      screen.getByRole("button", { name: /switch to dark mode/i })
+    ).toHaveAttribute("aria-pressed", "false");
   });
 
   it("toggles the theme and persists the selection", async () => {
     const user = userEvent.setup();
     render(<ThemeToggle />);
 
-    await user.click(screen.getByRole("button", { name: /switch to dark mode/i }));
+    await user.click(
+      screen.getByRole("button", { name: /switch to dark mode/i })
+    );
 
     expect(document.documentElement.dataset.theme).toBe("dark");
     expect(localStorage.getItem("delego-theme")).toBe("dark");
-    expect(screen.getByRole("button", { name: /switch to light mode/i })).toHaveAttribute(
-      "aria-pressed",
-      "true",
-    );
+    expect(
+      screen.getByRole("button", { name: /switch to light mode/i })
+    ).toHaveAttribute("aria-pressed", "true");
   });
 });

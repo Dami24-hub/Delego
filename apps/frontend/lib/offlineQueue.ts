@@ -8,10 +8,7 @@
  */
 
 export type MutationClass =
-  | "approve_order"
-  | "reject_order"
-  | "update_delegation"
-  | "revoke_delegation";
+  "approve_order" | "reject_order" | "update_delegation" | "revoke_delegation";
 
 export type QueueStatus = "pending" | "replaying" | "conflict" | "quarantined";
 
@@ -41,7 +38,10 @@ const DB_VERSION = 1;
 const STORE_NAME = "queued_mutations";
 
 function generateUUID(): string {
-  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+  if (
+    typeof crypto !== "undefined" &&
+    typeof crypto.randomUUID === "function"
+  ) {
     return crypto.randomUUID();
   }
   return `id_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
@@ -138,24 +138,31 @@ export async function getMutationsByResource(
 export async function updateMutationStatus(
   id: string,
   status: QueueStatus,
-  extra?: { errorMessage?: string; conflictServerState?: Record<string, unknown> }
+  extra?: {
+    errorMessage?: string;
+    conflictServerState?: Record<string, unknown>;
+  }
 ): Promise<void> {
   try {
     const db = await openQueueDb();
-    const existing = await new Promise<QueuedMutation | undefined>((resolve, reject) => {
-      const tx = db.transaction(STORE_NAME, "readonly");
-      const store = tx.objectStore(STORE_NAME);
-      const req = store.get(id);
-      req.onsuccess = () => resolve(req.result as QueuedMutation | undefined);
-      req.onerror = () => reject(req.error);
-    });
+    const existing = await new Promise<QueuedMutation | undefined>(
+      (resolve, reject) => {
+        const tx = db.transaction(STORE_NAME, "readonly");
+        const store = tx.objectStore(STORE_NAME);
+        const req = store.get(id);
+        req.onsuccess = () => resolve(req.result as QueuedMutation | undefined);
+        req.onerror = () => reject(req.error);
+      }
+    );
 
     if (!existing) return;
 
     const updated: QueuedMutation = {
       ...existing,
       status,
-      ...(extra?.errorMessage !== undefined && { errorMessage: extra.errorMessage }),
+      ...(extra?.errorMessage !== undefined && {
+        errorMessage: extra.errorMessage,
+      }),
       ...(extra?.conflictServerState !== undefined && {
         conflictServerState: extra.conflictServerState,
       }),

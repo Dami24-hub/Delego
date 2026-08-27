@@ -45,7 +45,9 @@ export async function listCachedReads(): Promise<CachedRead[]> {
         };
       })
     );
-    return reads.sort((a, b) => (b.cachedAt?.getTime() ?? 0) - (a.cachedAt?.getTime() ?? 0));
+    return reads.sort(
+      (a, b) => (b.cachedAt?.getTime() ?? 0) - (a.cachedAt?.getTime() ?? 0)
+    );
   } catch {
     return [];
   }

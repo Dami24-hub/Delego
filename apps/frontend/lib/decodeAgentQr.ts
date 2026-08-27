@@ -7,7 +7,9 @@
  * found, or the payload isn't recognizable delegation QR JSON (see
  * DelegationQR.tsx for the encoding this decodes).
  */
-export async function decodeAgentIdFromQrImage(file: File): Promise<string | null> {
+export async function decodeAgentIdFromQrImage(
+  file: File
+): Promise<string | null> {
   if (typeof window === "undefined" || !("BarcodeDetector" in window)) {
     return null;
   }

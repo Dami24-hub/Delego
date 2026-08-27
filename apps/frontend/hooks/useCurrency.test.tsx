@@ -50,14 +50,20 @@ describe("useCurrency", () => {
     });
 
     expect(result.current.currencyId).toBe("USDC_ESTIMATE");
-    expect(window.localStorage.getItem(CURRENCY_STORAGE_KEY)).toBe("USDC_ESTIMATE");
+    expect(window.localStorage.getItem(CURRENCY_STORAGE_KEY)).toBe(
+      "USDC_ESTIMATE"
+    );
   });
 
   it("exposes all configured currencies", async () => {
     const { result } = renderHook(() => useCurrency(), { wrapper });
     await waitFor(() => expect(result.current.hydrated).toBe(true));
 
-    expect(result.current.currencies.map((c) => c.id)).toEqual(["XLM", "USDC_ESTIMATE", "USD"]);
+    expect(result.current.currencies.map((c) => c.id)).toEqual([
+      "XLM",
+      "USDC_ESTIMATE",
+      "USD",
+    ]);
   });
 
   it("does not fetch a rate while in XLM mode", async () => {
@@ -85,7 +91,9 @@ describe("useCurrency", () => {
   });
 
   it("throws when used outside a CurrencyProvider", () => {
-    const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
+    const consoleError = vi
+      .spyOn(console, "error")
+      .mockImplementation(() => {});
     expect(() => renderHook(() => useCurrency())).toThrow(
       "useCurrency must be used within a CurrencyProvider"
     );

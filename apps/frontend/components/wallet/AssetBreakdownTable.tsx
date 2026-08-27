@@ -57,19 +57,21 @@ export function AssetBreakdownTable({
             <th scope="col">Asset</th>
             <th scope="col">Balance</th>
             <th scope="col">Issuer Domain</th>
-            <th scope="col" className="text-right">Explorer</th>
+            <th scope="col" className="text-right">
+              Explorer
+            </th>
           </tr>
         </thead>
         <tbody>
           {balances.map((item, index) => {
             const isNative = item.asset_type === "native";
-            const code = isNative ? "XLM" : item.asset_code ?? "Unknown";
+            const code = isNative ? "XLM" : (item.asset_code ?? "Unknown");
             const issuer = item.asset_issuer;
             const domain = isNative
               ? "stellar.org"
               : issuer
-              ? getIssuerDomain(issuer)
-              : "N/A";
+                ? getIssuerDomain(issuer)
+                : "N/A";
             const explorerUrl = getExplorerUrl(
               item.asset_type,
               item.asset_code,
@@ -81,12 +83,16 @@ export function AssetBreakdownTable({
               <tr key={code + (issuer ?? "") + index}>
                 <td>
                   <div className="asset-code-cell">
-                    <span className={`asset-avatar ${isNative ? "native" : ""}`}>
+                    <span
+                      className={`asset-avatar ${isNative ? "native" : ""}`}
+                    >
                       {code.slice(0, 3).toUpperCase()}
                     </span>
                     <div>
                       <span className="asset-code-badge">{code}</span>
-                      {isNative && <span className="asset-subtitle">Native Token</span>}
+                      {isNative && (
+                        <span className="asset-subtitle">Native Token</span>
+                      )}
                     </div>
                   </div>
                 </td>

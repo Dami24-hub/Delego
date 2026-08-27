@@ -49,7 +49,12 @@ describe("useBalanceHistory", () => {
     const mockAccountResponse = {
       balances: [
         { asset_type: "native", balance: "150.0000000" },
-        { asset_type: "credit_alphanum4", asset_code: "USDC", asset_issuer: "GDCBA", balance: "25.0000000" },
+        {
+          asset_type: "credit_alphanum4",
+          asset_code: "USDC",
+          asset_issuer: "GDCBA",
+          balance: "25.0000000",
+        },
       ],
     };
 

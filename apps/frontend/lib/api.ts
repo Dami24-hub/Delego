@@ -38,7 +38,11 @@ function parseRetryAfterMs(response: Response): number | null {
   return Math.max(0, dateMs - Date.now());
 }
 
-function getBackoffDelayMs(attempt: number, response: Response | null, options: Required<RetryOptions>) {
+function getBackoffDelayMs(
+  attempt: number,
+  response: Response | null,
+  options: Required<RetryOptions>
+) {
   const retryAfterMs = response ? parseRetryAfterMs(response) : null;
   if (retryAfterMs != null) return retryAfterMs;
 
@@ -51,7 +55,10 @@ function shouldRetryResponse(response: Response) {
   return response.status === 429 || response.status >= 500;
 }
 
-export function createRetryingFetch(baseFetch: typeof fetch = fetch, retryOptions: RetryOptions = {}): typeof fetch {
+export function createRetryingFetch(
+  baseFetch: typeof fetch = fetch,
+  retryOptions: RetryOptions = {}
+): typeof fetch {
   const options = { ...DEFAULT_RETRY_OPTIONS, ...retryOptions };
 
   return async (input, init) => {

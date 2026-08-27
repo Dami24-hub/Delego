@@ -22,13 +22,14 @@ describe("MobileNav", () => {
     const user = userEvent.setup();
     renderMobileNav({ open: true, onClose: () => {} });
 
-    expect(screen.getByRole("dialog", { name: /primary navigation/i })).toHaveAttribute(
-      "aria-modal",
-      "true"
-    );
+    expect(
+      screen.getByRole("dialog", { name: /primary navigation/i })
+    ).toHaveAttribute("aria-modal", "true");
 
     // Initial focus lands on the first focusable element (close button).
-    expect(screen.getByRole("button", { name: /close navigation menu/i })).toHaveFocus();
+    expect(
+      screen.getByRole("button", { name: /close navigation menu/i })
+    ).toHaveFocus();
 
     // Shift+Tab from the first element wraps to the last nav link.
     await user.tab({ shift: true });
@@ -63,7 +64,9 @@ describe("MobileNav", () => {
     trigger.focus();
 
     const { unmount } = render(<Harness />);
-    expect(screen.getByRole("button", { name: /close navigation menu/i })).toHaveFocus();
+    expect(
+      screen.getByRole("button", { name: /close navigation menu/i })
+    ).toHaveFocus();
 
     unmount();
     expect(trigger).toHaveFocus();

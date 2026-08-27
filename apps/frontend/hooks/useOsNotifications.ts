@@ -4,7 +4,8 @@ import { useCallback, useEffect, useState } from "react";
 
 const ENABLED_STORAGE_KEY = "delego_os_notifications_enabled";
 
-export type OsNotificationPermission = "default" | "granted" | "denied" | "unsupported";
+export type OsNotificationPermission =
+  "default" | "granted" | "denied" | "unsupported";
 
 export interface NotifyOptions {
   title: string;
@@ -43,7 +44,9 @@ function readStoredEnabled(): boolean {
 export function useOsNotifications(): UseOsNotificationsResult {
   const supported = typeof window !== "undefined" && "Notification" in window;
   const [permission, setPermission] = useState<OsNotificationPermission>(
-    supported ? (Notification.permission as OsNotificationPermission) : "unsupported"
+    supported
+      ? (Notification.permission as OsNotificationPermission)
+      : "unsupported"
   );
   const [enabled, setEnabledState] = useState(false);
 
@@ -60,12 +63,14 @@ export function useOsNotifications(): UseOsNotificationsResult {
     }
   }, []);
 
-  const requestPermission = useCallback(async (): Promise<OsNotificationPermission> => {
-    if (!supported) return "unsupported";
-    const result = (await Notification.requestPermission()) as OsNotificationPermission;
-    setPermission(result);
-    return result;
-  }, [supported]);
+  const requestPermission =
+    useCallback(async (): Promise<OsNotificationPermission> => {
+      if (!supported) return "unsupported";
+      const result =
+        (await Notification.requestPermission()) as OsNotificationPermission;
+      setPermission(result);
+      return result;
+    }, [supported]);
 
   const notify = useCallback(
     ({ title, body, tag, onClick }: NotifyOptions): boolean => {
@@ -83,5 +88,12 @@ export function useOsNotifications(): UseOsNotificationsResult {
     [supported, permission, enabled]
   );
 
-  return { supported, permission, enabled, setEnabled, requestPermission, notify };
+  return {
+    supported,
+    permission,
+    enabled,
+    setEnabled,
+    requestPermission,
+    notify,
+  };
 }

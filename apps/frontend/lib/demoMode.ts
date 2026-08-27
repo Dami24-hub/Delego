@@ -24,7 +24,10 @@ export const DEMO_NETWORK = "TESTNET";
 export const DEMO_NETWORK_PASSPHRASE = "Test SDF Network ; September 2015";
 
 function hasSessionStorage(): boolean {
-  return typeof window !== "undefined" && typeof window.sessionStorage !== "undefined";
+  return (
+    typeof window !== "undefined" &&
+    typeof window.sessionStorage !== "undefined"
+  );
 }
 
 /** Synchronous check — safe to call from non-React code (e.g. lib/api.ts). */

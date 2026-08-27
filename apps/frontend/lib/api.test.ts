@@ -68,7 +68,9 @@ describe("api client", () => {
   it("retries transient GET failures without retrying POST requests", async () => {
     vi.useFakeTimers();
     const { createRetryingFetch } = await import("./api.js");
-    const success = new Response(JSON.stringify(HEALTH_RESPONSE), { status: 200 });
+    const success = new Response(JSON.stringify(HEALTH_RESPONSE), {
+      status: 200,
+    });
     const baseFetch = vi
       .fn()
       .mockResolvedValueOnce(new Response("busy", { status: 503 }))
@@ -96,9 +98,8 @@ describe("api client", () => {
     });
 
     it("blocks a POST request in demo mode instead of calling the underlying fetch", async () => {
-      const { createRetryingFetch, DemoModeWriteBlockedError } = await import(
-        "./api.js"
-      );
+      const { createRetryingFetch, DemoModeWriteBlockedError } =
+        await import("./api.js");
       const { enableDemoMode } = await import("./demoMode.js");
       enableDemoMode();
 
@@ -122,10 +123,14 @@ describe("api client", () => {
       const retryingFetch = createRetryingFetch(baseFetch as typeof fetch);
 
       await expect(
-        retryingFetch("https://api.example.com/delegations/1", { method: "PATCH" })
+        retryingFetch("https://api.example.com/delegations/1", {
+          method: "PATCH",
+        })
       ).rejects.toThrow();
       await expect(
-        retryingFetch("https://api.example.com/delegations/1", { method: "DELETE" })
+        retryingFetch("https://api.example.com/delegations/1", {
+          method: "DELETE",
+        })
       ).rejects.toThrow();
       expect(baseFetch).not.toHaveBeenCalled();
     });
@@ -135,7 +140,9 @@ describe("api client", () => {
       const { enableDemoMode } = await import("./demoMode.js");
       enableDemoMode();
 
-      const success = new Response(JSON.stringify(HEALTH_RESPONSE), { status: 200 });
+      const success = new Response(JSON.stringify(HEALTH_RESPONSE), {
+        status: 200,
+      });
       const baseFetch = vi.fn().mockResolvedValue(success);
       const retryingFetch = createRetryingFetch(baseFetch as typeof fetch);
 

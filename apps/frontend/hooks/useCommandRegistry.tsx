@@ -29,9 +29,8 @@ interface CommandRegistryContextValue {
   register: (command: Command) => () => void;
 }
 
-const CommandRegistryContext = createContext<CommandRegistryContextValue | null>(
-  null
-);
+const CommandRegistryContext =
+  createContext<CommandRegistryContextValue | null>(null);
 
 /**
  * Holds the set of commands the command palette can show. Features register

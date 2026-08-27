@@ -73,12 +73,16 @@ describe("formatApprovalAge", () => {
 
 describe("getApprovalUrgency", () => {
   it("is normal below the warning threshold", () => {
-    expect(getApprovalUrgency((SLA_WARNING_HOURS - 1) * 3_600_000)).toBe("normal");
+    expect(getApprovalUrgency((SLA_WARNING_HOURS - 1) * 3_600_000)).toBe(
+      "normal"
+    );
   });
 
   it("is warning at/after the warning threshold and before critical", () => {
     expect(getApprovalUrgency(SLA_WARNING_HOURS * 3_600_000)).toBe("warning");
-    expect(getApprovalUrgency((SLA_CRITICAL_HOURS - 1) * 3_600_000)).toBe("warning");
+    expect(getApprovalUrgency((SLA_CRITICAL_HOURS - 1) * 3_600_000)).toBe(
+      "warning"
+    );
   });
 
   it("is critical at/after the critical threshold", () => {
@@ -109,7 +113,9 @@ describe("countStaleApprovals", () => {
         status: "approved",
       }),
     ];
-    expect(countStaleApprovals(orders, now, STALE_DIGEST_THRESHOLD_HOURS)).toBe(1);
+    expect(countStaleApprovals(orders, now, STALE_DIGEST_THRESHOLD_HOURS)).toBe(
+      1
+    );
   });
 
   it("returns 0 when nothing is stale", () => {

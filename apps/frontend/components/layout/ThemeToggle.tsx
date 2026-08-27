@@ -1,7 +1,11 @@
 "use client";
 
 import { useState } from "react";
-import { useTheme, type ThemeMode, type ScheduleConfig } from "../../hooks/useTheme";
+import {
+  useTheme,
+  type ThemeMode,
+  type ScheduleConfig,
+} from "../../hooks/useTheme";
 
 const MODE_ICONS: Record<ThemeMode, string> = {
   light: "☀",
@@ -43,7 +47,10 @@ export function ThemeToggle() {
 
   const handleScheduleSave = () => {
     if (isValidTime(localStart) && isValidTime(localEnd)) {
-      setSchedule({ start: localStart, end: localEnd } satisfies ScheduleConfig);
+      setSchedule({
+        start: localStart,
+        end: localEnd,
+      } satisfies ScheduleConfig);
       setScheduleOpen(false);
     }
   };
@@ -83,8 +90,8 @@ export function ThemeToggle() {
           aria-modal="false"
         >
           <p className="theme-schedule-hint">
-            Dark mode is active between these local times (24-hour clock).
-            The default is 19:00–07:00.
+            Dark mode is active between these local times (24-hour clock). The
+            default is 19:00–07:00.
           </p>
           <div className="theme-schedule-row">
             <label htmlFor="schedule-start" className="theme-schedule-label">

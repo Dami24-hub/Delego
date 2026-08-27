@@ -1,6 +1,14 @@
-import type { CreateDelegationInput, DelegationPermissionLevel } from "@delegolabs/types";
+import type {
+  CreateDelegationInput,
+  DelegationPermissionLevel,
+} from "@delegolabs/types";
 
-export const DELEGATION_WIZARD_STEPS = ["agent", "scope", "limits", "review"] as const;
+export const DELEGATION_WIZARD_STEPS = [
+  "agent",
+  "scope",
+  "limits",
+  "review",
+] as const;
 export type DelegationWizardStepId = (typeof DELEGATION_WIZARD_STEPS)[number];
 
 /** Editable wizard state — a superset of `CreateDelegationInput` shaped for form controls (bigint amounts, csv strings). */
@@ -40,7 +48,10 @@ function parseCsv(value: string): string[] {
 }
 
 /** True once the draft has diverged from an empty draft with the same default wallet — used to gate the cancel-confirmation. */
-export function isDraftDirty(draft: DelegationWizardDraft, defaultWalletId = ""): boolean {
+export function isDraftDirty(
+  draft: DelegationWizardDraft,
+  defaultWalletId = ""
+): boolean {
   const empty = createEmptyDraft(defaultWalletId);
   return JSON.stringify(draft) !== JSON.stringify(empty);
 }
@@ -77,7 +88,9 @@ export function validateStep(
   return errors;
 }
 
-export function draftToCreateInput(draft: DelegationWizardDraft): CreateDelegationInput {
+export function draftToCreateInput(
+  draft: DelegationWizardDraft
+): CreateDelegationInput {
   return {
     agentId: draft.agentId.trim(),
     walletId: draft.walletId.trim(),
@@ -86,9 +99,13 @@ export function draftToCreateInput(draft: DelegationWizardDraft): CreateDelegati
     policy: {
       maxPerTransaction: draft.maxPerTransaction,
       maxTotal: draft.maxTotal,
-      allowedMerchants: draft.unrestrictedMerchants ? [] : draft.allowedMerchants,
+      allowedMerchants: draft.unrestrictedMerchants
+        ? []
+        : draft.allowedMerchants,
       allowedCategories: parseCsv(draft.allowedCategories),
-      ...(draft.expiresAt && { expiresAt: new Date(draft.expiresAt).toISOString() }),
+      ...(draft.expiresAt && {
+        expiresAt: new Date(draft.expiresAt).toISOString(),
+      }),
     },
   };
 }

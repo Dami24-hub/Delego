@@ -16,7 +16,7 @@ export function ExpiryCountdown({ expiresAt }: ExpiryCountdownProps) {
     }
 
     const target = new Date(expiresAt).getTime();
-    
+
     const updateCountdown = () => {
       const now = Date.now();
       const diff = target - now;
@@ -39,7 +39,14 @@ export function ExpiryCountdown({ expiresAt }: ExpiryCountdownProps) {
   }
 
   if (isExpired) {
-    return <span className="badge badge-expired text-red-500 font-bold" data-testid="expired-badge">Expired</span>;
+    return (
+      <span
+        className="badge badge-expired text-red-500 font-bold"
+        data-testid="expired-badge"
+      >
+        Expired
+      </span>
+    );
   }
 
   const days = Math.floor(timeLeft / (1000 * 60 * 60 * 24));

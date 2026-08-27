@@ -42,12 +42,18 @@ function writeCache(snapshot: RateSnapshot) {
 }
 
 function fallbackSnapshot(): RateSnapshot {
-  return { xlmUsdRate: FALLBACK_XLM_USD_RATE, fetchedAt: Date.now(), isFallback: true };
+  return {
+    xlmUsdRate: FALLBACK_XLM_USD_RATE,
+    fetchedAt: Date.now(),
+    isFallback: true,
+  };
 }
 
 /** True once a rate is older than the staleness window — surface a staleness indicator in the UI. */
 export function isRateStale(snapshot: RateSnapshot): boolean {
-  return snapshot.isFallback || Date.now() - snapshot.fetchedAt > RATE_STALE_AFTER_MS;
+  return (
+    snapshot.isFallback || Date.now() - snapshot.fetchedAt > RATE_STALE_AFTER_MS
+  );
 }
 
 /**
@@ -56,7 +62,9 @@ export function isRateStale(snapshot: RateSnapshot): boolean {
  * then to the static placeholder, if the endpoint is unset or the request
  * fails — callers should pair this with `isRateStale` to warn the user.
  */
-export async function fetchXlmRate(signal?: AbortSignal): Promise<RateSnapshot> {
+export async function fetchXlmRate(
+  signal?: AbortSignal
+): Promise<RateSnapshot> {
   const url = process.env.NEXT_PUBLIC_XLM_RATE_URL;
   if (!url) {
     return readCache() ?? fallbackSnapshot();
@@ -66,7 +74,10 @@ export async function fetchXlmRate(signal?: AbortSignal): Promise<RateSnapshot> 
     const res = await fetch(url, { signal });
     if (!res.ok) throw new Error(`Rate endpoint returned ${res.status}`);
     const body = (await res.json()) as { xlmUsdRate: number };
-    if (typeof body.xlmUsdRate !== "number" || !Number.isFinite(body.xlmUsdRate)) {
+    if (
+      typeof body.xlmUsdRate !== "number" ||
+      !Number.isFinite(body.xlmUsdRate)
+    ) {
       throw new Error("Rate endpoint returned an invalid rate");
     }
     const snapshot: RateSnapshot = {

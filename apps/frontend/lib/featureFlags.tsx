@@ -1,6 +1,11 @@
 "use client";
 
-import React, { createContext, useContext, useMemo, type ReactNode } from "react";
+import React, {
+  createContext,
+  useContext,
+  useMemo,
+  type ReactNode,
+} from "react";
 
 /**
  * Registry of known feature flags in the application.
@@ -23,7 +28,12 @@ export function parseFeatureFlagValue(value: unknown): boolean {
   }
   if (typeof value === "string") {
     const normalized = value.trim().toLowerCase();
-    return normalized === "true" || normalized === "1" || normalized === "yes" || normalized === "on";
+    return (
+      normalized === "true" ||
+      normalized === "1" ||
+      normalized === "yes" ||
+      normalized === "on"
+    );
   }
   return false;
 }
@@ -40,7 +50,12 @@ export function getStaticEnvFlag(name: string): string | undefined {
     default:
       // Fallback dynamic lookup for unknown or runtime env keys
       if (typeof process !== "undefined" && process.env) {
-        return process.env[name] ?? (name.startsWith("NEXT_PUBLIC_FEATURE_") ? process.env[name] : process.env[`NEXT_PUBLIC_FEATURE_${name}`]);
+        return (
+          process.env[name] ??
+          (name.startsWith("NEXT_PUBLIC_FEATURE_")
+            ? process.env[name]
+            : process.env[`NEXT_PUBLIC_FEATURE_${name}`])
+        );
       }
       return undefined;
   }
@@ -50,7 +65,10 @@ export function getStaticEnvFlag(name: string): string | undefined {
  * Check if a feature flag is enabled statically.
  * Unknown names or unconfigured flags default to false (default-deny).
  */
-export function isFeatureEnabled(name: FeatureFlagName, overrides?: Record<string, boolean>): boolean {
+export function isFeatureEnabled(
+  name: FeatureFlagName,
+  overrides?: Record<string, boolean>
+): boolean {
   if (overrides && name in overrides) {
     return Boolean(overrides[name]);
   }
@@ -65,7 +83,9 @@ export interface FeatureFlagContextType {
   isEnabled: (name: FeatureFlagName) => boolean;
 }
 
-export const FeatureFlagContext = createContext<FeatureFlagContextType | null>(null);
+export const FeatureFlagContext = createContext<FeatureFlagContextType | null>(
+  null
+);
 
 export interface FeatureFlagProviderProps {
   children: ReactNode;
@@ -76,7 +96,10 @@ export interface FeatureFlagProviderProps {
  * React Context Provider for Feature Flags.
  * Allows nested tree override or custom flags for testing and client runtime.
  */
-export function FeatureFlagProvider({ children, initialFlags = {} }: FeatureFlagProviderProps) {
+export function FeatureFlagProvider({
+  children,
+  initialFlags = {},
+}: FeatureFlagProviderProps) {
   const isEnabled = useMemo(() => {
     return (name: FeatureFlagName) => isFeatureEnabled(name, initialFlags);
   }, [initialFlags]);
@@ -89,7 +112,11 @@ export function FeatureFlagProvider({ children, initialFlags = {} }: FeatureFlag
     [initialFlags, isEnabled]
   );
 
-  return <FeatureFlagContext.Provider value={value}>{children}</FeatureFlagContext.Provider>;
+  return (
+    <FeatureFlagContext.Provider value={value}>
+      {children}
+    </FeatureFlagContext.Provider>
+  );
 }
 
 /**

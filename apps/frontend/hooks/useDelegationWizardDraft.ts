@@ -34,7 +34,9 @@ function isStoredDraft(value: unknown): value is StoredDraft {
  * deferred to a post-mount effect to avoid SSR hydration mismatches.
  */
 export function useDelegationWizardDraft(defaultWalletId = "") {
-  const [draft, setDraft] = useState<DelegationWizardDraft>(() => createEmptyDraft(defaultWalletId));
+  const [draft, setDraft] = useState<DelegationWizardDraft>(() =>
+    createEmptyDraft(defaultWalletId)
+  );
   const [stepIndex, setStepIndex] = useState(0);
   const [hasStoredDraft, setHasStoredDraft] = useState(false);
   const [hydrated, setHydrated] = useState(false);
@@ -55,16 +57,22 @@ export function useDelegationWizardDraft(defaultWalletId = "") {
     // eslint-disable-next-line react-hooks/exhaustive-deps -- read once on mount only
   }, []);
 
-  const persist = useCallback((next: DelegationWizardDraft, nextStepIndex: number) => {
-    try {
-      window.localStorage.setItem(
-        STORAGE_KEY,
-        JSON.stringify({ draft: next, stepIndex: nextStepIndex } satisfies StoredDraft)
-      );
-    } catch {
-      // Ignore persistence failures — the in-memory draft still updates.
-    }
-  }, []);
+  const persist = useCallback(
+    (next: DelegationWizardDraft, nextStepIndex: number) => {
+      try {
+        window.localStorage.setItem(
+          STORAGE_KEY,
+          JSON.stringify({
+            draft: next,
+            stepIndex: nextStepIndex,
+          } satisfies StoredDraft)
+        );
+      } catch {
+        // Ignore persistence failures — the in-memory draft still updates.
+      }
+    },
+    []
+  );
 
   const updateDraft = useCallback(
     (next: DelegationWizardDraft) => {

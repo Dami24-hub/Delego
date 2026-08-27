@@ -7,7 +7,13 @@ export interface StepIndicatorProps {
 
 export function StepIndicator({ currentStep, totalSteps }: StepIndicatorProps) {
   return (
-    <div className="step-indicator" role="progressbar" aria-valuenow={currentStep + 1} aria-valuemin={1} aria-valuemax={totalSteps}>
+    <div
+      className="step-indicator"
+      role="progressbar"
+      aria-valuenow={currentStep + 1}
+      aria-valuemin={1}
+      aria-valuemax={totalSteps}
+    >
       {Array.from({ length: totalSteps }, (_, i) => (
         <div
           key={i}
@@ -15,8 +21,8 @@ export function StepIndicator({ currentStep, totalSteps }: StepIndicatorProps) {
             i === currentStep
               ? "step-indicator-dot--active"
               : i < currentStep
-              ? "step-indicator-dot--completed"
-              : ""
+                ? "step-indicator-dot--completed"
+                : ""
           }`}
           aria-label={`Step ${i + 1}${i === currentStep ? " (current)" : i < currentStep ? " (completed)" : ""}`}
         />

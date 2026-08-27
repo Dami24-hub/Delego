@@ -3,7 +3,13 @@ import { toCsv } from "./csv";
 
 describe("toCsv", () => {
   it("joins header and rows with CRLF", () => {
-    const csv = toCsv(["A", "B"], [["1", "2"], ["3", "4"]]);
+    const csv = toCsv(
+      ["A", "B"],
+      [
+        ["1", "2"],
+        ["3", "4"],
+      ]
+    );
     expect(csv).toBe("A,B\r\n1,2\r\n3,4");
   });
 

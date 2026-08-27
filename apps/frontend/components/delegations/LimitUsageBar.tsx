@@ -1,7 +1,10 @@
 "use client";
 
 import { Amount, Button } from "@delegolabs/ui";
-import { calculateSpendHeadroom, formatPeriodRollover } from "../../lib/delegations";
+import {
+  calculateSpendHeadroom,
+  formatPeriodRollover,
+} from "../../lib/delegations";
 import { useCurrency } from "../../hooks/useCurrency";
 
 export interface SpendLedgerEntry {
@@ -54,12 +57,33 @@ export function LimitUsageBar({
 
   if (density === "compact") {
     return (
-      <div className="limit-usage-bar compact" style={{ marginTop: "0.75rem", marginBottom: "0.75rem" }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: "0.8125rem", marginBottom: "0.375rem" }}>
-          <span style={{ fontWeight: 500, color: "var(--color-text-muted, #6b7280)" }}>
+      <div
+        className="limit-usage-bar compact"
+        style={{ marginTop: "0.75rem", marginBottom: "0.75rem" }}
+      >
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            fontSize: "0.8125rem",
+            marginBottom: "0.375rem",
+          }}
+        >
+          <span
+            style={{
+              fontWeight: 500,
+              color: "var(--color-text-muted, #6b7280)",
+            }}
+          >
             Period Spending ({headroomInfo.pct}%)
           </span>
-          <span style={{ fontSize: "0.75rem", color: "var(--color-text-subtle, #9ca3af)" }}>
+          <span
+            style={{
+              fontSize: "0.75rem",
+              color: "var(--color-text-subtle, #9ca3af)",
+            }}
+          >
             {rolloverText}
           </span>
         </div>
@@ -91,12 +115,30 @@ export function LimitUsageBar({
           />
         </div>
 
-        <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.75rem", marginTop: "0.375rem", color: "var(--color-text-muted, #6b7280)" }}>
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            fontSize: "0.75rem",
+            marginTop: "0.375rem",
+            color: "var(--color-text-muted, #6b7280)",
+          }}
+        >
           <span>
-            Spent: <Amount stroops={headroomInfo.spent} currency={currencyId} xlmUsdRate={rate?.xlmUsdRate} />
+            Spent:{" "}
+            <Amount
+              stroops={headroomInfo.spent}
+              currency={currencyId}
+              xlmUsdRate={rate?.xlmUsdRate}
+            />
           </span>
           <span>
-            Cap: <Amount stroops={headroomInfo.cap} currency={currencyId} xlmUsdRate={rate?.xlmUsdRate} />
+            Cap:{" "}
+            <Amount
+              stroops={headroomInfo.cap}
+              currency={currencyId}
+              xlmUsdRate={rate?.xlmUsdRate}
+            />
           </span>
         </div>
       </div>
@@ -116,10 +158,25 @@ export function LimitUsageBar({
         marginBottom: "1.5rem",
       }}
     >
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "0.75rem" }}>
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "flex-start",
+          marginBottom: "0.75rem",
+        }}
+      >
         <div>
-          <h3 style={{ margin: 0, fontSize: "1rem", fontWeight: 600 }}>Spending Policy Headroom</h3>
-          <p style={{ margin: "0.25rem 0 0 0", fontSize: "0.875rem", color: "var(--color-text-muted, #6b7280)" }}>
+          <h3 style={{ margin: 0, fontSize: "1rem", fontWeight: 600 }}>
+            Spending Policy Headroom
+          </h3>
+          <p
+            style={{
+              margin: "0.25rem 0 0 0",
+              fontSize: "0.875rem",
+              color: "var(--color-text-muted, #6b7280)",
+            }}
+          >
             {rolloverText}
           </p>
         </div>
@@ -165,23 +222,78 @@ export function LimitUsageBar({
       </div>
 
       {/* Detail Headroom Numbers */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "1rem", marginTop: "1rem", paddingTop: "1rem", borderTop: "1px dashed var(--color-border, #e5e7eb)" }}>
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(3, 1fr)",
+          gap: "1rem",
+          marginTop: "1rem",
+          paddingTop: "1rem",
+          borderTop: "1px dashed var(--color-border, #e5e7eb)",
+        }}
+      >
         <div>
-          <span style={{ display: "block", fontSize: "0.75rem", color: "var(--color-text-muted, #6b7280)" }}>Spent</span>
-          <strong style={{ fontSize: "1rem", color: "var(--color-text-main, #111827)" }}>
-            <Amount stroops={headroomInfo.spent} currency={currencyId} xlmUsdRate={rate?.xlmUsdRate} />
+          <span
+            style={{
+              display: "block",
+              fontSize: "0.75rem",
+              color: "var(--color-text-muted, #6b7280)",
+            }}
+          >
+            Spent
+          </span>
+          <strong
+            style={{
+              fontSize: "1rem",
+              color: "var(--color-text-main, #111827)",
+            }}
+          >
+            <Amount
+              stroops={headroomInfo.spent}
+              currency={currencyId}
+              xlmUsdRate={rate?.xlmUsdRate}
+            />
           </strong>
         </div>
         <div>
-          <span style={{ display: "block", fontSize: "0.75rem", color: "var(--color-text-muted, #6b7280)" }}>Remaining Headroom</span>
+          <span
+            style={{
+              display: "block",
+              fontSize: "0.75rem",
+              color: "var(--color-text-muted, #6b7280)",
+            }}
+          >
+            Remaining Headroom
+          </span>
           <strong style={{ fontSize: "1rem", color: currentTheme.text }}>
-            <Amount stroops={headroomInfo.headroom} currency={currencyId} xlmUsdRate={rate?.xlmUsdRate} />
+            <Amount
+              stroops={headroomInfo.headroom}
+              currency={currencyId}
+              xlmUsdRate={rate?.xlmUsdRate}
+            />
           </strong>
         </div>
         <div>
-          <span style={{ display: "block", fontSize: "0.75rem", color: "var(--color-text-muted, #6b7280)" }}>Period Cap</span>
-          <strong style={{ fontSize: "1rem", color: "var(--color-text-main, #111827)" }}>
-            <Amount stroops={headroomInfo.cap} currency={currencyId} xlmUsdRate={rate?.xlmUsdRate} />
+          <span
+            style={{
+              display: "block",
+              fontSize: "0.75rem",
+              color: "var(--color-text-muted, #6b7280)",
+            }}
+          >
+            Period Cap
+          </span>
+          <strong
+            style={{
+              fontSize: "1rem",
+              color: "var(--color-text-main, #111827)",
+            }}
+          >
+            <Amount
+              stroops={headroomInfo.cap}
+              currency={currencyId}
+              xlmUsdRate={rate?.xlmUsdRate}
+            />
           </strong>
         </div>
       </div>
@@ -201,17 +313,24 @@ export function LimitUsageBar({
           }}
         >
           <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
-            <span role="img" aria-label="warning">⚠️</span>
+            <span role="img" aria-label="warning">
+              ⚠️
+            </span>
             <strong style={{ fontSize: "0.875rem", color: "#991b1b" }}>
               Near Spend Limit ({headroomInfo.pct}% Used)
             </strong>
           </div>
           <p style={{ margin: 0, fontSize: "0.8125rem", color: "#7f1d1d" }}>
-            This agent is approaching its period limit. Enable or tighten the approval threshold to prevent unexpected order rejections.
+            This agent is approaching its period limit. Enable or tighten the
+            approval threshold to prevent unexpected order rejections.
           </p>
           {onTightenApproval && (
             <div style={{ marginTop: "0.25rem" }}>
-              <Button variant="secondary" onClick={onTightenApproval} style={{ fontSize: "0.8125rem", padding: "0.25rem 0.75rem" }}>
+              <Button
+                variant="secondary"
+                onClick={onTightenApproval}
+                style={{ fontSize: "0.8125rem", padding: "0.25rem 0.75rem" }}
+              >
                 Tighten Approval Threshold
               </Button>
             </div>
@@ -222,10 +341,30 @@ export function LimitUsageBar({
       {/* Spend Ledger History Table */}
       {ledgerEntries.length > 0 && (
         <div style={{ marginTop: "1.5rem" }}>
-          <h4 style={{ fontSize: "0.875rem", fontWeight: 600, marginBottom: "0.5rem" }}>Recent Spend Ledger</h4>
-          <table style={{ width: "100%", fontSize: "0.8125rem", borderCollapse: "collapse" }}>
+          <h4
+            style={{
+              fontSize: "0.875rem",
+              fontWeight: 600,
+              marginBottom: "0.5rem",
+            }}
+          >
+            Recent Spend Ledger
+          </h4>
+          <table
+            style={{
+              width: "100%",
+              fontSize: "0.8125rem",
+              borderCollapse: "collapse",
+            }}
+          >
             <thead>
-              <tr style={{ borderBottom: "1px solid var(--color-border, #e5e7eb)", textAlign: "left", color: "var(--color-text-muted, #6b7280)" }}>
+              <tr
+                style={{
+                  borderBottom: "1px solid var(--color-border, #e5e7eb)",
+                  textAlign: "left",
+                  color: "var(--color-text-muted, #6b7280)",
+                }}
+              >
                 <th style={{ padding: "0.375rem 0" }}>Merchant</th>
                 <th style={{ padding: "0.375rem 0" }}>Amount</th>
                 <th style={{ padding: "0.375rem 0" }}>Date</th>
@@ -233,13 +372,29 @@ export function LimitUsageBar({
             </thead>
             <tbody>
               {ledgerEntries.map((entry) => (
-                <tr key={entry.id} style={{ borderBottom: "1px solid var(--color-bg-subtle, #f3f4f6)" }}>
+                <tr
+                  key={entry.id}
+                  style={{
+                    borderBottom: "1px solid var(--color-bg-subtle, #f3f4f6)",
+                  }}
+                >
                   <td style={{ padding: "0.375rem 0" }}>{entry.merchant}</td>
                   <td style={{ padding: "0.375rem 0" }}>
-                    <Amount stroops={entry.amount} currency={currencyId} xlmUsdRate={rate?.xlmUsdRate} />
+                    <Amount
+                      stroops={entry.amount}
+                      currency={currencyId}
+                      xlmUsdRate={rate?.xlmUsdRate}
+                    />
                   </td>
-                  <td style={{ padding: "0.375rem 0", color: "var(--color-text-subtle, #9ca3af)" }}>
-                    {typeof entry.timestamp === "string" ? new Date(entry.timestamp).toLocaleDateString() : entry.timestamp.toLocaleDateString()}
+                  <td
+                    style={{
+                      padding: "0.375rem 0",
+                      color: "var(--color-text-subtle, #9ca3af)",
+                    }}
+                  >
+                    {typeof entry.timestamp === "string"
+                      ? new Date(entry.timestamp).toLocaleDateString()
+                      : entry.timestamp.toLocaleDateString()}
                   </td>
                 </tr>
               ))}

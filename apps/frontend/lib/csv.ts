@@ -17,5 +17,8 @@ export function toCsv(header: string[], rows: string[][]): string {
 
 /** Triggers a browser download of `content` as a file named `filename`. */
 export function downloadCsv(filename: string, content: string): void {
-  downloadBlob(filename, new Blob([content], { type: "text/csv;charset=utf-8;" }));
+  downloadBlob(
+    filename,
+    new Blob([content], { type: "text/csv;charset=utf-8;" })
+  );
 }
