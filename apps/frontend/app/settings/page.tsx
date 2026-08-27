@@ -14,8 +14,7 @@ import { NotificationSettingsCard } from "../../components/notifications/Notific
 import { AccessibilitySettingsCard } from "../../components/settings/AccessibilitySettingsCard";
 import { LanguageSwitcher } from "../../components/settings/LanguageSwitcher";
 import { CurrencySwitcher } from "../../components/settings/CurrencySwitcher";
-import { JournalViewer } from "../../components/settings/JournalViewer";
-import { AddressBookPage } from "../../components/settings/AddressBookPage";
+import { NetworkContractsCard } from "../../components/settings/NetworkContractsCard";
 
 /**
  * Placeholder user + preferences until the API exposes `/api/v1/me` endpoints.
@@ -72,11 +71,7 @@ export default function SettingsPage() {
       <NotificationSettingsCard />
       <LanguageSwitcher />
       <CurrencySwitcher />
-      <JournalViewer
-        horizonUrl="https://horizon-testnet.stellar.org"
-        isLiveNetwork={false}
-      />
-      <AddressBookPage networkId="testnet" />
+      <NetworkContractsCard />
     </div>
   );
 }
