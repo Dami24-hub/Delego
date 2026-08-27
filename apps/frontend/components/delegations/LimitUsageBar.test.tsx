@@ -25,9 +25,21 @@ describe("LimitUsageBar", () => {
 
   it("renders spend ledger entries when provided in expanded view", () => {
     const ledger = [
-      { id: "e-1", amount: 20000000n, merchant: "Grocery Store", timestamp: "2026-08-25T10:00:00Z" },
+      {
+        id: "e-1",
+        amount: 20000000n,
+        merchant: "Grocery Store",
+        timestamp: "2026-08-25T10:00:00Z",
+      },
     ];
-    render(<LimitUsageBar spent={20000000n} cap={100000000n} density="expanded" ledgerEntries={ledger} />);
+    render(
+      <LimitUsageBar
+        spent={20000000n}
+        cap={100000000n}
+        density="expanded"
+        ledgerEntries={ledger}
+      />
+    );
     expect(screen.getByText("Recent Spend Ledger")).toBeInTheDocument();
     expect(screen.getByText("Grocery Store")).toBeInTheDocument();
   });

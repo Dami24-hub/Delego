@@ -20,7 +20,7 @@ import { useCallback, useEffect, useState } from "react";
 /** A single Horizon balance entry from GET /accounts/{id} */
 export interface HorizonBalance {
   asset_type: "native" | "credit_alphanum4" | "credit_alphanum12";
-  asset_code?: string;   // undefined for native XLM
+  asset_code?: string; // undefined for native XLM
   asset_issuer?: string; // undefined for native XLM
   balance: string;
 }
@@ -77,7 +77,9 @@ function toDateKey(d: Date): string {
 function buildDateRange(): string[] {
   const keys: string[] = [];
   const now = new Date();
-  const utcNow = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+  const utcNow = new Date(
+    Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate())
+  );
   for (let i = 29; i >= 0; i--) {
     const d = new Date(utcNow);
     d.setUTCDate(utcNow.getUTCDate() - i);
@@ -153,12 +155,18 @@ function buildSeries(
 
     const prev = deltaByDate.get(key) ?? 0;
     // Credits increased balance; debits decreased it
-    deltaByDate.set(key, effect.type === CREDIT_TYPE ? prev + amount : prev - amount);
+    deltaByDate.set(
+      key,
+      effect.type === CREDIT_TYPE ? prev + amount : prev - amount
+    );
   }
 
   // Walk from oldest → newest, accumulating. We start by computing what the
   // balance was 30 days ago by subtracting all net credits since then.
-  const totalDeltaSince = Array.from(deltaByDate.values()).reduce((s, d) => s + d, 0);
+  const totalDeltaSince = Array.from(deltaByDate.values()).reduce(
+    (s, d) => s + d,
+    0
+  );
   let running = currentXlm - totalDeltaSince;
 
   const series: BalancePoint[] = dateRange.map((date) => {
@@ -217,7 +225,9 @@ export function useBalanceHistory(
       };
       const balances: HorizonBalance[] = accountData.balances ?? [];
 
-      const nativeBalance = balances.find((b: HorizonBalance) => b.asset_type === "native");
+      const nativeBalance = balances.find(
+        (b: HorizonBalance) => b.asset_type === "native"
+      );
       const currentXlm = nativeBalance ? parseFloat(nativeBalance.balance) : 0;
       const isUnfunded = currentXlm === 0 && balances.length <= 1;
 

@@ -8,8 +8,13 @@ import { formatDateTime } from "../../lib/intl";
 import { useCurrency } from "../../hooks/useCurrency";
 import { useAnnounce } from "../../hooks/useAnnounce";
 import { useNetworkMismatch } from "../../hooks/useNetworkMismatch";
-import { useDemoModeGuard, DEMO_MODE_BLOCKED_MESSAGE } from "../../hooks/useDemoModeGuard";
+import {
+  useDemoModeGuard,
+  DEMO_MODE_BLOCKED_MESSAGE,
+} from "../../hooks/useDemoModeGuard";
 import { ApprovalAgeBadge } from "./ApprovalAgeBadge";
+import { DelegationTagBadge } from "../delegations/public";
+import { useDelegationTags } from "../../hooks/useDelegationTags";
 
 export interface ApprovalCardProps {
   order: Order;
@@ -40,6 +45,8 @@ export function ApprovalCard({
   const { currencyId, rate } = useCurrency();
   const { announce } = useAnnounce();
   const { isDemoMode, guard } = useDemoModeGuard();
+  const { getTag } = useDelegationTags();
+  const tag = getTag(order.delegationId);
 
   const disabled = pending || isMismatched || isDemoMode;
 
@@ -58,7 +65,7 @@ export function ApprovalCard({
     }
   });
 
-  const handleReject = guard(async () => {
+  const handleConfirmReject = guard(async () => {
     try {
       await onReject(order.id, reason.trim() || undefined);
       announce(`Order ${order.id} rejected.`, "polite");
@@ -69,14 +76,11 @@ export function ApprovalCard({
 
   return (
     <Card
-      title={`Order ${order.id}`}
-      ariaLabel={`High-value order ${order.id} awaiting approval`}
-      style={{
-        opacity: pending || pendingOffline ? 0.7 : 1,
-        transition: "opacity 0.15s ease-in-out",
-      }}
+      title={`Order #${order.id}`}
+      ariaLabel={`Approval request for order ${order.id}`}
+      style={{ opacity: pending ? 0.6 : 1 }}
     >
-      <div className="approval-card-header">
+      <div className="approval-card-badges">
         <span className="status-badge order-status-pending_approval">
           Pending approval
         </span>
@@ -108,12 +112,15 @@ export function ApprovalCard({
       <dl className="wallet-detail-list">
         <div className="wallet-detail-row">
           <dt>Merchant</dt>
-          <dd>{order.merchantId}</dd>
+          <dd>{(order as any).merchantId || order.merchantName}</dd>
         </div>
 
         <div className="wallet-detail-row">
           <dt>Delegation</dt>
-          <dd>{order.delegationId}</dd>
+          <dd className="flex items-center gap-2">
+            <span>{order.delegationId}</span>
+            <DelegationTagBadge label={tag?.label} colorTag={tag?.colorTag} />
+          </dd>
         </div>
 
         <div className="wallet-detail-row">
@@ -128,116 +135,103 @@ export function ApprovalCard({
             <tr>
               <th scope="col">Product</th>
               <th scope="col">Qty</th>
-              <th scope="col">Unit</th>
+              <th scope="col">Unit Price</th>
               <th scope="col">Subtotal</th>
             </tr>
           </thead>
-
           <tbody>
-            {order.lineItems.map((item) => (
-              <tr key={item.productId}>
-                <td>{item.productId}</td>
-                <td>{item.quantity}</td>
-
-                <td>
-                  <Amount
-                    stroops={item.unitPriceStroops}
-                    locale={locale}
-                    currency={currencyId}
-                    xlmUsdRate={rate?.xlmUsdRate}
-                  />
-                </td>
-
-                <td>
-                  <Amount
-                    stroops={
-                      item.unitPriceStroops * BigInt(item.quantity)
-                    }
-                    locale={locale}
-                    currency={currencyId}
-                    xlmUsdRate={rate?.xlmUsdRate}
-                  />
-                </td>
-              </tr>
-            ))}
+            {(order.items || (order as any).lineItems || []).map(
+              (item: any, idx: number) => (
+                <tr key={item.productId || item.name || idx}>
+                  <td>{item.productId || item.name}</td>
+                  <td>{item.quantity}</td>
+                  <td>
+                    <Amount
+                      stroops={item.unitPriceStroops || item.price}
+                      currencyId={currencyId}
+                      rate={rate}
+                    />
+                  </td>
+                  <td>
+                    <Amount
+                      stroops={
+                        (item.unitPriceStroops || item.price) *
+                        BigInt(item.quantity)
+                      }
+                      currencyId={currencyId}
+                      rate={rate}
+                    />
+                  </td>
+                </tr>
+              )
+            )}
           </tbody>
         </table>
       </div>
 
-      <div className="approval-total">
-        <span>Total</span>
-
-        <strong>
-          <Amount
-            stroops={order.totalStroops}
-            locale={locale}
-            currency={currencyId}
-            xlmUsdRate={rate?.xlmUsdRate}
-          />
+      <div className="approval-card-total">
+        <span>Total:</span>
+        <strong className="approval-total-amount">
+          <Amount stroops={order.amount} currencyId={currencyId} rate={rate} />
         </strong>
       </div>
 
-      {!rejecting ? (
-        <div className="form-actions">
+      {rejecting ? (
+        <div className="approval-reject-form">
+          <label htmlFor={`reject-reason-${order.id}`} className="sr-only">
+            Reason for rejection (optional)
+          </label>
+          <input
+            id={`reject-reason-${order.id}`}
+            type="text"
+            className="order-search"
+            placeholder="Reason for rejection (optional)"
+            value={reason}
+            onChange={(e) => setReason(e.target.value)}
+            disabled={pending}
+          />
+          <div className="approval-reject-actions">
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => setRejecting(false)}
+              disabled={pending}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              size="sm"
+              onClick={handleConfirmReject}
+              disabled={disabled}
+              loading={pending}
+              title={actionTitle}
+            >
+              Confirm Reject
+            </Button>
+          </div>
+        </div>
+      ) : (
+        <div className="approval-card-actions">
           <Button
-            variant="primary"
-            onClick={handleApprove}
-            disabled={disabled}
-            title={actionTitle}
-          >
-            Approve
-          </Button>
-
-          <Button
-            variant="ghost"
+            variant="destructive"
+            size="sm"
             onClick={() => setRejecting(true)}
             disabled={disabled}
             title={actionTitle}
           >
             Reject
           </Button>
-        </div>
-      ) : (
-        <div className="approval-reject">
-          <label
-            htmlFor={`reject-reason-${order.id}`}
-            className="approval-reject-label"
+          <Button
+            variant="primary"
+            size="sm"
+            onClick={handleApprove}
+            disabled={disabled}
+            loading={pending}
+            title={actionTitle}
           >
-            Reason (optional)
-          </label>
-
-          <textarea
-            id={`reject-reason-${order.id}`}
-            className="approval-reject-input"
-            value={reason}
-            onChange={(e) => setReason(e.target.value)}
-            rows={2}
-            placeholder="Why is this order being rejected?"
-            disabled={isMismatched || isDemoMode}
-          />
-
-          <div className="form-actions">
-            <Button
-              variant="primary"
-              onClick={handleReject}
-              disabled={disabled}
-              title={actionTitle}
-            >
-              Confirm rejection
-            </Button>
-
-            <Button
-              variant="ghost"
-              onClick={() => {
-                setRejecting(false);
-                setReason("");
-              }}
-              disabled={disabled}
-              title={actionTitle}
-            >
-              Cancel
-            </Button>
-          </div>
+            Approve & Pay
+          </Button>
         </div>
       )}
     </Card>

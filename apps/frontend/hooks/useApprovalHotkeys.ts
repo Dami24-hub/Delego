@@ -31,7 +31,12 @@ export interface UseApprovalHotkeysResult {
 function isTypingTarget(target: EventTarget | null): boolean {
   if (!(target instanceof HTMLElement)) return false;
   const tag = target.tagName;
-  return tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT" || target.isContentEditable;
+  return (
+    tag === "INPUT" ||
+    tag === "TEXTAREA" ||
+    tag === "SELECT" ||
+    target.isContentEditable
+  );
 }
 
 /**
@@ -51,7 +56,9 @@ export function useApprovalHotkeys({
   const [focusedId, setFocusedId] = useState<string | null>(itemIds[0] ?? null);
   const [showCheatSheet, setShowCheatSheet] = useState(false);
   const [undoAction, setUndoActionState] = useState<UndoAction | null>(null);
-  const undoTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const undoTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(
+    undefined
+  );
 
   // Keep the focused row valid as the queue changes (e.g. an item leaves after being acted on).
   useEffect(() => {
@@ -66,7 +73,10 @@ export function useApprovalHotkeys({
       if (undoTimerRef.current) clearTimeout(undoTimerRef.current);
       setUndoActionState(action);
       if (action) {
-        undoTimerRef.current = setTimeout(() => setUndoActionState(null), undoWindowMs);
+        undoTimerRef.current = setTimeout(
+          () => setUndoActionState(null),
+          undoWindowMs
+        );
       }
     },
     [undoWindowMs]
@@ -129,7 +139,10 @@ export function useApprovalHotkeys({
             e.preventDefault();
             const id = focusedId;
             onApprove(id);
-            setUndoAction({ message: `Approved order ${id}`, undo: () => onReject(id) });
+            setUndoAction({
+              message: `Approved order ${id}`,
+              undo: () => onReject(id),
+            });
           }
           return;
         }
@@ -138,7 +151,10 @@ export function useApprovalHotkeys({
             e.preventDefault();
             const id = focusedId;
             onReject(id);
-            setUndoAction({ message: `Rejected order ${id}`, undo: () => onApprove(id) });
+            setUndoAction({
+              message: `Rejected order ${id}`,
+              undo: () => onApprove(id),
+            });
           }
           return;
         }
@@ -149,7 +165,22 @@ export function useApprovalHotkeys({
 
     document.addEventListener("keydown", onKeyDown);
     return () => document.removeEventListener("keydown", onKeyDown);
-  }, [itemIds, focusedId, onApprove, onReject, onOpenDrawer, disabled, setUndoAction]);
+  }, [
+    itemIds,
+    focusedId,
+    onApprove,
+    onReject,
+    onOpenDrawer,
+    disabled,
+    setUndoAction,
+  ]);
 
-  return { focusedId, setFocusedId, showCheatSheet, setShowCheatSheet, undoAction, dismissUndo };
+  return {
+    focusedId,
+    setFocusedId,
+    showCheatSheet,
+    setShowCheatSheet,
+    undoAction,
+    dismissUndo,
+  };
 }

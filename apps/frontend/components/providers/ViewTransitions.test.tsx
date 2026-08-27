@@ -34,8 +34,9 @@ describe("ViewTransitions", () => {
       updateCallbackDone: Promise.resolve(),
       skipTransition: vi.fn(),
     });
-    (document as unknown as { startViewTransition?: unknown }).startViewTransition =
-      startViewTransition;
+    (
+      document as unknown as { startViewTransition?: unknown }
+    ).startViewTransition = startViewTransition;
   });
 
   afterEach(() => {

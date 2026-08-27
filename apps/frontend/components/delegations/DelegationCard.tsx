@@ -9,17 +9,23 @@ import { LimitUsageBar } from "./LimitUsageBar";
 import { PauseResumeConfirmModal } from "./PauseResumeConfirmModal";
 import { MerchantWhitelistPicker } from "./MerchantWhitelistPicker";
 import { useCurrency } from "../../hooks/useCurrency";
+import { DelegationTagBadge } from "./DelegationTagBadge";
+import { DelegationTagPicker } from "./DelegationTagPicker";
+import { useDelegationTags } from "../../hooks/useDelegationTags";
 
 export interface DelegationCardProps {
   delegation: Delegation;
   /** True while an optimistic create/update/revoke is in flight for this delegation */
   pending?: boolean;
-  onUpdate: (id: string, input: UpdateDelegationInput) => void | Promise<unknown>;
+  onUpdate: (
+    id: string,
+    input: UpdateDelegationInput
+  ) => void | Promise<unknown>;
   onRevoke: (id: string) => void | Promise<unknown>;
   onDuplicate?: (delegation: Delegation) => void;
 }
 
-/** Single delegation card with pause/resume, inline policy editing, revoke, duplicate, and QR sharing. */
+/** Single delegation card with pause/resume, inline policy editing, revoke, duplicate, QR sharing, and tag editing (#600). */
 export function DelegationCard({
   delegation,
   pending = false,
@@ -30,7 +36,13 @@ export function DelegationCard({
   const [editing, setEditing] = useState(false);
   const [showQr, setShowQr] = useState(false);
   const [showPauseModal, setShowPauseModal] = useState(false);
+  const [showTagPicker, setShowTagPicker] = useState(false);
   const [modalLoading, setModalLoading] = useState(false);
+
+  const { getTag, updateTag } = useDelegationTags();
+  const tagRecord = getTag(delegation.id);
+  const activeLabel = tagRecord?.label || delegation.label;
+  const activeColorTag = tagRecord?.colorTag || delegation.colorTag;
 
   const [maxPerTransaction, setMaxPerTransaction] = useState(
     delegation.policy.maxPerTransaction
@@ -59,27 +71,13 @@ export function DelegationCard({
 
   const handleConfirmPauseToggle = async () => {
     setModalLoading(true);
-
     try {
-      const nextStatus = isPaused ? "active" : "paused";
-
       await onUpdate(delegation.id, {
-        status: nextStatus,
+        status: isPaused ? "active" : "paused",
       });
-
       setShowPauseModal(false);
     } finally {
       setModalLoading(false);
-    }
-  };
-
-  const handleRevoke = () => {
-    if (
-      window.confirm(
-        `Revoke delegation "${delegation.agentId}"? This cannot be undone.`
-      )
-    ) {
-      onRevoke(delegation.id);
     }
   };
 
@@ -88,10 +86,8 @@ export function DelegationCard({
       setShowEmptyWhitelistError(true);
       return;
     }
-
     setShowEmptyWhitelistError(false);
     setSaving(true);
-
     try {
       await onUpdate(delegation.id, {
         policy: {
@@ -100,7 +96,6 @@ export function DelegationCard({
           allowedMerchants: unrestrictedMerchants ? [] : allowedMerchants,
         },
       });
-
       setEditing(false);
     } finally {
       setSaving(false);
@@ -110,7 +105,7 @@ export function DelegationCard({
   return (
     <>
       <Card
-        title={delegation.label || delegation.agentId}
+        title={activeLabel || delegation.agentId}
         ariaLabel={`Delegation for agent ${delegation.agentId}`}
         style={{
           opacity: isPending ? 0.6 : isPaused ? 0.8 : 1,
@@ -130,17 +125,24 @@ export function DelegationCard({
             display: "flex",
             justifyContent: "space-between",
             alignItems: "center",
+            marginBottom: "0.75rem",
           }}
         >
-          <div>
+          <div className="flex items-center gap-2">
             <span className={`status-badge status-${delegation.status}`}>
               {delegation.status}
             </span>
 
+            {(activeLabel || activeColorTag) && (
+              <DelegationTagBadge
+                label={activeLabel}
+                colorTag={activeColorTag}
+              />
+            )}
+
             {isPaused && (
               <span
                 style={{
-                  marginLeft: "0.5rem",
                   fontSize: "0.75rem",
                   color: "#6b7280",
                   fontStyle: "italic",
@@ -151,222 +153,223 @@ export function DelegationCard({
             )}
           </div>
 
-          <Link
-            href={`/delegations/${delegation.id}`}
-            style={{
-              fontSize: "0.8125rem",
-              color: "var(--color-primary, #2563eb)",
-              fontWeight: 500,
-            }}
-          >
-            View detail →
-          </Link>
-
-          {isPending && (
-            <span className="delegation-pending-hint">Saving…</span>
-          )}
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={() => setShowTagPicker(!showTagPicker)}
+              className="text-xs text-slate-500 hover:text-slate-700 dark:hover:text-slate-200"
+              title="Edit label & color tag"
+            >
+              🏷️ Edit tag
+            </button>
+            <Link
+              href={`/delegations/${delegation.id}`}
+              style={{
+                fontSize: "0.8125rem",
+                color: "var(--color-primary, #2563eb)",
+                fontWeight: 500,
+              }}
+            >
+              View detail →
+            </Link>
+          </div>
         </div>
 
-        {!editing ? (
-          <>
-            <dl
-              className="wallet-detail-list"
-              style={{ marginTop: "0.5rem" }}
-            >
-              <div className="wallet-detail-row">
-                <dt>Max / transaction</dt>
-                <dd>
-                  <Amount
-                    stroops={delegation.policy.maxPerTransaction}
-                    currency={currencyId}
-                    xlmUsdRate={rate?.xlmUsdRate}
-                  />
-                </dd>
-              </div>
-
-              <div className="wallet-detail-row">
-                <dt>Total limit</dt>
-                <dd>
-                  <Amount
-                    stroops={delegation.policy.maxTotal}
-                    currency={currencyId}
-                    xlmUsdRate={rate?.xlmUsdRate}
-                  />
-                </dd>
-              </div>
-
-              <div className="wallet-detail-row">
-                <dt>Merchants</dt>
-                <dd>
-                  {delegation.policy.allowedMerchants.length > 0
-                    ? delegation.policy.allowedMerchants.join(", ")
-                    : "All merchants"}
-                </dd>
-              </div>
-
-              <div className="wallet-detail-row">
-                <dt>Expires</dt>
-                <dd>{delegation.policy.expiresAt ?? "Never"}</dd>
-              </div>
-            </dl>
-
-            <LimitUsageBar
-              spent={0n}
-              cap={delegation.policy.maxTotal}
-              periodRollover={delegation.policy.expiresAt}
-              density="compact"
+        {showTagPicker && (
+          <div className="my-3">
+            <DelegationTagPicker
+              initialTag={{ label: activeLabel, colorTag: activeColorTag }}
+              onSave={(rec) => {
+                updateTag(delegation.id, rec);
+                setShowTagPicker(false);
+              }}
+              onCancel={() => setShowTagPicker(false)}
             />
-          </>
-        ) : (
-          <div className="settings-section">
-            <div>
-              <label
-                style={{
-                  display: "block",
-                  fontSize: "0.875rem",
-                  marginBottom: "0.25rem",
-                }}
-              >
-                Max per transaction
-              </label>
-
-              <StroopsInput
-                value={maxPerTransaction}
-                onChange={setMaxPerTransaction}
-                style={{ width: "100%" }}
-              />
-            </div>
-
-            <div>
-              <label
-                style={{
-                  display: "block",
-                  fontSize: "0.875rem",
-                  marginBottom: "0.25rem",
-                }}
-              >
-                Max total
-              </label>
-
-              <StroopsInput
-                value={maxTotal}
-                onChange={setMaxTotal}
-                style={{ width: "100%" }}
-              />
-            </div>
-
-            <div>
-              <label
-                style={{
-                  display: "block",
-                  fontSize: "0.875rem",
-                  marginBottom: "0.25rem",
-                }}
-              >
-                Allowed merchants
-              </label>
-
-              <MerchantWhitelistPicker
-                value={allowedMerchants}
-                onChange={setAllowedMerchants}
-                unrestricted={unrestrictedMerchants}
-                onUnrestrictedChange={(next) => {
-                  setUnrestrictedMerchants(next);
-
-                  if (next) {
-                    setShowEmptyWhitelistError(false);
-                  }
-                }}
-                showEmptyWhitelistError={showEmptyWhitelistError}
-              />
-            </div>
           </div>
         )}
 
-        <div className="form-actions delegation-actions">
-          {!isTerminal && !editing && (
-            <>
-              <Button
-                variant="secondary"
-                onClick={() => setShowPauseModal(true)}
-                disabled={isPending}
-              >
-                {isPaused ? "Resume" : "Pause"}
-              </Button>
-
-              {onDuplicate && (
-                <Button
-                  variant="secondary"
-                  onClick={() => onDuplicate(delegation)}
-                  disabled={isPending}
-                >
-                  Duplicate
-                </Button>
-              )}
-
-              <Button
-                variant="secondary"
-                onClick={() => setEditing(true)}
-                disabled={isPending}
-              >
-                Edit
-              </Button>
-
-              <Button
-                variant="ghost"
-                onClick={() => setShowQr((v) => !v)}
-              >
-                {showQr ? "Hide QR" : "Share QR"}
-              </Button>
-
-              <Button
-                variant="ghost"
-                onClick={handleRevoke}
-                disabled={isPending}
-              >
-                Revoke
-              </Button>
-            </>
+        <div className="delegation-card-meta">
+          <div className="delegation-meta-row">
+            <span className="delegation-meta-label">Agent ID:</span>
+            <code className="delegation-meta-value">{delegation.agentId}</code>
+          </div>
+          {delegation.walletId && (
+            <div className="delegation-meta-row">
+              <span className="delegation-meta-label">Wallet:</span>
+              <code className="delegation-meta-value">
+                {delegation.walletId}
+              </code>
+            </div>
           )}
+          {delegation.permissionLevel && (
+            <div className="delegation-meta-row">
+              <span className="delegation-meta-label">Permission:</span>
+              <span className="delegation-permission-badge">
+                {delegation.permissionLevel}
+              </span>
+            </div>
+          )}
+        </div>
 
-          {editing && (
-            <>
-              <Button
-                variant="primary"
-                onClick={handleSavePolicy}
+        <LimitUsageBar
+          delegation={delegation}
+          currencyId={currencyId}
+          rate={rate}
+        />
+
+        {editing ? (
+          <div className="delegation-card-edit-form">
+            <div className="form-group">
+              <StroopsInput
+                label="Max per transaction"
+                value={maxPerTransaction}
+                onChange={setMaxPerTransaction}
                 disabled={saving}
-              >
-                {saving ? "Saving…" : "Save"}
-              </Button>
+              />
+            </div>
+            <div className="form-group">
+              <StroopsInput
+                label="Max total budget"
+                value={maxTotal}
+                onChange={setMaxTotal}
+                disabled={saving}
+              />
+            </div>
 
+            <MerchantWhitelistPicker
+              allowedMerchants={allowedMerchants}
+              unrestricted={unrestrictedMerchants}
+              onAllowedMerchantsChange={setAllowedMerchants}
+              onUnrestrictedChange={(unrestricted) => {
+                setUnrestrictedMerchants(unrestricted);
+                if (unrestricted) setShowEmptyWhitelistError(false);
+              }}
+              showEmptyError={showEmptyWhitelistError}
+              disabled={saving}
+            />
+
+            <div className="delegation-card-edit-actions">
               <Button
-                variant="ghost"
+                variant="secondary"
+                size="sm"
                 onClick={() => setEditing(false)}
                 disabled={saving}
               >
                 Cancel
               </Button>
-            </>
-          )}
+              <Button
+                variant="primary"
+                size="sm"
+                onClick={handleSavePolicy}
+                loading={saving}
+              >
+                Save Policy
+              </Button>
+            </div>
+          </div>
+        ) : (
+          <div className="delegation-card-policy-summary">
+            <div className="policy-summary-row">
+              <span>Per transaction limit:</span>
+              <Amount
+                stroops={delegation.policy.maxPerTransaction}
+                currencyId={currencyId}
+                rate={rate}
+              />
+            </div>
+            <div className="policy-summary-row">
+              <span>Total budget limit:</span>
+              <Amount
+                stroops={delegation.policy.maxTotal}
+                currencyId={currencyId}
+                rate={rate}
+              />
+            </div>
+            <div className="policy-summary-row">
+              <span>Merchants:</span>
+              <span>
+                {delegation.policy.allowedMerchants.length === 0
+                  ? "Unrestricted"
+                  : `${delegation.policy.allowedMerchants.length} whitelisted`}
+              </span>
+            </div>
+          </div>
+        )}
+
+        <div className="delegation-card-footer flex justify-between items-center mt-4">
+          <div className="flex gap-2">
+            {!isTerminal && (
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => setShowPauseModal(true)}
+                disabled={isPending}
+              >
+                {isPaused ? "Resume" : "Pause"}
+              </Button>
+            )}
+            {!isTerminal && !editing && (
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => setEditing(true)}
+                disabled={isPending}
+              >
+                Edit Policy
+              </Button>
+            )}
+            {onDuplicate && (
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => onDuplicate(delegation)}
+                disabled={isPending}
+              >
+                Duplicate
+              </Button>
+            )}
+          </div>
+
+          <div className="flex gap-2">
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => setShowQr(!showQr)}
+              ariaLabel="Show QR code"
+            >
+              {showQr ? "Hide QR" : "Share QR"}
+            </Button>
+
+            {!isRevoked && (
+              <Button
+                variant="destructive"
+                size="sm"
+                onClick={() => onRevoke(delegation.id)}
+                disabled={isPending}
+              >
+                Revoke
+              </Button>
+            )}
+          </div>
         </div>
 
-        {showQr && !editing && (
-          <DelegationQR
-            delegationId={delegation.id}
-            userId={delegation.userId}
-            agentId={delegation.agentId}
-          />
+        {showQr && (
+          <div className="mt-4 p-3 bg-slate-50 dark:bg-slate-900 rounded border">
+            <DelegationQR delegation={delegation} />
+          </div>
         )}
       </Card>
 
-      <PauseResumeConfirmModal
-        isOpen={showPauseModal}
-        action={isPaused ? "resume" : "pause"}
-        agentId={delegation.agentId}
-        onConfirm={handleConfirmPauseToggle}
-        onCancel={() => setShowPauseModal(false)}
-        loading={modalLoading}
-      />
+      {showPauseModal && (
+        <PauseResumeConfirmModal
+          isOpen={showPauseModal}
+          isPaused={isPaused}
+          agentId={delegation.agentId}
+          onConfirm={handleConfirmPauseToggle}
+          onCancel={() => setShowPauseModal(false)}
+          loading={modalLoading}
+        />
+      )}
     </>
   );
 }

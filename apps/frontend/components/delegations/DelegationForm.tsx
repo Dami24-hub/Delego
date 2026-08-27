@@ -82,8 +82,7 @@ export function DelegationForm({
     (initialDelegation?.policy.allowedMerchants?.length ?? 0) === 0
   );
 
-  const [showEmptyWhitelistError, setShowEmptyWhitelistError] =
-    useState(false);
+  const [showEmptyWhitelistError, setShowEmptyWhitelistError] = useState(false);
 
   const [allowedCategories, setAllowedCategories] = useState(
     initialDelegation?.policy.allowedCategories?.join(", ") ?? ""
@@ -185,11 +184,7 @@ export function DelegationForm({
         </div>
       )}
 
-      <form
-        className="settings-section"
-        onSubmit={handleSubmit}
-        noValidate
-      >
+      <form className="settings-section" onSubmit={handleSubmit} noValidate>
         <FormField
           label={t("agentId.label")}
           required
@@ -242,9 +237,7 @@ export function DelegationForm({
             id="permission-level"
             value={permissionLevel}
             onChange={(e) =>
-              setPermissionLevel(
-                e.target.value as DelegationPermissionLevel
-              )
+              setPermissionLevel(e.target.value as DelegationPermissionLevel)
             }
             style={{
               width: "100%",
@@ -351,20 +344,12 @@ export function DelegationForm({
         )}
 
         <div className="form-actions">
-          <Button
-            variant="primary"
-            type="submit"
-            disabled={submitting}
-          >
+          <Button variant="primary" type="submit" disabled={submitting}>
             {submitting ? t("submitting") : t("submit")}
           </Button>
 
           {onCancel && (
-            <Button
-              variant="ghost"
-              type="button"
-              onClick={onCancel}
-            >
+            <Button variant="ghost" type="button" onClick={onCancel}>
               {tCommon("cancel")}
             </Button>
           )}

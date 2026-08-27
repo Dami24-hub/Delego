@@ -31,7 +31,9 @@ describe("validateStep", () => {
   it("requires an agent id on the agent step", () => {
     const draft = createEmptyDraft();
     expect(validateStep("agent", draft).agentId).toBe("missingAgentId");
-    expect(validateStep("agent", { ...draft, agentId: "agent-1" }).agentId).toBeUndefined();
+    expect(
+      validateStep("agent", { ...draft, agentId: "agent-1" }).agentId
+    ).toBeUndefined();
   });
 
   it("requires wallet, label, and a non-empty whitelist on the scope step", () => {
@@ -41,8 +43,15 @@ describe("validateStep", () => {
     expect(errors.label).toBe("missingLabel");
     expect(errors.allowedMerchants).toBeUndefined(); // unrestricted by default
 
-    const restricted = { ...draft, walletId: "w", label: "l", unrestrictedMerchants: false };
-    expect(validateStep("scope", restricted).allowedMerchants).toBe("emptyWhitelist");
+    const restricted = {
+      ...draft,
+      walletId: "w",
+      label: "l",
+      unrestrictedMerchants: false,
+    };
+    expect(validateStep("scope", restricted).allowedMerchants).toBe(
+      "emptyWhitelist"
+    );
   });
 
   it("requires a positive total on the limits step", () => {

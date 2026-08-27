@@ -35,7 +35,8 @@ export interface NotificationPermissionPromptProps {
 export function NotificationPermissionPrompt({
   message = "Get notified about approvals even when this tab isn't in focus.",
 }: NotificationPermissionPromptProps) {
-  const { supported, permission, requestPermission, setEnabled } = useOsNotifications();
+  const { supported, permission, requestPermission, setEnabled } =
+    useOsNotifications();
   const [dismissed, setDismissed] = useState(readDismissed);
 
   if (!supported || permission !== "default" || dismissed) return null;
@@ -53,7 +54,15 @@ export function NotificationPermissionPrompt({
 
   return (
     <Card ariaLabel="Enable desktop notifications">
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "1rem", flexWrap: "wrap" }}>
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          gap: "1rem",
+          flexWrap: "wrap",
+        }}
+      >
         <p style={{ margin: 0 }}>{message}</p>
         <div className="form-actions" style={{ margin: 0 }}>
           <Button variant="primary" onClick={enable}>

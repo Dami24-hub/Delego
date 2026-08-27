@@ -27,7 +27,7 @@ export function OrderTrackingCard({ order }: OrderTrackingCardProps) {
       title={`Order ${order.id}`}
       ariaLabel={`Tracking for order ${order.id}`}
     >
-      <ActivityTimeline
+      <StatusTimeline
         events={orderToTimelineEvents(order)}
         ariaLabel="Order progress"
       />
@@ -40,7 +40,11 @@ export function OrderTrackingCard({ order }: OrderTrackingCardProps) {
         <div className="wallet-detail-row">
           <dt>Total</dt>
           <dd>
-            <Amount stroops={order.totalStroops} currency={currencyId} xlmUsdRate={rate?.xlmUsdRate} />
+            <Amount
+              stroops={order.totalStroops}
+              currency={currencyId}
+              xlmUsdRate={rate?.xlmUsdRate}
+            />
           </dd>
         </div>
         <div className="wallet-detail-row">

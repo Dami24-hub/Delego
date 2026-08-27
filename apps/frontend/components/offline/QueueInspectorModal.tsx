@@ -49,16 +49,37 @@ export function QueueInspectorModal() {
         boxShadow: "0 10px 25px rgba(0,0,0,0.3)",
       }}
     >
-      <Card title="Offline Queue Inspector (Debug)" ariaLabel="Offline queue inspector">
-        <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <span style={{ fontSize: "0.8125rem", color: "var(--color-text-muted)" }}>
+      <Card
+        title="Offline Queue Inspector (Debug)"
+        ariaLabel="Offline queue inspector"
+      >
+        <div
+          style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}
+        >
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+            }}
+          >
+            <span
+              style={{
+                fontSize: "0.8125rem",
+                color: "var(--color-text-muted)",
+              }}
+            >
               Total items: {queue.length}
             </span>
             <button
               type="button"
               onClick={() => setIsOpen(false)}
-              style={{ background: "none", border: "none", cursor: "pointer", fontSize: "1rem" }}
+              style={{
+                background: "none",
+                border: "none",
+                cursor: "pointer",
+                fontSize: "1rem",
+              }}
             >
               ✕
             </button>
@@ -74,11 +95,26 @@ export function QueueInspectorModal() {
           </div>
 
           {queue.length === 0 ? (
-            <p style={{ fontSize: "0.8125rem", color: "var(--color-text-muted)", margin: 0 }}>
+            <p
+              style={{
+                fontSize: "0.8125rem",
+                color: "var(--color-text-muted)",
+                margin: 0,
+              }}
+            >
               Queue is empty.
             </p>
           ) : (
-            <ul style={{ listStyle: "none", padding: 0, margin: 0, display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+            <ul
+              style={{
+                listStyle: "none",
+                padding: 0,
+                margin: 0,
+                display: "flex",
+                flexDirection: "column",
+                gap: "0.5rem",
+              }}
+            >
               {queue.map((item) => (
                 <li
                   key={item.id}
@@ -92,17 +128,25 @@ export function QueueInspectorModal() {
                     gap: "0.25rem",
                   }}
                 >
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                    <span style={{ fontWeight: 600 }}>{item.mutationClass}</span>
+                  <div
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "center",
+                    }}
+                  >
+                    <span style={{ fontWeight: 600 }}>
+                      {item.mutationClass}
+                    </span>
                     <Badge
                       tone={
                         item.status === "pending"
                           ? "info"
                           : item.status === "conflict"
-                          ? "warning"
-                          : item.status === "quarantined"
-                          ? "error"
-                          : "success"
+                            ? "warning"
+                            : item.status === "quarantined"
+                              ? "error"
+                              : "success"
                       }
                     >
                       {item.status}
@@ -113,7 +157,8 @@ export function QueueInspectorModal() {
                     <strong>Resource:</strong> {item.resourceId}
                   </div>
                   <div>
-                    <strong>Idempotency Key:</strong> {item.idempotencyKey.slice(0, 8)}…
+                    <strong>Idempotency Key:</strong>{" "}
+                    {item.idempotencyKey.slice(0, 8)}…
                   </div>
 
                   {item.errorMessage && (
@@ -122,19 +167,41 @@ export function QueueInspectorModal() {
                     </div>
                   )}
 
-                  <div style={{ display: "flex", gap: "0.25rem", marginTop: "0.25rem" }}>
+                  <div
+                    style={{
+                      display: "flex",
+                      gap: "0.25rem",
+                      marginTop: "0.25rem",
+                    }}
+                  >
                     <button
                       type="button"
                       onClick={() => removeMutation(item.id)}
-                      style={{ fontSize: "0.6875rem", color: "var(--color-error-text)", background: "none", border: "none", cursor: "pointer" }}
+                      style={{
+                        fontSize: "0.6875rem",
+                        color: "var(--color-error-text)",
+                        background: "none",
+                        border: "none",
+                        cursor: "pointer",
+                      }}
                     >
                       Remove
                     </button>
                     {item.status === "pending" && (
                       <button
                         type="button"
-                        onClick={() => updateMutationStatus(item.id, "quarantined", { errorMessage: "Manual quarantine via debug view" })}
-                        style={{ fontSize: "0.6875rem", color: "var(--color-text-muted)", background: "none", border: "none", cursor: "pointer" }}
+                        onClick={() =>
+                          updateMutationStatus(item.id, "quarantined", {
+                            errorMessage: "Manual quarantine via debug view",
+                          })
+                        }
+                        style={{
+                          fontSize: "0.6875rem",
+                          color: "var(--color-text-muted)",
+                          background: "none",
+                          border: "none",
+                          cursor: "pointer",
+                        }}
                       >
                         Quarantine
                       </button>

@@ -2,7 +2,15 @@
 /** Single navigation entry used by the app shell. */
 export interface NavItem {
   /** Key under the "nav" namespace in messages/*.json */
-  labelKey: "dashboard" | "delegations" | "orders" | "approvals" | "tracking" | "analytics" | "wallet" | "settings";
+  labelKey:
+    | "dashboard"
+    | "delegations"
+    | "orders"
+    | "approvals"
+    | "tracking"
+    | "analytics"
+    | "wallet"
+    | "settings";
   href: string;
   /** Emoji icon — TODO: replace with design-system icon set */
   icon: string;

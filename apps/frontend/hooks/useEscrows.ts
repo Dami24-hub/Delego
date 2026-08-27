@@ -23,7 +23,9 @@ export function useEscrows() {
       })
       .catch((err: unknown) => {
         if (cancelled) return;
-        setError(err instanceof Error ? err.message : "Failed to fetch escrows");
+        setError(
+          err instanceof Error ? err.message : "Failed to fetch escrows"
+        );
         setLoading(false);
       });
 

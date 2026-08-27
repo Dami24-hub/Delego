@@ -29,7 +29,15 @@ export function WizardStepLimits({
   return (
     <div className="settings-section">
       <div>
-        <label style={{ display: "flex", alignItems: "center", gap: "0.375rem", fontWeight: 500, marginBottom: "0.5rem" }}>
+        <label
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: "0.375rem",
+            fontWeight: 500,
+            marginBottom: "0.5rem",
+          }}
+        >
           {t("maxPerTransaction.label")}
           <HelpLink concept="delegation-limits" />
         </label>
@@ -41,7 +49,15 @@ export function WizardStepLimits({
       </div>
 
       <div>
-        <label style={{ display: "flex", alignItems: "center", gap: "0.375rem", fontWeight: 500, marginBottom: "0.5rem" }}>
+        <label
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: "0.375rem",
+            fontWeight: 500,
+            marginBottom: "0.5rem",
+          }}
+        >
           {t("maxTotal.label")}
           <HelpLink concept="delegation-limits" />
         </label>

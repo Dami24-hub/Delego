@@ -68,8 +68,12 @@ describe("featureFlags", () => {
 
     it("reads enabled status for known flag via full env name", () => {
       process.env.NEXT_PUBLIC_FEATURE_CLIENT_SIDE_SIGNING = "1";
-      expect(getStaticEnvFlag("NEXT_PUBLIC_FEATURE_CLIENT_SIDE_SIGNING")).toBe("1");
-      expect(isFeatureEnabled("NEXT_PUBLIC_FEATURE_CLIENT_SIDE_SIGNING")).toBe(true);
+      expect(getStaticEnvFlag("NEXT_PUBLIC_FEATURE_CLIENT_SIDE_SIGNING")).toBe(
+        "1"
+      );
+      expect(isFeatureEnabled("NEXT_PUBLIC_FEATURE_CLIENT_SIDE_SIGNING")).toBe(
+        true
+      );
     });
 
     it("returns false when known flag is set to false or omitted (disabled path)", () => {
@@ -87,15 +91,21 @@ describe("featureFlags", () => {
 
     it("respects initialFlags overrides when provided", () => {
       process.env.NEXT_PUBLIC_FEATURE_CLIENT_SIDE_SIGNING = "false";
-      expect(isFeatureEnabled("CLIENT_SIDE_SIGNING", { CLIENT_SIDE_SIGNING: true })).toBe(true);
-      expect(isFeatureEnabled("CLIENT_SIDE_SIGNING", { CLIENT_SIDE_SIGNING: false })).toBe(false);
+      expect(
+        isFeatureEnabled("CLIENT_SIDE_SIGNING", { CLIENT_SIDE_SIGNING: true })
+      ).toBe(true);
+      expect(
+        isFeatureEnabled("CLIENT_SIDE_SIGNING", { CLIENT_SIDE_SIGNING: false })
+      ).toBe(false);
     });
   });
 
   describe("useFeatureFlag hook", () => {
     it("works outside FeatureFlagProvider defaulting to static lookup", () => {
       process.env.NEXT_PUBLIC_FEATURE_CLIENT_SIDE_SIGNING = "true";
-      const { result } = renderHook(() => useFeatureFlag("CLIENT_SIDE_SIGNING"));
+      const { result } = renderHook(() =>
+        useFeatureFlag("CLIENT_SIDE_SIGNING")
+      );
       expect(result.current).toBe(true);
     });
 
@@ -108,7 +118,10 @@ describe("featureFlags", () => {
         </FeatureFlagProvider>
       );
 
-      const { result } = renderHook(() => useFeatureFlag("CLIENT_SIDE_SIGNING"), { wrapper });
+      const { result } = renderHook(
+        () => useFeatureFlag("CLIENT_SIDE_SIGNING"),
+        { wrapper }
+      );
       expect(result.current).toBe(true);
     });
 
@@ -117,7 +130,9 @@ describe("featureFlags", () => {
         <FeatureFlagProvider>{children}</FeatureFlagProvider>
       );
 
-      const { result } = renderHook(() => useFeatureFlag("UNKNOWN_FLAG"), { wrapper });
+      const { result } = renderHook(() => useFeatureFlag("UNKNOWN_FLAG"), {
+        wrapper,
+      });
       expect(result.current).toBe(false);
     });
   });
@@ -127,7 +142,10 @@ describe("featureFlags", () => {
       process.env.NEXT_PUBLIC_FEATURE_CLIENT_SIDE_SIGNING = "true";
 
       render(
-        <IfFeature name="CLIENT_SIDE_SIGNING" fallback={<div>Disabled Content</div>}>
+        <IfFeature
+          name="CLIENT_SIDE_SIGNING"
+          fallback={<div>Disabled Content</div>}
+        >
           <div>Enabled Content</div>
         </IfFeature>
       );
@@ -140,7 +158,10 @@ describe("featureFlags", () => {
       process.env.NEXT_PUBLIC_FEATURE_CLIENT_SIDE_SIGNING = "false";
 
       render(
-        <IfFeature name="CLIENT_SIDE_SIGNING" fallback={<div>Disabled Content</div>}>
+        <IfFeature
+          name="CLIENT_SIDE_SIGNING"
+          fallback={<div>Disabled Content</div>}
+        >
           <div>Enabled Content</div>
         </IfFeature>
       );
@@ -163,7 +184,10 @@ describe("featureFlags", () => {
 
     it("default-denies unknown flag names rendering fallback or null", () => {
       render(
-        <IfFeature name="UNKNOWN_FEATURE_FLAG" fallback={<div>Unknown Fallback</div>}>
+        <IfFeature
+          name="UNKNOWN_FEATURE_FLAG"
+          fallback={<div>Unknown Fallback</div>}
+        >
           <div>Feature Content</div>
         </IfFeature>
       );

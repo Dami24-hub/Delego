@@ -69,8 +69,14 @@ describe("isTerminal", () => {
 
 describe("isHighValue / needsApproval", () => {
   it("flags orders at or above the threshold", () => {
-    expect(isHighValue(makeOrder({ totalStroops: HIGH_VALUE_THRESHOLD_STROOPS }))).toBe(true);
-    expect(isHighValue(makeOrder({ totalStroops: HIGH_VALUE_THRESHOLD_STROOPS - 1n }))).toBe(false);
+    expect(
+      isHighValue(makeOrder({ totalStroops: HIGH_VALUE_THRESHOLD_STROOPS }))
+    ).toBe(true);
+    expect(
+      isHighValue(
+        makeOrder({ totalStroops: HIGH_VALUE_THRESHOLD_STROOPS - 1n })
+      )
+    ).toBe(false);
   });
 
   it("needsApproval requires pending_approval AND high value", () => {
@@ -94,9 +100,24 @@ describe("isHighValue / needsApproval", () => {
 
 describe("filterOrders", () => {
   const orders = [
-    makeOrder({ id: "a", status: "draft", merchantId: "acme", totalStroops: 5_000_000n }),
-    makeOrder({ id: "b", status: "settled", merchantId: "globex", totalStroops: 50_000_000n }),
-    makeOrder({ id: "c", status: "settled", merchantId: "acme", totalStroops: 20_000_000n }),
+    makeOrder({
+      id: "a",
+      status: "draft",
+      merchantId: "acme",
+      totalStroops: 5_000_000n,
+    }),
+    makeOrder({
+      id: "b",
+      status: "settled",
+      merchantId: "globex",
+      totalStroops: 50_000_000n,
+    }),
+    makeOrder({
+      id: "c",
+      status: "settled",
+      merchantId: "acme",
+      totalStroops: 20_000_000n,
+    }),
   ];
 
   it("returns all orders when no filters set", () => {
@@ -109,8 +130,13 @@ describe("filterOrders", () => {
   });
 
   it("filters by case-insensitive search across id and merchant", () => {
-    expect(filterOrders(orders, { search: "ACME" }).map((o) => o.id)).toEqual(["a", "c"]);
-    expect(filterOrders(orders, { search: "b" }).map((o) => o.id)).toEqual(["b"]);
+    expect(filterOrders(orders, { search: "ACME" }).map((o) => o.id)).toEqual([
+      "a",
+      "c",
+    ]);
+    expect(filterOrders(orders, { search: "b" }).map((o) => o.id)).toEqual([
+      "b",
+    ]);
   });
 
   it("filters by min/max total", () => {
@@ -133,20 +159,42 @@ describe("filterOrders", () => {
 
 describe("sortOrders", () => {
   const orders = [
-    makeOrder({ id: "a", totalStroops: 30n, createdAt: new Date("2026-01-03") }),
-    makeOrder({ id: "b", totalStroops: 10n, createdAt: new Date("2026-01-01") }),
-    makeOrder({ id: "c", totalStroops: 20n, createdAt: new Date("2026-01-02") }),
+    makeOrder({
+      id: "a",
+      totalStroops: 30n,
+      createdAt: new Date("2026-01-03"),
+    }),
+    makeOrder({
+      id: "b",
+      totalStroops: 10n,
+      createdAt: new Date("2026-01-01"),
+    }),
+    makeOrder({
+      id: "c",
+      totalStroops: 20n,
+      createdAt: new Date("2026-01-02"),
+    }),
   ];
 
   it("sorts by total descending / ascending without mutating input", () => {
     const original = orders.map((o) => o.id);
-    expect(sortOrders(orders, "totalStroops", "desc").map((o) => o.id)).toEqual(["a", "c", "b"]);
-    expect(sortOrders(orders, "totalStroops", "asc").map((o) => o.id)).toEqual(["b", "c", "a"]);
+    expect(sortOrders(orders, "totalStroops", "desc").map((o) => o.id)).toEqual(
+      ["a", "c", "b"]
+    );
+    expect(sortOrders(orders, "totalStroops", "asc").map((o) => o.id)).toEqual([
+      "b",
+      "c",
+      "a",
+    ]);
     expect(orders.map((o) => o.id)).toEqual(original);
   });
 
   it("sorts by date", () => {
-    expect(sortOrders(orders, "createdAt", "asc").map((o) => o.id)).toEqual(["b", "c", "a"]);
+    expect(sortOrders(orders, "createdAt", "asc").map((o) => o.id)).toEqual([
+      "b",
+      "c",
+      "a",
+    ]);
   });
 });
 
@@ -228,8 +276,16 @@ describe("orderToTimelineEvents", () => {
     const order = makeOrder({ status: "cancelled", createdAt, updatedAt });
     const events = orderToTimelineEvents(order);
     expect(events).toHaveLength(2);
-    expect(events[0]).toMatchObject({ type: "draft", tone: "success", timestamp: createdAt });
-    expect(events[1]).toMatchObject({ type: "cancelled", tone: "failed", timestamp: updatedAt });
+    expect(events[0]).toMatchObject({
+      type: "draft",
+      tone: "success",
+      timestamp: createdAt,
+    });
+    expect(events[1]).toMatchObject({
+      type: "cancelled",
+      tone: "failed",
+      timestamp: updatedAt,
+    });
   });
 
   it("renders disputed the same way as cancelled", () => {

@@ -107,7 +107,11 @@ export function CurrencyProvider({ children }: { children: ReactNode }) {
     [currencyId, setCurrency, rate, hydrated]
   );
 
-  return <CurrencyContext.Provider value={value}>{children}</CurrencyContext.Provider>;
+  return (
+    <CurrencyContext.Provider value={value}>
+      {children}
+    </CurrencyContext.Provider>
+  );
 }
 
 /** Access the active display-currency preference. Must be used within a CurrencyProvider. */

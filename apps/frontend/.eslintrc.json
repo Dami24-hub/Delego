@@ -75,70 +75,22 @@
             ],
             "allow": [
               "shared",
-              {
-                "type": "feature-analytics",
-                "specifiers": ["*/public"]
-              },
-              {
-                "type": "feature-announcements",
-                "specifiers": ["*/public"]
-              },
-              {
-                "type": "feature-command-palette",
-                "specifiers": ["*/public"]
-              },
-              {
-                "type": "feature-delegations",
-                "specifiers": ["*/public"]
-              },
-              {
-                "type": "feature-escrows",
-                "specifiers": ["*/public"]
-              },
-              {
-                "type": "feature-filters",
-                "specifiers": ["*/public"]
-              },
-              {
-                "type": "feature-layout",
-                "specifiers": ["*/public"]
-              },
-              {
-                "type": "feature-network",
-                "specifiers": ["*/public"]
-              },
-              {
-                "type": "feature-notifications",
-                "specifiers": ["*/public"]
-              },
-              {
-                "type": "feature-onboarding",
-                "specifiers": ["*/public"]
-              },
-              {
-                "type": "feature-orders",
-                "specifiers": ["*/public"]
-              },
-              {
-                "type": "feature-providers",
-                "specifiers": ["*/public"]
-              },
-              {
-                "type": "feature-pwa",
-                "specifiers": ["*/public"]
-              },
-              {
-                "type": "feature-search",
-                "specifiers": ["*/public"]
-              },
-              {
-                "type": "feature-settings",
-                "specifiers": ["*/public"]
-              },
-              {
-                "type": "feature-wallet",
-                "specifiers": ["*/public"]
-              }
+              "feature-analytics",
+              "feature-announcements",
+              "feature-command-palette",
+              "feature-delegations",
+              "feature-escrows",
+              "feature-filters",
+              "feature-layout",
+              "feature-network",
+              "feature-notifications",
+              "feature-onboarding",
+              "feature-orders",
+              "feature-providers",
+              "feature-pwa",
+              "feature-search",
+              "feature-settings",
+              "feature-wallet"
             ]
           }
         ]

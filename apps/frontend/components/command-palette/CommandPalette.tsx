@@ -75,9 +75,7 @@ export function CommandPalette({ onClose }: CommandPaletteProps) {
 
       // Avoid listing the same command twice (once under Recent, once under
       // its own group) — duplicate ids would also break aria-activedescendant.
-      const byGroup: ResultGroup[] = (
-        ["navigate", "actions"] as CommandGroup[]
-      )
+      const byGroup: ResultGroup[] = (["navigate", "actions"] as CommandGroup[])
         .map((group) => ({
           label: GROUP_LABEL[group],
           items: commands.filter(

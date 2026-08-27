@@ -4,7 +4,12 @@ import type { Escrow } from "@delegolabs/types";
 
 type EscrowStatus = Escrow["status"];
 
-const ALL_STATUSES: EscrowStatus[] = ["Funded", "Released", "Refunded", "Disputed"];
+const ALL_STATUSES: EscrowStatus[] = [
+  "Funded",
+  "Released",
+  "Refunded",
+  "Disputed",
+];
 
 export interface EscrowFiltersProps {
   search: string;

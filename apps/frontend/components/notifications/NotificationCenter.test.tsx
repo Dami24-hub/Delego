@@ -6,9 +6,9 @@ import { NotificationCenter } from "./NotificationCenter";
 const mockUseNotifications = vi.fn();
 
 vi.mock("../../hooks/useNotifications", async () => {
-  const actual = await vi.importActual<typeof import("../../hooks/useNotifications")>(
-    "../../hooks/useNotifications"
-  );
+  const actual = await vi.importActual<
+    typeof import("../../hooks/useNotifications")
+  >("../../hooks/useNotifications");
   return {
     ...actual,
     useNotifications: () => mockUseNotifications(),
@@ -16,13 +16,23 @@ vi.mock("../../hooks/useNotifications", async () => {
 });
 
 function baseState(overrides: Record<string, unknown> = {}) {
+  const notifications = (overrides.notifications as any[]) || [];
+  const unreadCount =
+    overrides.unreadCount !== undefined
+      ? (overrides.unreadCount as number)
+      : notifications.filter((n) => !n.read).length;
   return {
-    notifications: [],
-    unreadCount: 0,
+    notifications,
+    unreadCount,
+    mutedCount: 0,
+    groupingEnabled: false,
+    setGroupingEnabled: vi.fn(),
     markAllAsRead: vi.fn(),
+    markDelegationAsRead: vi.fn(),
     clearAll: vi.fn(),
     markAsRead: vi.fn(),
     remove: vi.fn(),
+    pruneNow: vi.fn(),
     ...overrides,
   };
 }
@@ -52,14 +62,18 @@ describe("NotificationCenter", () => {
     );
     render(<NotificationCenter onClose={() => {}} />);
 
-    expect(screen.getByRole("button", { name: /mark all read/i })).toHaveFocus();
+    expect(
+      screen.getByRole("button", { name: /mark all read/i })
+    ).toHaveFocus();
   });
 
   it("falls back to focusing the panel container when empty (all action buttons disabled)", () => {
     mockUseNotifications.mockReturnValue(baseState());
     render(<NotificationCenter onClose={() => {}} />);
 
-    expect(screen.getByRole("dialog", { name: /notifications/i })).toHaveFocus();
+    expect(
+      screen.getByRole("dialog", { name: /notifications/i })
+    ).toHaveFocus();
   });
 
   it("traps Tab focus within the panel", async () => {
@@ -97,7 +111,9 @@ describe("NotificationCenter", () => {
     trigger.focus();
 
     const { unmount } = render(<NotificationCenter onClose={() => {}} />);
-    expect(screen.getByRole("dialog", { name: /notifications/i })).toHaveFocus();
+    expect(
+      screen.getByRole("dialog", { name: /notifications/i })
+    ).toHaveFocus();
 
     unmount();
     expect(trigger).toHaveFocus();

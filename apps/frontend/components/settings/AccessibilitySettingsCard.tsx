@@ -1,7 +1,10 @@
 "use client";
 
 import { Card, Button } from "@delegolabs/ui";
-import { useAccessibility, type ReduceMotionMode } from "../../hooks/useAccessibility";
+import {
+  useAccessibility,
+  type ReduceMotionMode,
+} from "../../hooks/useAccessibility";
 
 /**
  * Settings page section for managing accessibility preferences (#607):
@@ -19,11 +22,27 @@ export function AccessibilitySettingsCard() {
   } = useAccessibility();
 
   return (
-    <Card title="Accessibility preferences" ariaLabel="Accessibility preferences">
+    <Card
+      title="Accessibility preferences"
+      ariaLabel="Accessibility preferences"
+    >
       <div className="settings-section">
         {/* Text Scale Slider */}
-        <div className="settings-toggle-row" style={{ flexDirection: "column", alignItems: "stretch", gap: "0.5rem" }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <div
+          className="settings-toggle-row"
+          style={{
+            flexDirection: "column",
+            alignItems: "stretch",
+            gap: "0.5rem",
+          }}
+        >
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+            }}
+          >
             <span className="settings-toggle-label" id="text-scale-label">
               Text scale ({preferences.textScale}%)
             </span>
@@ -38,8 +57,14 @@ export function AccessibilitySettingsCard() {
                     padding: "0.25rem 0.5rem",
                     borderRadius: "0.25rem",
                     border: "1px solid var(--color-border)",
-                    background: preferences.textScale === preset ? "var(--color-accent-bg)" : "var(--color-bg-surface)",
-                    color: preferences.textScale === preset ? "var(--color-accent)" : "var(--color-text-primary)",
+                    background:
+                      preferences.textScale === preset
+                        ? "var(--color-accent-bg)"
+                        : "var(--color-bg-surface)",
+                    color:
+                      preferences.textScale === preset
+                        ? "var(--color-accent)"
+                        : "var(--color-text-primary)",
                     cursor: "pointer",
                     fontWeight: preferences.textScale === preset ? 600 : 400,
                   }}
@@ -50,7 +75,8 @@ export function AccessibilitySettingsCard() {
             </div>
           </div>
           <p className="settings-toggle-hint">
-            Scales root font size (90% to 150%) so text and controls adjust across all pages.
+            Scales root font size (90% to 150%) so text and controls adjust
+            across all pages.
           </p>
           <input
             type="range"
@@ -67,16 +93,23 @@ export function AccessibilitySettingsCard() {
         {/* Forced High Contrast Toggle */}
         <label className="settings-toggle-row">
           <span>
-            <span className="settings-toggle-label">Forced high-contrast theme</span>
+            <span className="settings-toggle-label">
+              Forced high-contrast theme
+            </span>
             <p className="settings-toggle-hint">
-              Increases color contrast for borders, text, and focus indicators for enhanced visibility.
+              Increases color contrast for borders, text, and focus indicators
+              for enhanced visibility.
             </p>
           </span>
           <input
             type="checkbox"
             checked={preferences.highContrast}
             onChange={(e) => setHighContrast(e.target.checked)}
-            style={{ width: "1.125rem", height: "1.125rem", marginTop: "0.25rem" }}
+            style={{
+              width: "1.125rem",
+              height: "1.125rem",
+              marginTop: "0.25rem",
+            }}
           />
         </label>
 
@@ -90,13 +123,15 @@ export function AccessibilitySettingsCard() {
               {preferences.reduceMotion === "system"
                 ? "Following system settings (OS preferences)."
                 : preferences.reduceMotion === "on"
-                ? "Animations and smooth transitions are disabled."
-                : "Animations and smooth transitions are enabled."}
+                  ? "Animations and smooth transitions are disabled."
+                  : "Animations and smooth transitions are enabled."}
             </p>
           </span>
           <select
             value={preferences.reduceMotion}
-            onChange={(e) => setReduceMotion(e.target.value as ReduceMotionMode)}
+            onChange={(e) =>
+              setReduceMotion(e.target.value as ReduceMotionMode)
+            }
             aria-labelledby="reduce-motion-label"
             style={{
               padding: "0.375rem 0.625rem",
@@ -116,20 +151,33 @@ export function AccessibilitySettingsCard() {
         {/* Underline Links Toggle */}
         <label className="settings-toggle-row">
           <span>
-            <span className="settings-toggle-label">Always underline links</span>
+            <span className="settings-toggle-label">
+              Always underline links
+            </span>
             <p className="settings-toggle-hint">
-              Ensures text links have a visible underline regardless of hover state.
+              Ensures text links have a visible underline regardless of hover
+              state.
             </p>
           </span>
           <input
             type="checkbox"
             checked={preferences.underlineLinks}
             onChange={(e) => setUnderlineLinks(e.target.checked)}
-            style={{ width: "1.125rem", height: "1.125rem", marginTop: "0.25rem" }}
+            style={{
+              width: "1.125rem",
+              height: "1.125rem",
+              marginTop: "0.25rem",
+            }}
           />
         </label>
 
-        <div style={{ marginTop: "0.75rem", display: "flex", justifyContent: "flex-end" }}>
+        <div
+          style={{
+            marginTop: "0.75rem",
+            display: "flex",
+            justifyContent: "flex-end",
+          }}
+        >
           <Button variant="ghost" onClick={resetToDefaults}>
             Reset accessibility defaults
           </Button>

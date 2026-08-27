@@ -31,7 +31,10 @@ describe("formatNumber", () => {
 
   it("applies custom options", () => {
     expect(
-      formatNumber(0.4567, "en-US", { style: "percent", maximumFractionDigits: 1 })
+      formatNumber(0.4567, "en-US", {
+        style: "percent",
+        maximumFractionDigits: 1,
+      })
     ).toBe("45.7%");
   });
 });

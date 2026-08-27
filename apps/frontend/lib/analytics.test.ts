@@ -1,10 +1,6 @@
 import { describe, it, expect } from "vitest";
 import type { Order } from "@delegolabs/types";
-import {
-  isEmptySeries,
-  parseAnalyticsRange,
-  spendByRange,
-} from "./analytics";
+import { isEmptySeries, parseAnalyticsRange, spendByRange } from "./analytics";
 
 function makeOrder(overrides: Partial<Order> = {}): Order {
   return {
@@ -39,9 +35,21 @@ describe("parseAnalyticsRange", () => {
 describe("spendByRange", () => {
   it("sums spend into daily buckets for 7D, zero-filling days with no orders", () => {
     const orders = [
-      makeOrder({ id: "a", createdAt: new Date("2026-08-20T09:00:00Z"), totalStroops: 10_000_000n }),
-      makeOrder({ id: "b", createdAt: new Date("2026-08-20T15:00:00Z"), totalStroops: 5_000_000n }),
-      makeOrder({ id: "c", createdAt: new Date("2026-08-22T09:00:00Z"), totalStroops: 2_000_000n }),
+      makeOrder({
+        id: "a",
+        createdAt: new Date("2026-08-20T09:00:00Z"),
+        totalStroops: 10_000_000n,
+      }),
+      makeOrder({
+        id: "b",
+        createdAt: new Date("2026-08-20T15:00:00Z"),
+        totalStroops: 5_000_000n,
+      }),
+      makeOrder({
+        id: "c",
+        createdAt: new Date("2026-08-22T09:00:00Z"),
+        totalStroops: 2_000_000n,
+      }),
     ];
 
     const buckets = spendByRange(orders, "7d", { now: NOW });
@@ -56,8 +64,16 @@ describe("spendByRange", () => {
   it("excludes orders that never became real spend", () => {
     const orders = [
       makeOrder({ id: "draft", status: "draft", totalStroops: 999_000_000n }),
-      makeOrder({ id: "pending", status: "pending_approval", totalStroops: 999_000_000n }),
-      makeOrder({ id: "cancelled", status: "cancelled", totalStroops: 999_000_000n }),
+      makeOrder({
+        id: "pending",
+        status: "pending_approval",
+        totalStroops: 999_000_000n,
+      }),
+      makeOrder({
+        id: "cancelled",
+        status: "cancelled",
+        totalStroops: 999_000_000n,
+      }),
       makeOrder({ id: "settled", status: "settled", totalStroops: 3_000_000n }),
     ];
 
@@ -68,7 +84,11 @@ describe("spendByRange", () => {
 
   it("excludes orders outside the range window", () => {
     const orders = [
-      makeOrder({ id: "old", createdAt: new Date("2026-01-01T00:00:00Z"), totalStroops: 50_000_000n }),
+      makeOrder({
+        id: "old",
+        createdAt: new Date("2026-01-01T00:00:00Z"),
+        totalStroops: 50_000_000n,
+      }),
     ];
     const buckets = spendByRange(orders, "7d", { now: NOW });
     expect(isEmptySeries(buckets)).toBe(true);
@@ -84,7 +104,9 @@ describe("spendByRange", () => {
 
 describe("isEmptySeries", () => {
   it("is true only when every bucket is zero", () => {
-    expect(isEmptySeries([{ bucketStart: "x", label: "x", totalStroops: 0n }])).toBe(true);
+    expect(
+      isEmptySeries([{ bucketStart: "x", label: "x", totalStroops: 0n }])
+    ).toBe(true);
     expect(
       isEmptySeries([
         { bucketStart: "x", label: "x", totalStroops: 0n },

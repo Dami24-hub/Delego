@@ -1,10 +1,17 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import type { AppNotification, NotificationType } from "../../hooks/useNotifications";
+import type {
+  AppNotification,
+  NotificationType,
+} from "../../hooks/useNotifications";
 import { useNotifications } from "../../hooks/useNotifications";
 import { useFocusTrap } from "../../hooks/useFocusTrap";
+import {
+  groupNotifications,
+  type NotificationStack,
+} from "../../lib/notificationThreading";
 
 const TYPE_ICON: Record<NotificationType, string> = {
   info: "ℹ️",
@@ -35,7 +42,7 @@ function NotificationItem({ notification, onClose }: NotificationItemProps) {
   const { markAsRead, remove } = useNotifications();
 
   function handleActivate() {
-    markAsRead(notification.id);
+    if (typeof markAsRead === "function") markAsRead(notification.id);
     if (notification.href) onClose();
   }
 
@@ -84,10 +91,94 @@ function NotificationItem({ notification, onClose }: NotificationItemProps) {
         type="button"
         className="notification-item-dismiss"
         aria-label="Dismiss notification"
-        onClick={() => remove(notification.id)}
+        onClick={() => remove && remove(notification.id)}
       >
         ✕
       </button>
+    </li>
+  );
+}
+
+interface NotificationStackItemProps {
+  stack: NotificationStack;
+  onClose: () => void;
+}
+
+function NotificationStackItem({ stack, onClose }: NotificationStackItemProps) {
+  const { markDelegationAsRead } = useNotifications();
+  const [expanded, setExpanded] = useState(false);
+
+  const handleMarkStackRead = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (typeof markDelegationAsRead === "function") {
+      markDelegationAsRead(stack.delegationId);
+    }
+  };
+
+  return (
+    <li className="notification-stack-container border-b last:border-b-0 border-slate-200 dark:border-slate-800">
+      <div
+        className={`notification-stack-header flex items-center justify-between p-3 cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-900/50 transition ${
+          stack.unreadCount > 0 ? "bg-slate-50/80 dark:bg-slate-900/30" : ""
+        }`}
+        onClick={() => setExpanded(!expanded)}
+      >
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            className="text-xs font-bold px-1.5 py-0.5 rounded bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300"
+            aria-label={expanded ? "Collapse stack" : "Expand stack"}
+          >
+            {expanded ? "▼" : "▶"}
+          </button>
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-mono font-bold text-slate-500">
+                Delegation: {stack.delegationId}
+              </span>
+              {stack.unreadCount > 0 && (
+                <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-indigo-500/10 text-indigo-600 dark:text-indigo-400">
+                  {stack.unreadCount} unread
+                </span>
+              )}
+            </div>
+            <p className="text-xs text-slate-700 dark:text-slate-300 font-medium truncate max-w-xs">
+              {stack.latest.title}
+            </p>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2">
+          {stack.unreadCount > 0 && (
+            <button
+              type="button"
+              onClick={handleMarkStackRead}
+              className="text-xs font-medium text-indigo-600 dark:text-indigo-400 hover:underline"
+            >
+              Mark read
+            </button>
+          )}
+          <Link
+            href={`/delegations/${stack.delegationId}`}
+            onClick={onClose}
+            className="text-xs text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+          >
+            View detail
+          </Link>
+        </div>
+      </div>
+
+      {expanded && (
+        <ul className="notification-stack-children pl-4 bg-slate-100/50 dark:bg-slate-950/40 border-t border-slate-200 dark:border-slate-800">
+          {stack.items.map((item) => (
+            <NotificationItem
+              key={item.id}
+              notification={item}
+              onClose={onClose}
+            />
+          ))}
+        </ul>
+      )}
     </li>
   );
 }
@@ -97,14 +188,13 @@ export interface NotificationCenterProps {
   onClose: () => void;
 }
 
-/**
- * Dropdown panel listing in-app notifications with mark-all-read and clear-all
- * controls. Rendered by NotificationBell when the bell is open.
- */
 export function NotificationCenter({ onClose }: NotificationCenterProps) {
   const {
-    notifications,
-    unreadCount,
+    notifications = [],
+    unreadCount = 0,
+    mutedCount = 0,
+    groupingEnabled = true,
+    setGroupingEnabled,
     markAllAsRead,
     clearAll,
     undoClearAll,
@@ -116,10 +206,14 @@ export function NotificationCenter({ onClose }: NotificationCenterProps) {
 
   useFocusTrap(panelRef, true);
 
-  // Lazy prune on center open (#605)
+  // Lazy prune on center open (#605) safely
   useEffect(() => {
-    pruneNow();
+    if (typeof pruneNow === "function") {
+      pruneNow();
+    }
   }, [pruneNow]);
+
+  const groupedEntries = groupNotifications(notifications, groupingEnabled);
 
   return (
     <div
@@ -146,6 +240,19 @@ export function NotificationCenter({ onClose }: NotificationCenterProps) {
           >
             Mark all read
           </button>
+          {setGroupingEnabled && (
+            <button
+              type="button"
+              className="notification-center-action"
+              onClick={() => setGroupingEnabled(!groupingEnabled)}
+              disabled={notifications.length === 0}
+              title={
+                groupingEnabled ? "Switch to flat list" : "Group by delegation"
+              }
+            >
+              {groupingEnabled ? "Grouped" : "Flat"}
+            </button>
+          )}
           <button
             type="button"
             className="notification-center-action"
@@ -156,6 +263,12 @@ export function NotificationCenter({ onClose }: NotificationCenterProps) {
           </button>
         </div>
       </div>
+
+      {mutedCount > 0 && (
+        <div className="notification-muted-bar bg-amber-500/10 text-amber-700 dark:text-amber-300 text-xs px-3 py-1.5 border-b border-amber-500/20 flex items-center justify-between">
+          <span>🌙 {mutedCount} muted while quiet hours active</span>
+        </div>
+      )}
 
       {canUndoClear && (
         <div
@@ -213,16 +326,26 @@ export function NotificationCenter({ onClose }: NotificationCenterProps) {
         </div>
       ) : (
         <ul className="notification-list">
-          {notifications.map((notification) => (
-            <NotificationItem
-              key={notification.id}
-              notification={notification}
-              onClose={onClose}
-            />
-          ))}
+          {groupedEntries.map((entry, idx) => {
+            if (entry.type === "single") {
+              return (
+                <NotificationItem
+                  key={entry.notification.id}
+                  notification={entry.notification}
+                  onClose={onClose}
+                />
+              );
+            }
+            return (
+              <NotificationStackItem
+                key={`stack-${entry.stack.delegationId}-${idx}`}
+                stack={entry.stack}
+                onClose={onClose}
+              />
+            );
+          })}
         </ul>
       )}
     </div>
   );
 }
-

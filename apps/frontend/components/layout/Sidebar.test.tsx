@@ -17,8 +17,12 @@ describe("Sidebar", () => {
       </NextIntlClientProvider>
     );
 
-    expect(screen.getByRole("link", { name: /dashboard/i })).toBeInTheDocument();
-    expect(screen.getByRole("complementary", { name: "Primary navigation" })).toBeInTheDocument();
+    expect(
+      screen.getByRole("link", { name: /dashboard/i })
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("complementary", { name: "Primary navigation" })
+    ).toBeInTheDocument();
   });
 
   it("renders translated nav labels for a locale with full nav coverage", () => {
@@ -28,7 +32,11 @@ describe("Sidebar", () => {
       </NextIntlClientProvider>
     );
 
-    expect(screen.getByRole("link", { name: /Übersicht/i })).toBeInTheDocument();
-    expect(screen.getByRole("complementary", { name: "Hauptnavigation" })).toBeInTheDocument();
+    expect(
+      screen.getByRole("link", { name: /Übersicht/i })
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("complementary", { name: "Hauptnavigation" })
+    ).toBeInTheDocument();
   });
 });

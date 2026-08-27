@@ -12,7 +12,9 @@ function makeOrder(overrides: Partial<Order> = {}): Order {
     delegationId: "del-1",
     merchantId: "merchant-1",
     status: "pending_approval",
-    lineItems: [{ productId: "sku-1", quantity: 2, unitPriceStroops: 5_000_000n }],
+    lineItems: [
+      { productId: "sku-1", quantity: 2, unitPriceStroops: 5_000_000n },
+    ],
     totalStroops: 10_000_000n,
     escrowContractId: null,
     createdAt: new Date("2026-01-01T00:00:00Z"),
@@ -43,7 +45,9 @@ describe("ApprovalDrawer", () => {
         onClose={vi.fn()}
       />
     );
-    const dialog = screen.getByRole("dialog", { name: "Order order-1 details" });
+    const dialog = screen.getByRole("dialog", {
+      name: "Order order-1 details",
+    });
     expect(dialog.getAttribute("aria-modal")).toBe("true");
   });
 
@@ -68,7 +72,9 @@ describe("ApprovalDrawer", () => {
       priceRangeByProductId: {
         "sku-1": { lowStroops: 4_000_000n, highStroops: 6_000_000n },
       },
-      evidenceLinks: [{ url: "https://example.com/offer", label: "Comparable offer" }],
+      evidenceLinks: [
+        { url: "https://example.com/offer", label: "Comparable offer" },
+      ],
       delegationContext: { remainingLimitStroops: 20_000_000n },
     };
 
@@ -84,10 +90,14 @@ describe("ApprovalDrawer", () => {
 
     expect(screen.getByText("Why the agent chose this")).toBeDefined();
     expect(
-      screen.getByText("Chose the lowest-priced comparable offer within budget.")
+      screen.getByText(
+        "Chose the lowest-priced comparable offer within budget."
+      )
     ).toBeDefined();
     expect(screen.getByText("Decision evidence")).toBeDefined();
-    expect(screen.getByRole("link", { name: "Comparable offer" })).toBeDefined();
+    expect(
+      screen.getByRole("link", { name: "Comparable offer" })
+    ).toBeDefined();
     expect(screen.getByText("Remaining limit")).toBeDefined();
     expect(screen.getByText("2.00 XLM")).toBeDefined();
   });

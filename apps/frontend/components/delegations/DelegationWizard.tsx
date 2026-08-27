@@ -3,10 +3,16 @@
 import { useEffect, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import { Button, Card, Stepper } from "@delegolabs/ui";
-import type { CreateDelegationInput, DelegationPermissionLevel } from "@delegolabs/types";
+import type {
+  CreateDelegationInput,
+  DelegationPermissionLevel,
+} from "@delegolabs/types";
 import { useDelegationWizardDraft } from "../../hooks/useDelegationWizardDraft";
 import { useAnnounce } from "../../hooks/useAnnounce";
-import { useDemoModeGuard, DEMO_MODE_BLOCKED_MESSAGE } from "../../hooks/useDemoModeGuard";
+import {
+  useDemoModeGuard,
+  DEMO_MODE_BLOCKED_MESSAGE,
+} from "../../hooks/useDemoModeGuard";
 import {
   DELEGATION_WIZARD_STEPS,
   draftToCreateInput,
@@ -64,7 +70,9 @@ export function DelegationWizard({
 
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
-  const [touchedSteps, setTouchedSteps] = useState<Set<DelegationWizardStepId>>(new Set());
+  const [touchedSteps, setTouchedSteps] = useState<Set<DelegationWizardStepId>>(
+    new Set()
+  );
 
   /**
    * Step heading ref — moves focus to the <h2> heading when advancing between
@@ -143,14 +151,20 @@ export function DelegationWizard({
   });
 
   const showError = (field: string) =>
-    touchedSteps.has(stepId) ? Boolean((errors as Record<string, string | undefined>)[field]) : false;
+    touchedSteps.has(stepId)
+      ? Boolean((errors as Record<string, string | undefined>)[field])
+      : false;
 
   const currentStepLabel = tSteps(STEP_LABEL_KEYS[stepId]);
 
   return (
     <Card title={t("title")} ariaLabel={t("ariaLabel")}>
       {hasStoredDraft && (
-        <div className="settings-status" role="status" style={{ marginBottom: "1rem" }}>
+        <div
+          className="settings-status"
+          role="status"
+          style={{ marginBottom: "1rem" }}
+        >
           <span>{tSteps("resumeDraft")}</span>{" "}
           <Button variant="ghost" onClick={resumeDraft}>
             {tSteps("resumeDraftAction")}
@@ -162,16 +176,27 @@ export function DelegationWizard({
       )}
 
       <div style={{ marginBottom: "1.5rem" }}>
-        <Stepper steps={steps} currentIndex={stepIndex} onStepSelect={goToStep} />
+        <Stepper
+          steps={steps}
+          currentIndex={stepIndex}
+          onStepSelect={goToStep}
+        />
         {/*
           Visually hidden progress text is surfaced to AT via the step heading
           below; this visible paragraph gives sighted users a compact counter.
         */}
         <p
-          style={{ fontSize: "0.75rem", color: "var(--color-text-muted)", marginTop: "0.5rem" }}
+          style={{
+            fontSize: "0.75rem",
+            color: "var(--color-text-muted)",
+            marginTop: "0.5rem",
+          }}
           aria-hidden="true"
         >
-          {tSteps("stepOf", { current: stepIndex + 1, total: DELEGATION_WIZARD_STEPS.length })}
+          {tSteps("stepOf", {
+            current: stepIndex + 1,
+            total: DELEGATION_WIZARD_STEPS.length,
+          })}
         </p>
       </div>
 
@@ -183,10 +208,19 @@ export function DelegationWizard({
       <h2
         ref={stepHeadingRef}
         tabIndex={-1}
-        style={{ fontSize: "1rem", fontWeight: 600, margin: "0 0 1rem", outline: "none" }}
+        style={{
+          fontSize: "1rem",
+          fontWeight: 600,
+          margin: "0 0 1rem",
+          outline: "none",
+        }}
       >
         <span className="sr-only">
-          {tSteps("stepOf", { current: stepIndex + 1, total: DELEGATION_WIZARD_STEPS.length })}:{" "}
+          {tSteps("stepOf", {
+            current: stepIndex + 1,
+            total: DELEGATION_WIZARD_STEPS.length,
+          })}
+          :{" "}
         </span>
         {currentStepLabel}
       </h2>
@@ -206,9 +240,9 @@ export function DelegationWizard({
           label={draft.label}
           onLabelChange={(label) => updateDraft({ ...draft, label })}
           permissionLevel={draft.permissionLevel}
-          onPermissionLevelChange={(permissionLevel: DelegationPermissionLevel) =>
-            updateDraft({ ...draft, permissionLevel })
-          }
+          onPermissionLevelChange={(
+            permissionLevel: DelegationPermissionLevel
+          ) => updateDraft({ ...draft, permissionLevel })}
           allowedCategories={draft.allowedCategories}
           onAllowedCategoriesChange={(allowedCategories) =>
             updateDraft({ ...draft, allowedCategories })
@@ -234,7 +268,9 @@ export function DelegationWizard({
           maxTotal={draft.maxTotal}
           onMaxTotalChange={(maxTotal) => updateDraft({ ...draft, maxTotal })}
           expiresAt={draft.expiresAt}
-          onExpiresAtChange={(expiresAt) => updateDraft({ ...draft, expiresAt })}
+          onExpiresAtChange={(expiresAt) =>
+            updateDraft({ ...draft, expiresAt })
+          }
           maxTotalError={showError("maxTotal") ? errors.maxTotal : undefined}
         />
       )}
@@ -249,7 +285,12 @@ export function DelegationWizard({
 
       <div className="form-actions">
         {!isFirstStep && (
-          <Button variant="ghost" type="button" onClick={handleBack} disabled={submitting}>
+          <Button
+            variant="ghost"
+            type="button"
+            onClick={handleBack}
+            disabled={submitting}
+          >
             {tSteps("back")}
           </Button>
         )}
@@ -258,12 +299,23 @@ export function DelegationWizard({
           type="button"
           onClick={handleNext}
           disabled={submitting || (isLastStep && isDemoMode)}
-          title={isLastStep && isDemoMode ? DEMO_MODE_BLOCKED_MESSAGE : undefined}
+          title={
+            isLastStep && isDemoMode ? DEMO_MODE_BLOCKED_MESSAGE : undefined
+          }
         >
-          {isLastStep ? (submitting ? t("submitting") : t("submit")) : tSteps("next")}
+          {isLastStep
+            ? submitting
+              ? t("submitting")
+              : t("submit")
+            : tSteps("next")}
         </Button>
         {onCancel && (
-          <Button variant="ghost" type="button" onClick={handleCancel} disabled={submitting}>
+          <Button
+            variant="ghost"
+            type="button"
+            onClick={handleCancel}
+            disabled={submitting}
+          >
             {tCommon("cancel")}
           </Button>
         )}

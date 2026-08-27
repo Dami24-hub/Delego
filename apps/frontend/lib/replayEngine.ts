@@ -49,13 +49,19 @@ export async function replayOfflineQueue(): Promise<ReplayResult> {
         await updateMutationStatus(item.id, "replaying");
 
         try {
-          let res: { error?: { message?: string; status?: number; code?: string }; data?: unknown } | null = null;
+          let res: {
+            error?: { message?: string; status?: number; code?: string };
+            data?: unknown;
+          } | null = null;
 
           if (item.mutationClass === "approve_order") {
             res = (await api.approveOrder(item.resourceId)) as typeof res;
           } else if (item.mutationClass === "reject_order") {
             const reason = (item.payload.reason as string) ?? undefined;
-            res = (await api.rejectOrder(item.resourceId, reason)) as typeof res;
+            res = (await api.rejectOrder(
+              item.resourceId,
+              reason
+            )) as typeof res;
           } else if (item.mutationClass === "update_delegation") {
             res = (await api.updateDelegation(
               item.resourceId,
@@ -76,8 +82,10 @@ export async function replayOfflineQueue(): Promise<ReplayResult> {
             if (isConflict) {
               conflictsCount++;
               await updateMutationStatus(item.id, "conflict", {
-                errorMessage: res.error.message ?? "State changed while offline",
-                conflictServerState: (res.data as Record<string, unknown>) ?? undefined,
+                errorMessage:
+                  res.error.message ?? "State changed while offline",
+                conflictServerState:
+                  (res.data as Record<string, unknown>) ?? undefined,
               });
               // Stop replaying subsequent mutations for this specific resource to avoid cascade errors
               break;
@@ -104,7 +112,8 @@ export async function replayOfflineQueue(): Promise<ReplayResult> {
         } catch (err) {
           // Revert to pending on unexpected failure
           await updateMutationStatus(item.id, "pending", {
-            errorMessage: err instanceof Error ? err.message : "Replay attempt failed",
+            errorMessage:
+              err instanceof Error ? err.message : "Replay attempt failed",
           });
           break;
         }

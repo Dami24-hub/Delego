@@ -32,7 +32,10 @@ export async function fetchMerchantDirectory(
       credentials: "include",
     });
     if (!res.ok) {
-      return { merchants: [], error: `Failed to load merchant directory (${res.status})` };
+      return {
+        merchants: [],
+        error: `Failed to load merchant directory (${res.status})`,
+      };
     }
     const data: unknown = await res.json();
     if (!isDirectoryMerchantArray(data)) {
@@ -66,6 +69,7 @@ export function filterMerchants(
   const query = search.trim().toLowerCase();
   if (!query) return merchants;
   return merchants.filter(
-    (m) => m.id.toLowerCase().includes(query) || m.name.toLowerCase().includes(query)
+    (m) =>
+      m.id.toLowerCase().includes(query) || m.name.toLowerCase().includes(query)
   );
 }

@@ -33,7 +33,9 @@ export function LanguageSwitcher() {
         >
           {t("label")}
         </label>
-        <p style={{ fontSize: "0.875rem", color: "#666", margin: "0 0 0.5rem" }}>
+        <p
+          style={{ fontSize: "0.875rem", color: "#666", margin: "0 0 0.5rem" }}
+        >
           {t("hint")}
         </p>
         <select

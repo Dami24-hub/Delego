@@ -19,7 +19,10 @@ describe("useOsNotifications", () => {
     MockNotification.permission = "default";
     MockNotification.requestPermission = vi.fn().mockResolvedValue("granted");
     vi.stubGlobal("Notification", MockNotification);
-    Object.defineProperty(document, "hidden", { configurable: true, value: true });
+    Object.defineProperty(document, "hidden", {
+      configurable: true,
+      value: true,
+    });
   });
 
   afterEach(() => {
@@ -76,7 +79,10 @@ describe("useOsNotifications", () => {
   });
 
   it("does not fire when the tab is visible (foreground)", async () => {
-    Object.defineProperty(document, "hidden", { configurable: true, value: false });
+    Object.defineProperty(document, "hidden", {
+      configurable: true,
+      value: false,
+    });
     const { result } = renderHook(() => useOsNotifications());
     act(() => result.current.setEnabled(true));
     await act(async () => {
@@ -91,6 +97,8 @@ describe("useOsNotifications", () => {
     await act(async () => {
       await result.current.requestPermission();
     });
-    expect(result.current.notify({ title: "New approval", tag: "order-1" })).toBe(true);
+    expect(
+      result.current.notify({ title: "New approval", tag: "order-1" })
+    ).toBe(true);
   });
 });

@@ -33,8 +33,8 @@ export function DemoBanner() {
         🧪
       </span>
       <span>
-        <strong>Demo — no real funds.</strong> You&apos;re viewing sample
-        data; actions that would change anything are disabled.
+        <strong>Demo — no real funds.</strong> You&apos;re viewing sample data;
+        actions that would change anything are disabled.
       </span>
       <button type="button" className="demo-banner-exit" onClick={handleExit}>
         Exit demo
