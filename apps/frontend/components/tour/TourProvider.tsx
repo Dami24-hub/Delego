@@ -86,7 +86,7 @@ export function TourProvider({ children }: { children: ReactNode }) {
     if (hasSeen) return;
     const timer = setTimeout(() => setActive(true), 600);
     return () => clearTimeout(timer);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const dismiss = useCallback(() => {
@@ -115,7 +115,7 @@ export function TourProvider({ children }: { children: ReactNode }) {
     });
   }, [complete]);
 
-  const currentStep = active ? TOUR_STEPS[stepIndex] ?? null : null;
+  const currentStep = active ? (TOUR_STEPS[stepIndex] ?? null) : null;
 
   const value: TourContextValue = {
     active,
@@ -175,7 +175,11 @@ const POPOVER_PADDING = 12;
 function computePopoverPosition(
   anchor: Rect,
   placement: TourStep["placement"] = "auto"
-): { top: number; left: number; arrowSide: "top" | "bottom" | "left" | "right" } {
+): {
+  top: number;
+  left: number;
+  arrowSide: "top" | "bottom" | "left" | "right";
+} {
   const vw = window.innerWidth;
   const vh = window.innerHeight;
 
@@ -200,10 +204,22 @@ function computePopoverPosition(
 
   if (side === "bottom") {
     top = anchor.top + anchor.height + POPOVER_PADDING + window.scrollY;
-    left = Math.max(8, Math.min(vw - POPOVER_WIDTH - 8, anchor.left + anchor.width / 2 - POPOVER_WIDTH / 2));
+    left = Math.max(
+      8,
+      Math.min(
+        vw - POPOVER_WIDTH - 8,
+        anchor.left + anchor.width / 2 - POPOVER_WIDTH / 2
+      )
+    );
   } else if (side === "top") {
     top = anchor.top - POPOVER_PADDING + window.scrollY; // adjusted below with translateY(-100%)
-    left = Math.max(8, Math.min(vw - POPOVER_WIDTH - 8, anchor.left + anchor.width / 2 - POPOVER_WIDTH / 2));
+    left = Math.max(
+      8,
+      Math.min(
+        vw - POPOVER_WIDTH - 8,
+        anchor.left + anchor.width / 2 - POPOVER_WIDTH / 2
+      )
+    );
   } else if (side === "right") {
     top = anchor.top + anchor.height / 2 + window.scrollY;
     left = anchor.left + anchor.width + POPOVER_PADDING;
@@ -215,7 +231,14 @@ function computePopoverPosition(
   return {
     top,
     left: Math.max(8, Math.min(vw - POPOVER_WIDTH - 8, left)),
-    arrowSide: side === "bottom" ? "top" : side === "top" ? "bottom" : side === "right" ? "left" : "right",
+    arrowSide:
+      side === "bottom"
+        ? "top"
+        : side === "top"
+          ? "bottom"
+          : side === "right"
+            ? "left"
+            : "right",
   };
 }
 
@@ -227,7 +250,13 @@ function computePopoverPosition(
  * Missing anchor → skips gracefully (via the skipIfMissing effect).
  * Esc → dismiss. Tab stays within the popover (leverages existing useFocusTrap pattern).
  */
-function TourOverlay({ step, stepIndex, totalSteps, onNext, onDismiss }: TourOverlayProps) {
+function TourOverlay({
+  step,
+  stepIndex,
+  totalSteps,
+  onNext,
+  onDismiss,
+}: TourOverlayProps) {
   const [anchorRect, setAnchorRect] = useState<Rect | null>(null);
   const popoverRef = useRef<HTMLDivElement>(null);
   const nextButtonRef = useRef<HTMLButtonElement>(null);
@@ -248,7 +277,12 @@ function TourOverlay({ step, stepIndex, totalSteps, onNext, onDismiss }: TourOve
 
     function updateRect() {
       const r = el!.getBoundingClientRect();
-      setAnchorRect({ top: r.top, left: r.left, width: r.width, height: r.height });
+      setAnchorRect({
+        top: r.top,
+        left: r.left,
+        width: r.width,
+        height: r.height,
+      });
     }
 
     updateRect();
@@ -296,9 +330,15 @@ function TourOverlay({ step, stepIndex, totalSteps, onNext, onDismiss }: TourOve
       const last = focusable[focusable.length - 1];
       const current = document.activeElement;
       if (e.shiftKey) {
-        if (current === first) { e.preventDefault(); last.focus(); }
+        if (current === first) {
+          e.preventDefault();
+          last.focus();
+        }
       } else {
-        if (current === last) { e.preventDefault(); first.focus(); }
+        if (current === last) {
+          e.preventDefault();
+          first.focus();
+        }
       }
     }
     document.addEventListener("keydown", handleTab);
@@ -367,7 +407,8 @@ function TourOverlay({ step, stepIndex, totalSteps, onNext, onDismiss }: TourOve
             background: "var(--color-bg-card, #fff)",
             boxShadow: "0 8px 24px rgba(0,0,0,0.18)",
             color: "var(--color-text-primary, #111827)",
-            transform: step.placement === "top" ? "translateY(-100%)" : undefined,
+            transform:
+              step.placement === "top" ? "translateY(-100%)" : undefined,
           }}
         >
           {/* Step counter */}
@@ -384,14 +425,34 @@ function TourOverlay({ step, stepIndex, totalSteps, onNext, onDismiss }: TourOve
             {stepIndex + 1} / {totalSteps}
           </p>
 
-          <p style={{ margin: "0 0 0.25rem", fontWeight: 700, fontSize: "0.9375rem" }}>
+          <p
+            style={{
+              margin: "0 0 0.25rem",
+              fontWeight: 700,
+              fontSize: "0.9375rem",
+            }}
+          >
             {step.title}
           </p>
-          <p style={{ margin: "0 0 0.875rem", fontSize: "0.875rem", lineHeight: 1.55, color: "var(--color-text-secondary, #4b5563)" }}>
+          <p
+            style={{
+              margin: "0 0 0.875rem",
+              fontSize: "0.875rem",
+              lineHeight: 1.55,
+              color: "var(--color-text-secondary, #4b5563)",
+            }}
+          >
             {step.body}
           </p>
 
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "0.5rem" }}>
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              gap: "0.5rem",
+            }}
+          >
             <button
               type="button"
               onClick={onDismiss}

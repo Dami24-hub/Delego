@@ -18,7 +18,10 @@ const MS_PER_HOUR = 3_600_000;
 export type ApprovalUrgency = "normal" | "warning" | "critical";
 
 /** Milliseconds elapsed since `createdAt`, floored at zero. */
-export function getApprovalAgeMs(createdAt: Date, now: Date = new Date()): number {
+export function getApprovalAgeMs(
+  createdAt: Date,
+  now: Date = new Date()
+): number {
   return Math.max(0, now.getTime() - createdAt.getTime());
 }
 
@@ -53,6 +56,8 @@ export function countStaleApprovals(
 ): number {
   const thresholdMs = thresholdHours * MS_PER_HOUR;
   return orders.filter(
-    (order) => needsApproval(order) && getApprovalAgeMs(order.createdAt, now) >= thresholdMs
+    (order) =>
+      needsApproval(order) &&
+      getApprovalAgeMs(order.createdAt, now) >= thresholdMs
   ).length;
 }

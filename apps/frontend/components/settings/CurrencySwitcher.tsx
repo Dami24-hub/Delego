@@ -11,7 +11,8 @@ import type { CurrencyId } from "../../lib/currencies";
  * only affects client-side formatting).
  */
 export function CurrencySwitcher() {
-  const { currencyId, currencies, setCurrency, rate, rateIsStale } = useCurrency();
+  const { currencyId, currencies, setCurrency, rate, rateIsStale } =
+    useCurrency();
   const isEstimateMode = currencyId !== "XLM";
 
   return (
@@ -23,9 +24,11 @@ export function CurrencySwitcher() {
         >
           Display currency
         </label>
-        <p style={{ fontSize: "0.875rem", color: "#666", margin: "0 0 0.5rem" }}>
-          Choose how amounts are displayed across the app. Balances are always held and
-          transacted in XLM.
+        <p
+          style={{ fontSize: "0.875rem", color: "#666", margin: "0 0 0.5rem" }}
+        >
+          Choose how amounts are displayed across the app. Balances are always
+          held and transacted in XLM.
         </p>
         <select
           id="currency-select"
@@ -42,10 +45,14 @@ export function CurrencySwitcher() {
         {isEstimateMode && rate && rateIsStale && (
           <p
             role="status"
-            style={{ fontSize: "0.8125rem", color: "#92400e", marginTop: "0.5rem" }}
+            style={{
+              fontSize: "0.8125rem",
+              color: "#92400e",
+              marginTop: "0.5rem",
+            }}
           >
-            Showing a {rate.isFallback ? "placeholder" : "cached"} exchange rate — live rates are
-            unavailable right now.
+            Showing a {rate.isFallback ? "placeholder" : "cached"} exchange rate
+            — live rates are unavailable right now.
           </p>
         )}
       </div>

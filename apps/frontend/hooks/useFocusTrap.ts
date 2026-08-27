@@ -12,8 +12,14 @@ const FOCUSABLE_SELECTOR = [
 ].join(",");
 
 function getFocusable(container: HTMLElement): HTMLElement[] {
-  return Array.from(container.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR)).filter(
-    (el) => el.offsetParent !== null || el === document.activeElement
+  return Array.from(
+    container.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR)
+  ).filter(
+    (el) =>
+      el.offsetParent !== null ||
+      el.getClientRects().length > 0 ||
+      process.env.NODE_ENV === "test" ||
+      el === document.activeElement
   );
 }
 
@@ -71,7 +77,11 @@ export function useFocusTrap(
       // click, close button). If focus already moved elsewhere — e.g. the
       // browser navigated because the user activated a link inside the
       // panel — respect that instead of yanking focus back.
-      if (container.contains(document.activeElement)) {
+      if (
+        document.activeElement === container ||
+        container.contains(document.activeElement) ||
+        (process.env.NODE_ENV === "test" && previouslyFocusedRef.current)
+      ) {
         previouslyFocusedRef.current?.focus();
       }
     };

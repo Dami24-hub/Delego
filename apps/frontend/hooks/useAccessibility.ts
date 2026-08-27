@@ -80,18 +80,21 @@ export function useAccessibility(): UseAccessibilityReturn {
     applyPreferences(stored);
   }, []);
 
-  const updatePreferences = useCallback((updater: (prev: A11yPreferences) => A11yPreferences) => {
-    setPreferencesState((prev) => {
-      const next = updater(prev);
-      try {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
-      } catch {
-        /* ignore */
-      }
-      applyPreferences(next);
-      return next;
-    });
-  }, []);
+  const updatePreferences = useCallback(
+    (updater: (prev: A11yPreferences) => A11yPreferences) => {
+      setPreferencesState((prev) => {
+        const next = updater(prev);
+        try {
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+        } catch {
+          /* ignore */
+        }
+        applyPreferences(next);
+        return next;
+      });
+    },
+    []
+  );
 
   const setTextScale = useCallback(
     (scale: number) => {

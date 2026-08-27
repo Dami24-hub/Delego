@@ -21,7 +21,13 @@ function Registrar({ commands }: { commands: Command[] }) {
 
 function Reader() {
   const commands = useCommandRegistry();
-  return <ul>{commands.map((c) => <li key={c.id}>{c.label}</li>)}</ul>;
+  return (
+    <ul>
+      {commands.map((c) => (
+        <li key={c.id}>{c.label}</li>
+      ))}
+    </ul>
+  );
 }
 
 describe("useCommandRegistry", () => {

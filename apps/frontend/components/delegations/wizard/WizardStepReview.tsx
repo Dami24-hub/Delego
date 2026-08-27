@@ -31,12 +31,17 @@ export function WizardStepReview({ draft }: WizardStepReviewProps) {
     agentLabel: draft.label.trim() || draft.agentId,
     maxTotal: `${draft.maxTotal ? Number(draft.maxTotal) / 10_000_000 : 0} XLM`,
     merchantScope,
-    expiry: draft.expiresAt ? formatExpiry(draft.expiresAt) : t("summaryNoExpiry"),
+    expiry: draft.expiresAt
+      ? formatExpiry(draft.expiresAt)
+      : t("summaryNoExpiry"),
   });
 
   return (
     <div className="settings-section">
-      <div className="card" style={{ background: "var(--color-bg-secondary, #f9fafb)" }}>
+      <div
+        className="card"
+        style={{ background: "var(--color-bg-secondary, #f9fafb)" }}
+      >
         <p style={{ fontSize: "1rem", margin: 0 }}>{summary}</p>
       </div>
 
@@ -75,7 +80,11 @@ export function WizardStepReview({ draft }: WizardStepReviewProps) {
         </div>
         <div className="wallet-detail-row">
           <dt>Merchants</dt>
-          <dd>{draft.unrestrictedMerchants ? "All merchants" : draft.allowedMerchants.join(", ")}</dd>
+          <dd>
+            {draft.unrestrictedMerchants
+              ? "All merchants"
+              : draft.allowedMerchants.join(", ")}
+          </dd>
         </div>
         <div className="wallet-detail-row">
           <dt>Categories</dt>

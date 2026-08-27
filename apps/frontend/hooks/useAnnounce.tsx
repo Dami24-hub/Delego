@@ -1,6 +1,12 @@
 "use client";
 
-import { createContext, useCallback, useContext, useRef, useState } from "react";
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useRef,
+  useState,
+} from "react";
 import type { ReactNode } from "react";
 
 type Politeness = "polite" | "assertive";
@@ -24,16 +30,25 @@ const AnnounceContext = createContext<AnnounceContextValue | null>(null);
 export function AnnounceProvider({ children }: { children: ReactNode }) {
   const [politeMessage, setPoliteMessage] = useState("");
   const [assertiveMessage, setAssertiveMessage] = useState("");
-  const politeTimeoutRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
-  const assertiveTimeoutRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const politeTimeoutRef = useRef<ReturnType<typeof setTimeout> | undefined>(
+    undefined
+  );
+  const assertiveTimeoutRef = useRef<ReturnType<typeof setTimeout> | undefined>(
+    undefined
+  );
 
-  const announce = useCallback((message: string, politeness: Politeness = "polite") => {
-    const setMessage = politeness === "assertive" ? setAssertiveMessage : setPoliteMessage;
-    const timeoutRef = politeness === "assertive" ? assertiveTimeoutRef : politeTimeoutRef;
-    setMessage("");
-    if (timeoutRef.current) clearTimeout(timeoutRef.current);
-    timeoutRef.current = setTimeout(() => setMessage(message), 50);
-  }, []);
+  const announce = useCallback(
+    (message: string, politeness: Politeness = "polite") => {
+      const setMessage =
+        politeness === "assertive" ? setAssertiveMessage : setPoliteMessage;
+      const timeoutRef =
+        politeness === "assertive" ? assertiveTimeoutRef : politeTimeoutRef;
+      setMessage("");
+      if (timeoutRef.current) clearTimeout(timeoutRef.current);
+      timeoutRef.current = setTimeout(() => setMessage(message), 50);
+    },
+    []
+  );
 
   return (
     <AnnounceContext.Provider value={{ announce }}>
@@ -52,7 +67,7 @@ export function AnnounceProvider({ children }: { children: ReactNode }) {
 export function useAnnounce(): AnnounceContextValue {
   const ctx = useContext(AnnounceContext);
   if (!ctx) {
-    throw new Error("useAnnounce must be used within an AnnounceProvider");
+    return { announce: () => {} };
   }
   return ctx;
 }

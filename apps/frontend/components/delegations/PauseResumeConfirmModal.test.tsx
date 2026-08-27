@@ -31,8 +31,12 @@ describe("PauseResumeConfirmModal", () => {
     );
 
     expect(screen.getByRole("dialog")).toBeInTheDocument();
-    expect(screen.getByText("Pause Delegation for agent-123?")).toBeInTheDocument();
-    expect(screen.getByText(/No new spends can be initiated/i)).toBeInTheDocument();
+    expect(
+      screen.getByText("Pause Delegation for agent-123?")
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/No new spends can be initiated/i)
+    ).toBeInTheDocument();
 
     fireEvent.click(screen.getByText("Pause Delegation"));
     expect(handleConfirm).toHaveBeenCalledTimes(1);

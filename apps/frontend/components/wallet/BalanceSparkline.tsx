@@ -42,7 +42,9 @@ export function BalanceSparkline({
       const y =
         maxVal === minVal
           ? padding.top + innerHeight / 2
-          : padding.top + innerHeight - ((pt.balance - minVal) / valRange) * innerHeight;
+          : padding.top +
+            innerHeight -
+            ((pt.balance - minVal) / valRange) * innerHeight;
       return { x, y, date: pt.date, balance: pt.balance };
     });
 
@@ -57,8 +59,17 @@ export function BalanceSparkline({
 
   if (!pointsData) {
     return (
-      <div className={`sparkline-empty ${className}`} role="img" aria-label="No historical balance data available">
-        <svg viewBox={`0 0 ${width} ${height}`} width="100%" height={height} preserveAspectRatio="none">
+      <div
+        className={`sparkline-empty ${className}`}
+        role="img"
+        aria-label="No historical balance data available"
+      >
+        <svg
+          viewBox={`0 0 ${width} ${height}`}
+          width="100%"
+          height={height}
+          preserveAspectRatio="none"
+        >
           <line
             x1={padding.left}
             y1={height / 2}
@@ -69,7 +80,9 @@ export function BalanceSparkline({
             strokeWidth="1.5"
           />
         </svg>
-        <span className="sparkline-empty-text">No balance history available</span>
+        <span className="sparkline-empty-text">
+          No balance history available
+        </span>
       </div>
     );
   }
@@ -85,7 +98,12 @@ export function BalanceSparkline({
         {activePt && (
           <span className="sparkline-badge">
             <span className="sparkline-date">{activePt.date}</span>:{" "}
-            <strong>{activePt.balance.toLocaleString(undefined, { maximumFractionDigits: 4 })} XLM</strong>
+            <strong>
+              {activePt.balance.toLocaleString(undefined, {
+                maximumFractionDigits: 4,
+              })}{" "}
+              XLM
+            </strong>
           </span>
         )}
       </div>
@@ -100,8 +118,16 @@ export function BalanceSparkline({
         >
           <defs>
             <linearGradient id="sparkline-gradient" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor="var(--color-accent)" stopOpacity="0.25" />
-              <stop offset="100%" stopColor="var(--color-accent)" stopOpacity="0.0" />
+              <stop
+                offset="0%"
+                stopColor="var(--color-accent)"
+                stopOpacity="0.25"
+              />
+              <stop
+                offset="100%"
+                stopColor="var(--color-accent)"
+                stopOpacity="0.0"
+              />
             </linearGradient>
           </defs>
 
@@ -125,7 +151,11 @@ export function BalanceSparkline({
               cx={pt.x}
               cy={pt.y}
               r={hoverIndex === idx ? 5 : idx === points.length - 1 ? 4 : 0}
-              fill={hoverIndex === idx ? "var(--color-bg-surface)" : "var(--color-accent)"}
+              fill={
+                hoverIndex === idx
+                  ? "var(--color-bg-surface)"
+                  : "var(--color-accent)"
+              }
               stroke="var(--color-accent)"
               strokeWidth={hoverIndex === idx ? 2.5 : 0}
               style={{ transition: "r 0.15s ease" }}

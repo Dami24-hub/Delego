@@ -25,7 +25,10 @@ const PHASE_LABEL: Record<string, string> = {
  * full account, distinct from the table-scoped orders CSV export in the
  * command palette (see hooks/useBuiltinCommands.ts).
  */
-export function PrivacyExportCard({ user, preferences }: PrivacyExportCardProps) {
+export function PrivacyExportCard({
+  user,
+  preferences,
+}: PrivacyExportCardProps) {
   const { status, progress, error, start, cancel } = useAccountExport();
   const running = status === "running";
 
@@ -38,22 +41,27 @@ export function PrivacyExportCard({ user, preferences }: PrivacyExportCardProps)
     <Card title="Privacy" ariaLabel="Privacy settings">
       <div className="settings-section">
         <div>
-          <p className="settings-toggle-label" style={{ display: "flex", alignItems: "center", gap: "0.375rem" }}>
+          <p
+            className="settings-toggle-label"
+            style={{ display: "flex", alignItems: "center", gap: "0.375rem" }}
+          >
             Export your data
             <HelpLink concept="privacy" />
           </p>
           <p className="settings-toggle-hint">
             Download a complete copy of your account — profile, delegations,
             orders, and approval decisions — as a single JSON file. You control
-            your data; this includes everything, not just what&apos;s on
-            screen right now.
+            your data; this includes everything, not just what&apos;s on screen
+            right now.
           </p>
         </div>
 
         {running && (
           <div className="export-progress" role="status" aria-live="polite">
             <p className="export-progress-label">
-              {progress ? PHASE_LABEL[progress.phase] ?? "Exporting…" : "Starting export…"}
+              {progress
+                ? (PHASE_LABEL[progress.phase] ?? "Exporting…")
+                : "Starting export…"}
             </p>
             <div className="utilization-bar-track">
               <div
@@ -86,10 +94,7 @@ export function PrivacyExportCard({ user, preferences }: PrivacyExportCardProps)
               Cancel export
             </Button>
           ) : (
-            <Button
-              variant="primary"
-              onClick={() => start(user, preferences)}
-            >
+            <Button variant="primary" onClick={() => start(user, preferences)}>
               Request full export
             </Button>
           )}

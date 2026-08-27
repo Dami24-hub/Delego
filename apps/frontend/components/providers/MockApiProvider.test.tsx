@@ -32,7 +32,9 @@ describe("MockApiProvider", () => {
       </MockApiProvider>
     );
 
-    await waitFor(() => expect(screen.getByText("App content")).toBeInTheDocument());
+    await waitFor(() =>
+      expect(screen.getByText("App content")).toBeInTheDocument()
+    );
     expect(mockStart).not.toHaveBeenCalled();
   });
 
@@ -45,8 +47,12 @@ describe("MockApiProvider", () => {
       </MockApiProvider>
     );
 
-    await waitFor(() => expect(mockStart).toHaveBeenCalledWith({ onUnhandledRequest: "bypass" }));
-    await waitFor(() => expect(screen.getByText("App content")).toBeInTheDocument());
+    await waitFor(() =>
+      expect(mockStart).toHaveBeenCalledWith({ onUnhandledRequest: "bypass" })
+    );
+    await waitFor(() =>
+      expect(screen.getByText("App content")).toBeInTheDocument()
+    );
   });
 
   it("starts the MSW worker when demo mode is active, even without the env flag", async () => {
@@ -59,7 +65,11 @@ describe("MockApiProvider", () => {
       </MockApiProvider>
     );
 
-    await waitFor(() => expect(mockStart).toHaveBeenCalledWith({ onUnhandledRequest: "bypass" }));
-    await waitFor(() => expect(screen.getByText("App content")).toBeInTheDocument());
+    await waitFor(() =>
+      expect(mockStart).toHaveBeenCalledWith({ onUnhandledRequest: "bypass" })
+    );
+    await waitFor(() =>
+      expect(screen.getByText("App content")).toBeInTheDocument()
+    );
   });
 });

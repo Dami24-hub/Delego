@@ -17,18 +17,25 @@ describe("useDelegationWizardDraft", () => {
   });
 
   it("persists updates and resuming restores step position", async () => {
-    const { result, unmount } = renderHook(() => useDelegationWizardDraft("wallet-1"));
+    const { result, unmount } = renderHook(() =>
+      useDelegationWizardDraft("wallet-1")
+    );
     await waitFor(() => expect(result.current.hydrated).toBe(true));
 
     act(() => {
-      result.current.updateDraft({ ...result.current.draft, agentId: "agent-1" });
+      result.current.updateDraft({
+        ...result.current.draft,
+        agentId: "agent-1",
+      });
     });
     act(() => {
       result.current.goToStep(2);
     });
     unmount();
 
-    const { result: resumed } = renderHook(() => useDelegationWizardDraft("wallet-1"));
+    const { result: resumed } = renderHook(() =>
+      useDelegationWizardDraft("wallet-1")
+    );
     await waitFor(() => expect(resumed.current.hydrated).toBe(true));
     expect(resumed.current.hasStoredDraft).toBe(true);
 
@@ -46,7 +53,10 @@ describe("useDelegationWizardDraft", () => {
     await waitFor(() => expect(result.current.hydrated).toBe(true));
 
     act(() => {
-      result.current.updateDraft({ ...result.current.draft, agentId: "agent-1" });
+      result.current.updateDraft({
+        ...result.current.draft,
+        agentId: "agent-1",
+      });
       result.current.goToStep(1);
     });
     act(() => {
@@ -55,7 +65,9 @@ describe("useDelegationWizardDraft", () => {
 
     expect(result.current.draft.agentId).toBe("");
     expect(result.current.stepIndex).toBe(0);
-    expect(window.localStorage.getItem("delego_delegation_wizard_draft")).toBeNull();
+    expect(
+      window.localStorage.getItem("delego_delegation_wizard_draft")
+    ).toBeNull();
   });
 
   it("ignores a corrupt stored draft", async () => {

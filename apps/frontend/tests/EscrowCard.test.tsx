@@ -54,7 +54,9 @@ describe("EscrowCard", () => {
 
   it("renders the formatted amount", () => {
     renderEscrowCard(fundedEscrow);
-    expect(screen.getByTestId("escrow-amount")).toHaveTextContent("1,500.00 XLM");
+    expect(screen.getByTestId("escrow-amount")).toHaveTextContent(
+      "1,500.00 XLM"
+    );
   });
 
   it("renders the status badge with correct label", () => {
@@ -65,17 +67,23 @@ describe("EscrowCard", () => {
 
   it("shows Released badge when status is Released", () => {
     renderEscrowCard(releasedEscrow);
-    expect(screen.getByTestId("escrow-status-badge")).toHaveTextContent("Released");
+    expect(screen.getByTestId("escrow-status-badge")).toHaveTextContent(
+      "Released"
+    );
   });
 
   it("shows Refunded badge when status is Refunded", () => {
     renderEscrowCard(refundedEscrow);
-    expect(screen.getByTestId("escrow-status-badge")).toHaveTextContent("Refunded");
+    expect(screen.getByTestId("escrow-status-badge")).toHaveTextContent(
+      "Refunded"
+    );
   });
 
   it("shows Disputed badge when status is Disputed", () => {
     renderEscrowCard(disputedEscrow);
-    expect(screen.getByTestId("escrow-status-badge")).toHaveTextContent("Disputed");
+    expect(screen.getByTestId("escrow-status-badge")).toHaveTextContent(
+      "Disputed"
+    );
   });
 
   it("renders buyer and seller addresses shortened", () => {

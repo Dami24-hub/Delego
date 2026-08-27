@@ -2,7 +2,10 @@
 
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { renderHook } from "@testing-library/react";
-import { useDemoModeGuard, DEMO_MODE_BLOCKED_MESSAGE } from "./useDemoModeGuard";
+import {
+  useDemoModeGuard,
+  DEMO_MODE_BLOCKED_MESSAGE,
+} from "./useDemoModeGuard";
 import { enableDemoMode } from "../lib/demoMode";
 
 describe("useDemoModeGuard", () => {

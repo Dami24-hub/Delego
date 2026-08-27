@@ -97,8 +97,6 @@ export function findNetworkByFreighterName(
   const normalized = freighterNetwork.trim().toUpperCase();
   return Object.values(NETWORKS).find(
     (net) =>
-      net.freighterNetwork === normalized ||
-      net.id.toUpperCase() === normalized
+      net.freighterNetwork === normalized || net.id.toUpperCase() === normalized
   );
 }
-

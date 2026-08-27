@@ -126,8 +126,8 @@ export function NetworkMismatchModal({
                 fontWeight: 500,
               }}
             >
-              Your wallet is on <strong>{walletNetworkLabel}</strong> but the app
-              is on <strong>{appNetworkLabel}</strong>
+              Your wallet is on <strong>{walletNetworkLabel}</strong> but the
+              app is on <strong>{appNetworkLabel}</strong>
             </p>
 
             <p
@@ -138,9 +138,9 @@ export function NetworkMismatchModal({
                 lineHeight: 1.4,
               }}
             >
-              Signing transactions across mismatched Stellar networks will result in
-              signing failures. Please align your wallet and app network settings to
-              continue.
+              Signing transactions across mismatched Stellar networks will
+              result in signing failures. Please align your wallet and app
+              network settings to continue.
             </p>
 
             <div
@@ -185,13 +185,27 @@ export function NetworkMismatchModal({
                   lineHeight: 1.5,
                 }}
               >
-                <p style={{ margin: "0 0 0.5rem", fontWeight: 600, color: "#1f2937" }}>
+                <p
+                  style={{
+                    margin: "0 0 0.5rem",
+                    fontWeight: 600,
+                    color: "#1f2937",
+                  }}
+                >
                   How to switch networks in Freighter:
                 </p>
                 <ol style={{ margin: 0, paddingLeft: "1.25rem" }}>
-                  <li>Open the <strong>Freighter extension</strong> from your browser toolbar.</li>
-                  <li>Click on the <strong>Network dropdown</strong> or Settings gear icon.</li>
-                  <li>Select <strong>{appNetworkLabel}</strong> to match the app.</li>
+                  <li>
+                    Open the <strong>Freighter extension</strong> from your
+                    browser toolbar.
+                  </li>
+                  <li>
+                    Click on the <strong>Network dropdown</strong> or Settings
+                    gear icon.
+                  </li>
+                  <li>
+                    Select <strong>{appNetworkLabel}</strong> to match the app.
+                  </li>
                   <li>The app will automatically update once switched.</li>
                 </ol>
               </div>

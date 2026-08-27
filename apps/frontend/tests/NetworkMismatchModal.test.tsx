@@ -12,7 +12,9 @@ describe("NetworkMismatchModal", () => {
   it("does not render when there is no network mismatch", () => {
     render(<NetworkMismatchModal isMismatched={false} />, { wrapper });
 
-    expect(screen.queryByTestId("network-mismatch-modal")).not.toBeInTheDocument();
+    expect(
+      screen.queryByTestId("network-mismatch-modal")
+    ).not.toBeInTheDocument();
   });
 
   it("renders blocking modal when wallet is on Mainnet but app is on Testnet", () => {
@@ -76,7 +78,9 @@ describe("NetworkMismatchModal", () => {
       { wrapper }
     );
 
-    expect(screen.queryByTestId("freighter-instructions")).not.toBeInTheDocument();
+    expect(
+      screen.queryByTestId("freighter-instructions")
+    ).not.toBeInTheDocument();
 
     const toggleBtn = screen.getByTestId("toggle-instructions-btn");
     fireEvent.click(toggleBtn);
@@ -87,6 +91,8 @@ describe("NetworkMismatchModal", () => {
     );
 
     fireEvent.click(toggleBtn);
-    expect(screen.queryByTestId("freighter-instructions")).not.toBeInTheDocument();
+    expect(
+      screen.queryByTestId("freighter-instructions")
+    ).not.toBeInTheDocument();
   });
 });

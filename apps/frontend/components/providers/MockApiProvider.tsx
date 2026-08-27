@@ -17,7 +17,9 @@ import { isDemoMode } from "../../lib/demoMode";
  * inside the effect, after hydration has already completed.
  */
 export function MockApiProvider({ children }: { children: ReactNode }) {
-  const [ready, setReady] = useState(process.env.NEXT_PUBLIC_MOCK_API !== "true");
+  const [ready, setReady] = useState(
+    process.env.NEXT_PUBLIC_MOCK_API !== "true"
+  );
 
   useEffect(() => {
     if (process.env.NEXT_PUBLIC_MOCK_API !== "true" && !isDemoMode()) {

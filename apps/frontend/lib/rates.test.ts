@@ -28,7 +28,12 @@ describe("fetchXlmRate", () => {
     process.env.NEXT_PUBLIC_XLM_RATE_URL = "https://rates.example.com/xlm-usd";
     vi.stubGlobal(
       "fetch",
-      vi.fn().mockResolvedValue({ ok: true, json: async () => ({ xlmUsdRate: 0.15 }) })
+      vi
+        .fn()
+        .mockResolvedValue({
+          ok: true,
+          json: async () => ({ xlmUsdRate: 0.15 }),
+        })
     );
     const { fetchXlmRate } = await import("./rates.js");
 
@@ -41,12 +46,20 @@ describe("fetchXlmRate", () => {
     process.env.NEXT_PUBLIC_XLM_RATE_URL = "https://rates.example.com/xlm-usd";
     vi.stubGlobal(
       "fetch",
-      vi.fn().mockResolvedValue({ ok: true, json: async () => ({ xlmUsdRate: 0.2 }) })
+      vi
+        .fn()
+        .mockResolvedValue({
+          ok: true,
+          json: async () => ({ xlmUsdRate: 0.2 }),
+        })
     );
     const { fetchXlmRate } = await import("./rates.js");
     await fetchXlmRate();
 
-    vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("network down")));
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockRejectedValue(new Error("network down"))
+    );
     const snapshot = await fetchXlmRate();
 
     expect(snapshot).toMatchObject({ xlmUsdRate: 0.2, isFallback: false });
@@ -54,7 +67,10 @@ describe("fetchXlmRate", () => {
 
   it("falls back to the static rate when the endpoint fails and nothing is cached", async () => {
     process.env.NEXT_PUBLIC_XLM_RATE_URL = "https://rates.example.com/xlm-usd";
-    vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("network down")));
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockRejectedValue(new Error("network down"))
+    );
     const { fetchXlmRate } = await import("./rates.js");
 
     const snapshot = await fetchXlmRate();
@@ -66,7 +82,12 @@ describe("fetchXlmRate", () => {
     process.env.NEXT_PUBLIC_XLM_RATE_URL = "https://rates.example.com/xlm-usd";
     vi.stubGlobal(
       "fetch",
-      vi.fn().mockResolvedValue({ ok: true, json: async () => ({ xlmUsdRate: "not-a-number" }) })
+      vi
+        .fn()
+        .mockResolvedValue({
+          ok: true,
+          json: async () => ({ xlmUsdRate: "not-a-number" }),
+        })
     );
     const { fetchXlmRate } = await import("./rates.js");
 
@@ -79,20 +100,30 @@ describe("fetchXlmRate", () => {
 describe("isRateStale", () => {
   it("treats a fallback snapshot as always stale", async () => {
     const { isRateStale } = await import("./rates.js");
-    expect(isRateStale({ xlmUsdRate: 0.12, fetchedAt: Date.now(), isFallback: true })).toBe(true);
+    expect(
+      isRateStale({ xlmUsdRate: 0.12, fetchedAt: Date.now(), isFallback: true })
+    ).toBe(true);
   });
 
   it("treats a fresh live snapshot as not stale", async () => {
     const { isRateStale } = await import("./rates.js");
-    expect(isRateStale({ xlmUsdRate: 0.12, fetchedAt: Date.now(), isFallback: false })).toBe(
-      false
-    );
+    expect(
+      isRateStale({
+        xlmUsdRate: 0.12,
+        fetchedAt: Date.now(),
+        isFallback: false,
+      })
+    ).toBe(false);
   });
 
   it("treats an old live snapshot as stale", async () => {
     const { isRateStale } = await import("./rates.js");
     expect(
-      isRateStale({ xlmUsdRate: 0.12, fetchedAt: Date.now() - 10 * 60 * 1000, isFallback: false })
+      isRateStale({
+        xlmUsdRate: 0.12,
+        fetchedAt: Date.now() - 10 * 60 * 1000,
+        isFallback: false,
+      })
     ).toBe(true);
   });
 });

@@ -2,7 +2,13 @@ import { describe, it, expect } from "vitest";
 import { render, screen, waitFor, act } from "@testing-library/react";
 import { AnnounceProvider, useAnnounce } from "./useAnnounce";
 
-function Announcer({ message, assertive = false }: { message: string; assertive?: boolean }) {
+function Announcer({
+  message,
+  assertive = false,
+}: {
+  message: string;
+  assertive?: boolean;
+}) {
   const { announce } = useAnnounce();
   return (
     <button
@@ -87,9 +93,9 @@ describe("useAnnounce", () => {
       expect(document.querySelector('[aria-live="polite"]')?.textContent).toBe(
         "Order approved."
       );
-      expect(document.querySelector('[aria-live="assertive"]')?.textContent).toBe(
-        "Something failed."
-      );
+      expect(
+        document.querySelector('[aria-live="assertive"]')?.textContent
+      ).toBe("Something failed.");
     });
   });
 

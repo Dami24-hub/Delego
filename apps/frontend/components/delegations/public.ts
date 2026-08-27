@@ -11,5 +11,5 @@ export { DelegationList } from "./DelegationList";
 export { DelegationWizard } from "./DelegationWizard";
 export { DelegationQR } from "./DelegationQR";
 export { ExpiryCountdown } from "./ExpiryCountdown";
-export type { DelegationWizardProps } from "./DelegationWizard";
-export type { DelegationFormProps } from "./DelegationForm";
+export { DelegationTagBadge } from "./DelegationTagBadge";
+export { DelegationTagPicker } from "./DelegationTagPicker";

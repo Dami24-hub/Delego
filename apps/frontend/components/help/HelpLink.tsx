@@ -1,7 +1,11 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { HELP_LINKS, getHelpUrl, type HelpConceptKey } from "../../lib/helpLinks";
+import {
+  HELP_LINKS,
+  getHelpUrl,
+  type HelpConceptKey,
+} from "../../lib/helpLinks";
 
 export interface HelpLinkProps {
   /** The concept this help affordance explains */
@@ -73,7 +77,14 @@ export function HelpLink({ concept, size = "sm" }: HelpLinkProps) {
   const fontSize = size === "md" ? "0.75rem" : "0.625rem";
 
   return (
-    <span className="help-link-wrapper" style={{ display: "inline-flex", alignItems: "center", position: "relative" }}>
+    <span
+      className="help-link-wrapper"
+      style={{
+        display: "inline-flex",
+        alignItems: "center",
+        position: "relative",
+      }}
+    >
       <button
         ref={triggerRef}
         type="button"
@@ -114,12 +125,16 @@ export function HelpLink({ concept, size = "sm" }: HelpLinkProps) {
           transition: "color 0.15s ease, border-color 0.15s ease",
         }}
         onMouseOver={(e) => {
-          (e.currentTarget as HTMLButtonElement).style.color = "var(--color-text-primary, #111827)";
-          (e.currentTarget as HTMLButtonElement).style.borderColor = "var(--color-text-primary, #111827)";
+          (e.currentTarget as HTMLButtonElement).style.color =
+            "var(--color-text-primary, #111827)";
+          (e.currentTarget as HTMLButtonElement).style.borderColor =
+            "var(--color-text-primary, #111827)";
         }}
         onMouseOut={(e) => {
-          (e.currentTarget as HTMLButtonElement).style.color = "var(--color-text-tertiary, #9ca3af)";
-          (e.currentTarget as HTMLButtonElement).style.borderColor = "var(--color-text-tertiary, #9ca3af)";
+          (e.currentTarget as HTMLButtonElement).style.color =
+            "var(--color-text-tertiary, #9ca3af)";
+          (e.currentTarget as HTMLButtonElement).style.borderColor =
+            "var(--color-text-tertiary, #9ca3af)";
         }}
       >
         ?
@@ -170,10 +185,18 @@ export function HelpLink({ concept, size = "sm" }: HelpLinkProps) {
             }}
           />
 
-          <p style={{ margin: "0 0 0.25rem", fontWeight: 600, fontSize: "0.8125rem" }}>
+          <p
+            style={{
+              margin: "0 0 0.25rem",
+              fontWeight: 600,
+              fontSize: "0.8125rem",
+            }}
+          >
             {link.label}
           </p>
-          <p style={{ margin: "0 0 0.5rem", fontSize: "0.75rem", opacity: 0.85 }}>
+          <p
+            style={{ margin: "0 0 0.5rem", fontSize: "0.75rem", opacity: 0.85 }}
+          >
             {link.description}
           </p>
           <a

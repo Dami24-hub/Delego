@@ -22,7 +22,9 @@ export function PauseResumeConfirmModal({
   if (!isOpen) return null;
 
   const isPause = action === "pause";
-  const title = isPause ? `Pause Delegation for ${agentId}?` : `Resume Delegation for ${agentId}?`;
+  const title = isPause
+    ? `Pause Delegation for ${agentId}?`
+    : `Resume Delegation for ${agentId}?`;
 
   return (
     <div
@@ -49,8 +51,15 @@ export function PauseResumeConfirmModal({
           <div style={{ margin: "1rem 0" }}>
             {isPause ? (
               <>
-                <p style={{ color: "var(--color-text-main, #374151)", fontSize: "0.9375rem" }}>
-                  Pausing this delegation temporarily stops the agent from making new spending requests or executing orders on your behalf.
+                <p
+                  style={{
+                    color: "var(--color-text-main, #374151)",
+                    fontSize: "0.9375rem",
+                  }}
+                >
+                  Pausing this delegation temporarily stops the agent from
+                  making new spending requests or executing orders on your
+                  behalf.
                 </p>
                 <div
                   style={{
@@ -63,17 +72,32 @@ export function PauseResumeConfirmModal({
                     marginTop: "0.75rem",
                   }}
                 >
-                  ℹ️ <strong>Paused Semantics:</strong> No new spends can be initiated. Any pending manual approvals remain decidable.
+                  ℹ️ <strong>Paused Semantics:</strong> No new spends can be
+                  initiated. Any pending manual approvals remain decidable.
                 </div>
               </>
             ) : (
-              <p style={{ color: "var(--color-text-main, #374151)", fontSize: "0.9375rem" }}>
-                Resuming will allow the agent to start creating orders again within its configured spending limits.
+              <p
+                style={{
+                  color: "var(--color-text-main, #374151)",
+                  fontSize: "0.9375rem",
+                }}
+              >
+                Resuming will allow the agent to start creating orders again
+                within its configured spending limits.
               </p>
             )}
           </div>
 
-          <div className="form-actions" style={{ display: "flex", justifyContent: "flex-end", gap: "0.5rem", marginTop: "1.5rem" }}>
+          <div
+            className="form-actions"
+            style={{
+              display: "flex",
+              justifyContent: "flex-end",
+              gap: "0.5rem",
+              marginTop: "1.5rem",
+            }}
+          >
             <Button variant="ghost" onClick={onCancel} disabled={loading}>
               Cancel
             </Button>
@@ -82,7 +106,11 @@ export function PauseResumeConfirmModal({
               onClick={onConfirm}
               disabled={loading}
             >
-              {loading ? "Updating…" : isPause ? "Pause Delegation" : "Resume Delegation"}
+              {loading
+                ? "Updating…"
+                : isPause
+                  ? "Pause Delegation"
+                  : "Resume Delegation"}
             </Button>
           </div>
         </Card>

@@ -200,7 +200,13 @@ describe("useNotifications", () => {
       window.localStorage.setItem(
         STORAGE_KEY,
         JSON.stringify([
-          { id: "x", type: "info", title: "From other tab", createdAt: 1, read: false },
+          {
+            id: "x",
+            type: "info",
+            title: "From other tab",
+            createdAt: 1,
+            read: false,
+          },
         ])
       );
       window.dispatchEvent(
@@ -243,8 +249,20 @@ describe("useNotifications", () => {
       window.localStorage.setItem(
         STORAGE_KEY,
         JSON.stringify([
-          { id: "1", type: "info", title: "Fresh read", createdAt: now - 5 * DAY_MS, read: true },
-          { id: "2", type: "info", title: "Old read", createdAt: now - 35 * DAY_MS, read: true },
+          {
+            id: "1",
+            type: "info",
+            title: "Fresh read",
+            createdAt: now - 5 * DAY_MS,
+            read: true,
+          },
+          {
+            id: "2",
+            type: "info",
+            title: "Old read",
+            createdAt: now - 35 * DAY_MS,
+            read: true,
+          },
         ])
       );
 
@@ -259,8 +277,20 @@ describe("useNotifications", () => {
       window.localStorage.setItem(
         STORAGE_KEY,
         JSON.stringify([
-          { id: "read-old", type: "info", title: "Read Old", createdAt: now - 100 * DAY_MS, read: true },
-          { id: "unread-ancient", type: "warning", title: "Unread Ancient", createdAt: now - 365 * DAY_MS, read: false },
+          {
+            id: "read-old",
+            type: "info",
+            title: "Read Old",
+            createdAt: now - 100 * DAY_MS,
+            read: true,
+          },
+          {
+            id: "unread-ancient",
+            type: "warning",
+            title: "Unread Ancient",
+            createdAt: now - 365 * DAY_MS,
+            read: false,
+          },
         ])
       );
 
@@ -276,8 +306,20 @@ describe("useNotifications", () => {
       const window7Days = 7 * DAY_MS;
 
       const items = [
-        { id: "exact-boundary", type: "info" as const, title: "Exact", createdAt: now - window7Days, read: true },
-        { id: "just-past", type: "info" as const, title: "Past", createdAt: now - (window7Days + 1000), read: true },
+        {
+          id: "exact-boundary",
+          type: "info" as const,
+          title: "Exact",
+          createdAt: now - window7Days,
+          read: true,
+        },
+        {
+          id: "just-past",
+          type: "info" as const,
+          title: "Past",
+          createdAt: now - (window7Days + 1000),
+          read: true,
+        },
       ];
 
       const { result } = renderHook(() => useNotifications(), { wrapper });
@@ -316,14 +358,15 @@ describe("useNotifications", () => {
     });
 
     it("caps storage footprint with a seeded 10k-entry stress fixture", async () => {
-      const { pruneNotifications, MAX_NOTIFICATIONS } = await import("./useNotifications");
+      const { pruneNotifications, MAX_NOTIFICATIONS } =
+        await import("./useNotifications");
       const now = Date.now();
 
       const largeFixture = Array.from({ length: 10_000 }, (_, i) => ({
         id: `stress-${i}`,
         type: "info" as const,
         title: `Stress notification ${i}`,
-        createdAt: now - (i * 1000),
+        createdAt: now - i * 1000,
         read: i % 2 === 0,
       }));
 
@@ -336,4 +379,3 @@ describe("useNotifications", () => {
     });
   });
 });
-

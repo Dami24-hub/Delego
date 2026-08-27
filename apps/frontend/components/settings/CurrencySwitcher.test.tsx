@@ -22,7 +22,9 @@ describe("CurrencySwitcher", () => {
     renderSwitcher();
 
     expect(screen.getByRole("option", { name: "XLM" })).toBeInTheDocument();
-    expect(screen.getByRole("option", { name: "USDC-equivalent estimate" })).toBeInTheDocument();
+    expect(
+      screen.getByRole("option", { name: "USDC-equivalent estimate" })
+    ).toBeInTheDocument();
     expect(screen.getByRole("option", { name: "USD" })).toBeInTheDocument();
   });
 
@@ -47,7 +49,9 @@ describe("CurrencySwitcher", () => {
 
     await user.selectOptions(screen.getByRole("combobox"), "USD");
 
-    expect(await screen.findByRole("status")).toHaveTextContent(/placeholder|cached/i);
+    expect(await screen.findByRole("status")).toHaveTextContent(
+      /placeholder|cached/i
+    );
   });
 
   it("does not show a staleness indicator in XLM mode", () => {

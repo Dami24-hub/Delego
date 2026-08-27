@@ -85,7 +85,9 @@ export function WizardStepScope({
         <select
           id="wizard-permission-level"
           value={permissionLevel}
-          onChange={(e) => onPermissionLevelChange(e.target.value as DelegationPermissionLevel)}
+          onChange={(e) =>
+            onPermissionLevelChange(e.target.value as DelegationPermissionLevel)
+          }
           style={{ width: "100%", padding: "0.5rem", borderRadius: "0.375rem" }}
         >
           {PERMISSION_LEVELS.map((level) => (
@@ -108,7 +110,9 @@ export function WizardStepScope({
       />
 
       <div>
-        <label style={{ display: "block", fontWeight: 500, marginBottom: "0.5rem" }}>
+        <label
+          style={{ display: "block", fontWeight: 500, marginBottom: "0.5rem" }}
+        >
           {t("allowedMerchants.label")}
         </label>
         <MerchantWhitelistPicker

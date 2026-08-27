@@ -10,7 +10,11 @@ import {
   type ApproveOrderResponse,
   type RejectOrderResponse,
 } from "@delegolabs/api-generated";
-import { enqueueMutation, subscribeToQueue, type QueuedMutation } from "../lib/offlineQueue";
+import {
+  enqueueMutation,
+  subscribeToQueue,
+  type QueuedMutation,
+} from "../lib/offlineQueue";
 
 /**
  * Fetch (and optionally poll) the current user's orders from the Delego API,
@@ -31,7 +35,6 @@ export interface UseOrdersOptions {
 }
 
 export interface UseOrdersResult {
-
   orders: Order[];
   loading: boolean;
   error: string | null;
@@ -66,7 +69,8 @@ export function useOrders(options: UseOrdersOptions = {}): UseOrdersResult {
     const ids = new Set<string>();
     for (const m of queuedMutations) {
       if (
-        (m.mutationClass === "approve_order" || m.mutationClass === "reject_order") &&
+        (m.mutationClass === "approve_order" ||
+          m.mutationClass === "reject_order") &&
         (m.status === "pending" || m.status === "replaying")
       ) {
         ids.add(m.resourceId);
@@ -78,7 +82,8 @@ export function useOrders(options: UseOrdersOptions = {}): UseOrdersResult {
   const conflictMutations = useMemo(() => {
     return queuedMutations.filter(
       (m) =>
-        (m.mutationClass === "approve_order" || m.mutationClass === "reject_order") &&
+        (m.mutationClass === "approve_order" ||
+          m.mutationClass === "reject_order") &&
         m.status === "conflict"
     );
   }, [queuedMutations]);
@@ -240,4 +245,3 @@ export function useOrders(options: UseOrdersOptions = {}): UseOrdersResult {
     rejectOrder,
   };
 }
-

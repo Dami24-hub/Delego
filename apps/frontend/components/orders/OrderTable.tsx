@@ -53,7 +53,11 @@ export function OrderTable({ orders }: OrderTableProps) {
               </td>
               <td>{itemCount(order)}</td>
               <td className="order-amount">
-                <Amount stroops={order.totalStroops} currency={currencyId} xlmUsdRate={rate?.xlmUsdRate} />
+                <Amount
+                  stroops={order.totalStroops}
+                  currency={currencyId}
+                  xlmUsdRate={rate?.xlmUsdRate}
+                />
               </td>
               <td>{formatDate(order.createdAt)}</td>
             </tr>

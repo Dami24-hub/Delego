@@ -21,7 +21,11 @@ export function WebVitalsReporter() {
       return;
     }
 
-    Sentry.setMeasurement(metric.name, metric.value, metric.name === "CLS" ? "" : "millisecond");
+    Sentry.setMeasurement(
+      metric.name,
+      metric.value,
+      metric.name === "CLS" ? "" : "millisecond"
+    );
 
     const endpoint = process.env.NEXT_PUBLIC_WEB_VITALS_ENDPOINT;
     if (endpoint && typeof navigator.sendBeacon === "function") {

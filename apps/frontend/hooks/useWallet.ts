@@ -77,7 +77,9 @@ export function useWallet() {
         setState({
           ...initialState,
           status: "error",
-          error: addressRes.error?.message ?? "Couldn't read the wallet address. Please try again.",
+          error:
+            addressRes.error?.message ??
+            "Couldn't read the wallet address. Please try again.",
         });
         return;
       }

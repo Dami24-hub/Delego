@@ -1,4 +1,9 @@
-import type { Delegation, Order, User, UserPreferences } from "@delegolabs/types";
+import type {
+  Delegation,
+  Order,
+  User,
+  UserPreferences,
+} from "@delegolabs/types";
 import packageJson from "../package.json";
 import { api } from "./api";
 import { lifecycleIndex } from "./orders";
@@ -100,7 +105,9 @@ function toExportedProfile(user: User): ExportedProfile {
   };
 }
 
-function toExportedPreferences(preferences: UserPreferences): ExportedPreferences {
+function toExportedPreferences(
+  preferences: UserPreferences
+): ExportedPreferences {
   return {
     defaultSpendingLimitStroops: preferences.defaultSpendingLimit.toString(),
     requireApproval: preferences.requireApproval,
@@ -207,7 +214,9 @@ export async function buildAccountExport(
   const { signal, onProgress } = options;
 
   onProgress?.({ phase: "delegations", completed: 0, total: 0 });
-  const delegationsRes = await api.getDelegations(signal ? { signal } : undefined);
+  const delegationsRes = await api.getDelegations(
+    signal ? { signal } : undefined
+  );
   throwIfAborted(signal);
   const delegations = delegationsRes.data ?? [];
 

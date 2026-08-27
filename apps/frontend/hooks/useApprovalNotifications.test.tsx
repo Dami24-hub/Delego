@@ -57,14 +57,20 @@ describe("useApprovalNotifications", () => {
   });
 
   it("does not notify for orders already pending on first load (seeds silently)", () => {
-    const { result } = renderBridge([makeOrder({ id: "a" }), makeOrder({ id: "b" })]);
+    const { result } = renderBridge([
+      makeOrder({ id: "a" }),
+      makeOrder({ id: "b" }),
+    ]);
     expect(result.current.notifications).toHaveLength(0);
     expect(notifyMock).not.toHaveBeenCalled();
   });
 
   it("notifies exactly once (in-app) for a genuinely new arrival after the first load", () => {
     const { result, rerender } = renderBridge([makeOrder({ id: "a" })]);
-    rerender({ queue: [makeOrder({ id: "a" }), makeOrder({ id: "b" })], loading: false });
+    rerender({
+      queue: [makeOrder({ id: "a" }), makeOrder({ id: "b" })],
+      loading: false,
+    });
 
     expect(result.current.notifications).toHaveLength(1);
     expect(result.current.notifications[0].id).toBe("approval-b");
@@ -73,8 +79,14 @@ describe("useApprovalNotifications", () => {
 
   it("does not re-notify for an order already seen across further re-renders", () => {
     const { result, rerender } = renderBridge([makeOrder({ id: "a" })]);
-    rerender({ queue: [makeOrder({ id: "a" }), makeOrder({ id: "b" })], loading: false });
-    rerender({ queue: [makeOrder({ id: "a" }), makeOrder({ id: "b" })], loading: false });
+    rerender({
+      queue: [makeOrder({ id: "a" }), makeOrder({ id: "b" })],
+      loading: false,
+    });
+    rerender({
+      queue: [makeOrder({ id: "a" }), makeOrder({ id: "b" })],
+      loading: false,
+    });
 
     expect(result.current.notifications).toHaveLength(1);
     expect(notifyMock).toHaveBeenCalledTimes(1);
@@ -85,7 +97,10 @@ describe("useApprovalNotifications", () => {
     // Still loading: the effect must not have seeded yet.
     rerender({ queue: [makeOrder({ id: "a" })], loading: false });
     // First non-loading pass seeds "a" silently.
-    rerender({ queue: [makeOrder({ id: "a" }), makeOrder({ id: "b" })], loading: false });
+    rerender({
+      queue: [makeOrder({ id: "a" }), makeOrder({ id: "b" })],
+      loading: false,
+    });
 
     expect(result.current.notifications).toHaveLength(1);
     expect(result.current.notifications[0].id).toBe("approval-b");

@@ -57,27 +57,27 @@ export function NetworkToggle() {
   return (
     <div className="network-toggle" ref={containerRef}>
       <div style={{ display: "flex", alignItems: "center", gap: "0.25rem" }}>
-      <button
-        type="button"
-        className={`network-toggle-button${network.isLive ? " live" : ""}`}
-        onClick={() => setOpen((v) => !v)}
-        aria-haspopup="listbox"
-        aria-expanded={open}
-        aria-label={`Active network: ${network.label}. Change network`}
-        // Avoid a flash of the wrong value before localStorage is read.
-        suppressHydrationWarning
-      >
-        <span
-          className={`network-dot${network.isLive ? " live" : ""}`}
-          aria-hidden="true"
-        />
-        <span className="network-toggle-label">{network.label}</span>
-        {network.isLive && <span className="network-live-badge">LIVE</span>}
-        <span className="network-toggle-caret" aria-hidden="true">
-          ▾
-        </span>
-      </button>
-      <HelpLink concept="network" />
+        <button
+          type="button"
+          className={`network-toggle-button${network.isLive ? " live" : ""}`}
+          onClick={() => setOpen((v) => !v)}
+          aria-haspopup="listbox"
+          aria-expanded={open}
+          aria-label={`Active network: ${network.label}. Change network`}
+          // Avoid a flash of the wrong value before localStorage is read.
+          suppressHydrationWarning
+        >
+          <span
+            className={`network-dot${network.isLive ? " live" : ""}`}
+            aria-hidden="true"
+          />
+          <span className="network-toggle-label">{network.label}</span>
+          {network.isLive && <span className="network-live-badge">LIVE</span>}
+          <span className="network-toggle-caret" aria-hidden="true">
+            ▾
+          </span>
+        </button>
+        <HelpLink concept="network" />
       </div>
 
       {open && (
@@ -103,7 +103,9 @@ export function NetworkToggle() {
                       {net.isLive ? "Real funds" : "Test funds only"}
                     </span>
                   </span>
-                  {net.isLive && <span className="network-live-badge">LIVE</span>}
+                  {net.isLive && (
+                    <span className="network-live-badge">LIVE</span>
+                  )}
                   {isActive && (
                     <span className="network-menu-check" aria-hidden="true">
                       ✓

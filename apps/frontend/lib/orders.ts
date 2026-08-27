@@ -44,11 +44,9 @@ export const ORDER_LIFECYCLE: readonly OrderStatus[] = [
 ] as const;
 
 /** Statuses that represent an order that is no longer in flight. */
-export const TERMINAL_STATUSES: ReadonlySet<OrderStatus> = new Set<OrderStatus>([
-  "settled",
-  "cancelled",
-  "disputed",
-]);
+export const TERMINAL_STATUSES: ReadonlySet<OrderStatus> = new Set<OrderStatus>(
+  ["settled", "cancelled", "disputed"]
+);
 
 /** True when the order has reached a terminal state (no further updates expected). */
 export function isTerminal(order: Order): boolean {
@@ -145,7 +143,12 @@ export function sortOrders(
   return [...orders].sort((a, b) => {
     let delta: number;
     if (field === "totalStroops") {
-      delta = a.totalStroops < b.totalStroops ? -1 : a.totalStroops > b.totalStroops ? 1 : 0;
+      delta =
+        a.totalStroops < b.totalStroops
+          ? -1
+          : a.totalStroops > b.totalStroops
+            ? 1
+            : 0;
     } else {
       delta = a[field].getTime() - b[field].getTime();
     }

@@ -2,8 +2,17 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { renderHook, act } from "@testing-library/react";
 import { useApprovalHotkeys } from "./useApprovalHotkeys";
 
-function fireKey(key: string, opts: Partial<KeyboardEventInit> = {}, target: EventTarget = document) {
-  const event = new KeyboardEvent("keydown", { key, bubbles: true, cancelable: true, ...opts });
+function fireKey(
+  key: string,
+  opts: Partial<KeyboardEventInit> = {},
+  target: EventTarget = document
+) {
+  const event = new KeyboardEvent("keydown", {
+    key,
+    bubbles: true,
+    cancelable: true,
+    ...opts,
+  });
   target.dispatchEvent(event);
 }
 
@@ -71,7 +80,12 @@ describe("useApprovalHotkeys", () => {
     const onApprove = vi.fn();
     const onReject = vi.fn();
     const { result } = renderHook(() =>
-      useApprovalHotkeys({ itemIds: ["a"], onApprove, onReject, onOpenDrawer: vi.fn() })
+      useApprovalHotkeys({
+        itemIds: ["a"],
+        onApprove,
+        onReject,
+        onOpenDrawer: vi.fn(),
+      })
     );
 
     act(() => fireKey("a"));
@@ -86,7 +100,12 @@ describe("useApprovalHotkeys", () => {
     const onApprove = vi.fn();
     const onReject = vi.fn();
     const { result } = renderHook(() =>
-      useApprovalHotkeys({ itemIds: ["a"], onApprove, onReject, onOpenDrawer: vi.fn() })
+      useApprovalHotkeys({
+        itemIds: ["a"],
+        onApprove,
+        onReject,
+        onOpenDrawer: vi.fn(),
+      })
     );
 
     act(() => fireKey("r"));
@@ -118,7 +137,12 @@ describe("useApprovalHotkeys", () => {
 
   it("? toggles the cheat sheet, Escape closes it", () => {
     const { result } = renderHook(() =>
-      useApprovalHotkeys({ itemIds: ["a"], onApprove: vi.fn(), onReject: vi.fn(), onOpenDrawer: vi.fn() })
+      useApprovalHotkeys({
+        itemIds: ["a"],
+        onApprove: vi.fn(),
+        onReject: vi.fn(),
+        onOpenDrawer: vi.fn(),
+      })
     );
     expect(result.current.showCheatSheet).toBe(false);
     act(() => fireKey("?"));
@@ -130,7 +154,12 @@ describe("useApprovalHotkeys", () => {
   it("ignores hotkeys while typing in an input", () => {
     const onApprove = vi.fn();
     renderHook(() =>
-      useApprovalHotkeys({ itemIds: ["a"], onApprove, onReject: vi.fn(), onOpenDrawer: vi.fn() })
+      useApprovalHotkeys({
+        itemIds: ["a"],
+        onApprove,
+        onReject: vi.fn(),
+        onOpenDrawer: vi.fn(),
+      })
     );
     const input = document.createElement("input");
     document.body.appendChild(input);
@@ -142,7 +171,12 @@ describe("useApprovalHotkeys", () => {
   it("never fires on Cmd/Ctrl/Alt combos, to avoid shadowing browser shortcuts", () => {
     const onApprove = vi.fn();
     renderHook(() =>
-      useApprovalHotkeys({ itemIds: ["a"], onApprove, onReject: vi.fn(), onOpenDrawer: vi.fn() })
+      useApprovalHotkeys({
+        itemIds: ["a"],
+        onApprove,
+        onReject: vi.fn(),
+        onOpenDrawer: vi.fn(),
+      })
     );
     act(() => fireKey("a", { ctrlKey: true }));
     act(() => fireKey("a", { metaKey: true }));
@@ -168,7 +202,12 @@ describe("useApprovalHotkeys", () => {
   it("re-focuses the first remaining item when the focused row leaves the queue", () => {
     const { result, rerender } = renderHook(
       ({ itemIds }) =>
-        useApprovalHotkeys({ itemIds, onApprove: vi.fn(), onReject: vi.fn(), onOpenDrawer: vi.fn() }),
+        useApprovalHotkeys({
+          itemIds,
+          onApprove: vi.fn(),
+          onReject: vi.fn(),
+          onOpenDrawer: vi.fn(),
+        }),
       { initialProps: { itemIds: ["a", "b", "c"] } }
     );
     act(() => fireKey("j")); // focus "b"
@@ -181,7 +220,12 @@ describe("useApprovalHotkeys", () => {
   it("focuses null when the queue empties out", () => {
     const { result, rerender } = renderHook(
       ({ itemIds }) =>
-        useApprovalHotkeys({ itemIds, onApprove: vi.fn(), onReject: vi.fn(), onOpenDrawer: vi.fn() }),
+        useApprovalHotkeys({
+          itemIds,
+          onApprove: vi.fn(),
+          onReject: vi.fn(),
+          onOpenDrawer: vi.fn(),
+        }),
       { initialProps: { itemIds: ["a"] } }
     );
     rerender({ itemIds: [] });

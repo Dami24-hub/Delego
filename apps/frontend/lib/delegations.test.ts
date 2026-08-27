@@ -78,7 +78,9 @@ describe("lib/delegations", () => {
     };
 
     it("returns true if status is expired", () => {
-      expect(isDelegationExpired({ ...baseDelegation, status: "expired" })).toBe(true);
+      expect(
+        isDelegationExpired({ ...baseDelegation, status: "expired" })
+      ).toBe(true);
     });
 
     it("returns true if expiresAt is in the past", () => {
@@ -89,7 +91,9 @@ describe("lib/delegations", () => {
           expiresAt: "2026-01-01T00:00:00Z",
         },
       };
-      expect(isDelegationExpired(pastDel, new Date("2026-08-25T00:00:00Z"))).toBe(true);
+      expect(
+        isDelegationExpired(pastDel, new Date("2026-08-25T00:00:00Z"))
+      ).toBe(true);
     });
 
     it("returns false if expiresAt is in the future", () => {
@@ -100,7 +104,9 @@ describe("lib/delegations", () => {
           expiresAt: "2026-12-31T00:00:00Z",
         },
       };
-      expect(isDelegationExpired(futureDel, new Date("2026-08-25T00:00:00Z"))).toBe(false);
+      expect(
+        isDelegationExpired(futureDel, new Date("2026-08-25T00:00:00Z"))
+      ).toBe(false);
     });
   });
 });

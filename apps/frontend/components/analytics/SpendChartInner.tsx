@@ -46,7 +46,10 @@ function SpendTooltip({
  * SpendChart's dynamic import, so recharts never lands in the initial
  * bundle (FE-005 budget).
  */
-export default function SpendChartInner({ buckets, locale }: SpendChartInnerProps) {
+export default function SpendChartInner({
+  buckets,
+  locale,
+}: SpendChartInnerProps) {
   const data: ChartDatum[] = buckets.map((bucket) => ({
     label: bucket.label,
     valueXlm: Number(bucket.totalStroops) / 10_000_000,
@@ -73,7 +76,11 @@ export default function SpendChartInner({ buckets, locale }: SpendChartInnerProp
           content={(props) => <SpendTooltip {...props} locale={locale} />}
           cursor={{ fill: "var(--color-bg-subtle)" }}
         />
-        <Bar dataKey="valueXlm" fill="var(--color-chart-blue)" radius={[4, 4, 0, 0]} />
+        <Bar
+          dataKey="valueXlm"
+          fill="var(--color-chart-blue)"
+          radius={[4, 4, 0, 0]}
+        />
       </BarChart>
     </ResponsiveContainer>
   );
