@@ -19,7 +19,7 @@ export interface DomainVerificationResult {
 }
 
 export interface SEP0001TOML {
-  [key: string]: string | string[];
+  [key: string]: string | string[] | undefined;
   SIGNING_KEY?: string | string[];
 }
 
@@ -67,25 +67,30 @@ function parseTOML(toml: string): SEP0001TOML {
       const arrayValue = trimmed.replace("]", "");
       const values = arrayValue
         .split(",")
-        .map((v) => v.trim().replace(/^["']|["']$/g, ""))
+        .map((v) => v.trim().replace(/^['\"]|['\"]$/g, ""))
         .filter((v) => v);
-      result[currentKey] = result[currentKey]
-        ? [...(Array.isArray(result[currentKey]) ? result[currentKey] : [result[currentKey]]), ...values]
-        : values;
+      const current: string[] = Array.isArray(result[currentKey])
+        ? (result[currentKey] as string[])
+        : typeof result[currentKey] === "string"
+          ? [result[currentKey] as string]
+          : [];
+      result[currentKey] = [...current, ...values];
       currentKey = null;
       continue;
     }
 
     if (currentKey) {
-      // Continue accumulating multi-line array value
       const arrayValue = trimmed.replace("]", "");
       const values = arrayValue
         .split(",")
-        .map((v) => v.trim().replace(/^["']|["']$/g, ""))
+        .map((v) => v.trim().replace(/^['\"]|['\"]$/g, ""))
         .filter((v) => v);
-      result[currentKey] = result[currentKey]
-        ? [...(Array.isArray(result[currentKey]) ? result[currentKey] : [result[currentKey]]), ...values]
-        : values;
+      const current: string[] = Array.isArray(result[currentKey])
+        ? (result[currentKey] as string[])
+        : typeof result[currentKey] === "string"
+          ? [result[currentKey] as string]
+          : [];
+      result[currentKey] = [...current, ...values];
       currentKey = null;
       continue;
     }
@@ -104,7 +109,7 @@ function parseTOML(toml: string): SEP0001TOML {
         value = value.slice(1, -1);
         const values = value
           .split(",")
-          .map((v) => v.trim().replace(/^["']|["']$/g, ""))
+          .map((v) => v.trim().replace(/^['\"]|['\"]$/g, ""))
           .filter((v) => v);
         result[key] = values.length > 0 ? values : [];
       } else {
@@ -114,7 +119,7 @@ function parseTOML(toml: string): SEP0001TOML {
       }
     } else {
       // Single value - strip quotes
-      result[key] = value.replace(/^["']|["']$/g, "");
+      result[key] = value.replace(/^['\"]|['\"]$/g, "");
     }
   }
 
@@ -278,3 +283,5 @@ export function isValidDomainFormat(domain: string): boolean {
 
   return domainRegex.test(domainWithoutProtocol);
 }
+
+export { parseTOML };
