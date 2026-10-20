@@ -12,7 +12,7 @@ import { useEffect, useRef, useState } from "react";
 import { useCart } from "../../hooks/useCart";
 import { formatAmount } from "@delegolabs/ui";
 import type { CartItem } from "../../lib/cart";
-import { MultiMerchantCheckout } from "./MultiMerchantCheckout";
+import { MultiMerchantCheckout, type MultiMerchantCheckoutProps } from "./MultiMerchantCheckout";
 
 const STROOPS_PER_XLM = 10_000_000n;
 
@@ -107,11 +107,13 @@ const btnStyle: React.CSSProperties = {
   color: "#374151",
 };
 
-export function CartDrawer() {
+export function CartDrawer({ signEscrow, refundEscrow }: Pick<MultiMerchantCheckoutProps, "signEscrow" | "refundEscrow"> = {}) {
   const { summary, drawerOpen, closeDrawer, removeItem, clearCart } = useCart();
   const closeBtnRef = useRef<HTMLButtonElement>(null);
   const backdropRef = useRef<HTMLDivElement>(null);
   const [checkingOut, setCheckingOut] = useState(false);
+
+  const [recoveryRequired, setRecoveryRequired] = useState(false);
 
   // Focus the close button when drawer opens
   useEffect(() => {
@@ -124,11 +126,11 @@ export function CartDrawer() {
   useEffect(() => {
     if (!drawerOpen) return;
     const handle = (e: KeyboardEvent) => {
-      if (e.key === "Escape") closeDrawer();
+      if (e.key === "Escape" && !recoveryRequired) closeDrawer();
     };
     document.addEventListener("keydown", handle);
     return () => document.removeEventListener("keydown", handle);
-  }, [drawerOpen, closeDrawer]);
+  }, [drawerOpen, closeDrawer, recoveryRequired]);
 
   // Prevent body scroll when open
   useEffect(() => {
@@ -152,7 +154,7 @@ export function CartDrawer() {
       <div
         ref={backdropRef}
         aria-hidden="true"
-        onClick={closeDrawer}
+        onClick={() => { if (!recoveryRequired) closeDrawer(); }}
         style={{
           position: "fixed",
           inset: 0,
@@ -218,7 +220,8 @@ export function CartDrawer() {
             ref={closeBtnRef}
             type="button"
             aria-label="Close cart"
-            onClick={closeDrawer}
+            disabled={recoveryRequired}
+            onClick={() => { if (!recoveryRequired) closeDrawer(); }}
             style={{
               display: "inline-flex",
               alignItems: "center",
@@ -243,8 +246,15 @@ export function CartDrawer() {
         >
           {checkingOut ? (
             <MultiMerchantCheckout
-              onCancel={() => setCheckingOut(false)}
+              onRecoveryRequiredChange={setRecoveryRequired}
+              signEscrow={signEscrow}
+              refundEscrow={refundEscrow}
+              onCancel={() => {
+                setRecoveryRequired(false);
+                setCheckingOut(false);
+              }}
               onComplete={() => {
+                setRecoveryRequired(false);
                 setCheckingOut(false);
                 closeDrawer();
               }}
