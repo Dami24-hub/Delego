@@ -13,6 +13,16 @@ export interface MerchantProduct {
   stock?: StockDepletionInfo;
 }
 
+export type StoreAnnouncementType = "info" | "warning" | "promotion";
+
+export interface StoreAnnouncement {
+  text: string;
+  linkUrl?: string;
+  bannerType: StoreAnnouncementType;
+  /** Merchant-controlled version marker; a change re-shows a dismissed banner. */
+  updatedAt: string;
+}
+
 export interface StorefrontData {
   merchantId: string;
   storeName: string;
@@ -20,6 +30,7 @@ export interface StorefrontData {
   stellarAddress: string;
   reputationScore: number;
   products: MerchantProduct[];
+  announcement: StoreAnnouncement | null;
 }
 
 export function isSafeMerchantId(id: string): boolean {
@@ -65,6 +76,49 @@ function parseProduct(value: unknown): MerchantProduct | null {
   };
 }
 
+function parseAnnouncement(value: unknown): StoreAnnouncement | null {
+  const record = asRecord(value);
+  if (!record || typeof record.text !== "string" || !record.text.trim()) {
+    return null;
+  }
+
+  const bannerType = record.bannerType ?? record.banner_type;
+  if (
+    bannerType !== "info" &&
+    bannerType !== "warning" &&
+    bannerType !== "promotion"
+  ) {
+    return null;
+  }
+
+  const rawLink = record.linkUrl ?? record.link_url;
+  const linkUrl =
+    typeof rawLink === "string" && isSafeAnnouncementLink(rawLink)
+      ? rawLink
+      : undefined;
+  const updatedAt =
+    typeof record.updatedAt === "string"
+      ? record.updatedAt
+      : typeof record.updated_at === "string"
+        ? record.updated_at
+        : "";
+
+  return {
+    text: record.text.trim(),
+    bannerType,
+    updatedAt,
+    ...(linkUrl ? { linkUrl } : {}),
+  };
+}
+
+/** Only same-site paths and http(s) links are rendered as announcement CTAs. */
+function isSafeAnnouncementLink(value: string): boolean {
+  const link = value.trim();
+  if (!link) return false;
+  if (link.startsWith("/") && !link.startsWith("//")) return true;
+  return /^https?:\/\//i.test(link);
+}
+
 export function parseStorefront(
   payload: unknown,
   merchantId: string
@@ -81,6 +135,10 @@ export function parseStorefront(
         .filter((product) => product.active)
     : [];
 
+  const announcement = parseAnnouncement(
+    body.announcement ?? body.storeAnnouncement ?? body.store_announcement
+  );
+
   return {
     merchantId: typeof body.merchantId === "string" ? body.merchantId : merchantId,
     storeName: body.storeName.trim(),
@@ -89,6 +147,7 @@ export function parseStorefront(
       typeof body.stellarAddress === "string" ? body.stellarAddress : "",
     reputationScore: asNumber(body.reputationScore),
     products,
+    announcement,
   };
 }
 

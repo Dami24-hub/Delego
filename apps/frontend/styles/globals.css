@@ -1973,6 +1973,19 @@ body {
   color: var(--color-warning-text);
 }
 
+.announcement-banner-promotion {
+  background: var(--color-success-bg);
+  color: var(--color-success-text);
+}
+
+/* Merchant-authored announcement inside a public storefront. The shared
+   banner base is borderless because it sits above the app shell; here it is a
+   card at the top of the store page, so it gets rounded corners and a border. */
+.storefront-announcement {
+  border: 1px solid var(--color-border);
+  border-radius: 0.5rem;
+}
+
 .announcement-banner-icon {
   flex-shrink: 0;
 }

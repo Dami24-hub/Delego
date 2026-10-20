@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { cache } from "react";
 import { fetchStorefront, isSafeMerchantId } from "../../../lib/storefront";
+import { StorefrontAnnouncementBar } from "../../../components/storefront/StorefrontAnnouncementBar";
 import { StorefrontCatalog } from "./StorefrontCatalog";
 
 type StoreParams = { merchantId: string };
@@ -57,6 +58,12 @@ export default async function StorePage({
 
   return (
     <div className="settings-page">
+      {store.announcement && (
+        <StorefrontAnnouncementBar
+          merchantId={store.merchantId}
+          announcement={store.announcement}
+        />
+      )}
       <header className="header">
         <h1>{store.storeName}</h1>
         {store.description && <p>{store.description}</p>}
