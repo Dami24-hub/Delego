@@ -22,6 +22,7 @@ import { AgentFab } from "../components/layout/AgentFab";
 const inter = Inter({
   subsets: ["latin"],
   display: "swap",
+  preload: false,
   fallback: ["system-ui", "-apple-system", "sans-serif"],
 });
 

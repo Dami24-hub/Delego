@@ -27,6 +27,17 @@ import { CommandPaletteProvider } from "../command-palette/CommandPaletteProvide
 import { ChatDrawerProvider } from "../chat/public";
 import { CartProvider } from "../../hooks/useCart";
 import { CartDrawer } from "../cart/CartDrawer";
+import { useBroadcastChannel } from "../../hooks/useBroadcastChannel";
+import { syncWalletDisconnected } from "../../hooks/useWallet";
+
+function WalletTabSync() {
+  useBroadcastChannel((message) => {
+    if (message.type === "WALLET_DISCONNECTED") {
+      syncWalletDisconnected();
+    }
+  });
+  return null;
+}
 
 // Ephemeral session signing keys live only inside this worker's isolated
 // memory. Loaded client-side only so it never runs during SSR.
@@ -64,6 +75,7 @@ export function AppProviders({ children }: { children: ReactNode }) {
       <FeatureFlagProvider>
       <MockApiProvider>
         <NetworkProvider>
+          <WalletTabSync />
           <CurrencyProvider>
             <TimeFormatProvider>
               <AudioNotificationsProvider>
