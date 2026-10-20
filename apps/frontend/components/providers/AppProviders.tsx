@@ -9,6 +9,8 @@ import { NotificationProvider } from "../../hooks/useNotifications";
 import { AnnounceProvider } from "../../hooks/useAnnounce";
 import { CurrencyProvider } from "../../hooks/useCurrency";
 import { TimeFormatProvider } from "../../hooks/useTimeFormat";
+import { LocalePreferenceProvider } from "../../hooks/useLocalePreference";
+import { GlobalShortcutsProvider } from "../../hooks/useGlobalShortcuts";
 import { AudioNotificationsProvider } from "../../hooks/useAudioNotifications";
 import { FeatureFlagProvider } from "./FeatureFlagProvider";
 import { MockApiProvider } from "./MockApiProvider";
@@ -61,6 +63,7 @@ export function AppProviders({ children }: { children: ReactNode }) {
 
   return (
     <ThemeProvider>
+      <LocalePreferenceProvider>
       <FeatureFlagProvider>
       <MockApiProvider>
         <NetworkProvider>
@@ -72,6 +75,7 @@ export function AppProviders({ children }: { children: ReactNode }) {
                     <TourProvider>
                       <SessionKeyWorkerProvider>
                       <CommandPaletteProvider>
+                        <GlobalShortcutsProvider>
                         <ChatDrawerProvider>
                           <CartProvider>
                             <DomainWarningBanner />
@@ -86,6 +90,7 @@ export function AppProviders({ children }: { children: ReactNode }) {
                             <IdleSessionGuard />
                           </CartProvider>
                         </ChatDrawerProvider>
+                        </GlobalShortcutsProvider>
                       </CommandPaletteProvider>
                       </SessionKeyWorkerProvider>
                     </TourProvider>
@@ -97,6 +102,7 @@ export function AppProviders({ children }: { children: ReactNode }) {
         </NetworkProvider>
       </MockApiProvider>
       </FeatureFlagProvider>
+      </LocalePreferenceProvider>
     </ThemeProvider>
   );
 }
