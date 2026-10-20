@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import { fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { useRef, useState } from "react";
@@ -358,6 +358,87 @@ describe("useFocusTrap", () => {
 
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
     expect(trigger).toHaveFocus();
+  });
+
+  it("focuses initialFocusRef instead of the first tabbable control", () => {
+    function Dialog() {
+      const containerRef = useRef<HTMLDivElement>(null);
+      const initialFocusRef = useRef<HTMLButtonElement>(null);
+      useFocusTrap({
+        containerRef,
+        isActive: true,
+        initialFocusRef: initialFocusRef as React.RefObject<HTMLElement | null>,
+      });
+      return (
+        <div ref={containerRef} role="dialog" tabIndex={-1}>
+          <button type="button">First</button>
+          <button type="button" ref={initialFocusRef}>
+            Passkey Sign
+          </button>
+        </div>
+      );
+    }
+
+    render(<Dialog />);
+    expect(screen.getByText("Passkey Sign")).toHaveFocus();
+  });
+
+  it("does not restore focus when returnFocusOnDeactivate is false", async () => {
+    function Dialog() {
+      const [open, setOpen] = useState(false);
+      const containerRef = useRef<HTMLDivElement>(null);
+      useFocusTrap({
+        containerRef,
+        isActive: open,
+        returnFocusOnDeactivate: false,
+        onEscape: () => setOpen(false),
+      });
+      return (
+        <div>
+          <button type="button" onClick={() => setOpen(true)}>
+            Open
+          </button>
+          {open && (
+            <div ref={containerRef} role="dialog" tabIndex={-1}>
+              <button type="button">Inside</button>
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    const user = userEvent.setup();
+    render(<Dialog />);
+    const trigger = screen.getByText("Open");
+    await user.click(trigger);
+    expect(screen.getByText("Inside")).toHaveFocus();
+    await user.keyboard("{Escape}");
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(trigger).not.toHaveFocus();
+  });
+
+  it("ignores Escape when escapeDeactivates is false", async () => {
+    const onEscape = vi.fn();
+    function Dialog() {
+      const containerRef = useRef<HTMLDivElement>(null);
+      useFocusTrap({
+        containerRef,
+        isActive: true,
+        onEscape,
+        escapeDeactivates: false,
+      });
+      return (
+        <div ref={containerRef} role="dialog" tabIndex={-1}>
+          <button type="button">Inside</button>
+        </div>
+      );
+    }
+
+    const user = userEvent.setup();
+    render(<Dialog />);
+    await user.keyboard("{Escape}");
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+    expect(onEscape).not.toHaveBeenCalled();
   });
 
   it("ignores Escape when no onEscape handler is supplied", async () => {

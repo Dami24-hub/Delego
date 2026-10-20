@@ -32,6 +32,21 @@ export interface FocusTrapOptions {
    * opened, so `onEscape` only needs to close the overlay.
    */
   onEscape?: () => void;
+  /**
+   * Element to focus when the trap arms. Falls back to the first tabbable
+   * control when the ref is empty or points outside the container.
+   */
+  initialFocusRef?: React.RefObject<HTMLElement | null>;
+  /**
+   * When `true` (the default), deactivating the trap returns focus to the
+   * element that was active when the trap armed.
+   */
+  returnFocusOnDeactivate?: boolean;
+  /**
+   * When `true` (the default), `Escape` invokes `onEscape`. Set `false` to
+   * leave dismissal to the caller.
+   */
+  escapeDeactivates?: boolean;
 }
 
 function tabIndexOf(el: HTMLElement): number {
@@ -116,14 +131,22 @@ export function useFocusTrap({
   containerRef,
   isActive,
   onEscape,
+  initialFocusRef,
+  returnFocusOnDeactivate = true,
+  escapeDeactivates = true,
 }: FocusTrapOptions) {
   const previouslyFocusedRef = useRef<HTMLElement | null>(null);
-  // Held in a ref so the effect below doesn't need `onEscape` as a dependency:
-  // consumers routinely pass an inline arrow, and re-running the effect on every
-  // render would re-throw focus to the first element and overwrite the
-  // remembered trigger.
+  // Held in refs so the effect below doesn't re-arm when callers pass inline
+  // callbacks or a fresh options object. Re-running the effect would re-throw
+  // focus to the initial element and overwrite the remembered trigger.
   const onEscapeRef = useRef(onEscape);
   onEscapeRef.current = onEscape;
+  const initialFocusRefHolder = useRef(initialFocusRef);
+  initialFocusRefHolder.current = initialFocusRef;
+  const returnFocusRef = useRef(returnFocusOnDeactivate);
+  returnFocusRef.current = returnFocusOnDeactivate;
+  const escapeDeactivatesRef = useRef(escapeDeactivates);
+  escapeDeactivatesRef.current = escapeDeactivates;
 
   useEffect(() => {
     if (!isActive) return;
@@ -136,7 +159,10 @@ export function useFocusTrap({
     previouslyFocusedRef.current = document.activeElement as HTMLElement | null;
 
     const focusables = getTabbable(container);
-    (focusables[0] ?? container).focus();
+    const preferred = initialFocusRefHolder.current?.current ?? null;
+    const initialTarget =
+      preferred && container.contains(preferred) ? preferred : (focusables[0] ?? container);
+    initialTarget.focus();
 
     /** Last element that held focus while inside the trap. */
     let lastFocusedInside: HTMLElement | null = null;
@@ -165,7 +191,7 @@ export function useFocusTrap({
 
     function handleKeyDown(e: KeyboardEvent) {
       if (e.key === "Escape") {
-        onEscapeRef.current?.();
+        if (escapeDeactivatesRef.current) onEscapeRef.current?.();
         return;
       }
       if (e.key !== "Tab") return;
@@ -243,7 +269,7 @@ export function useFocusTrap({
         activeEl !== container &&
         !container.contains(activeEl);
 
-      if (!focusMovedElsewhere) {
+      if (returnFocusRef.current && !focusMovedElsewhere) {
         previouslyFocusedRef.current?.focus();
       }
     };

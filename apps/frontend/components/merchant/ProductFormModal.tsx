@@ -14,6 +14,15 @@ import {
   type ProductFormErrors,
   type ProductSubmitPayload,
 } from "../../lib/productForm";
+import { VariantMatrixEditor } from "./VariantMatrixEditor";
+import {
+  catalogProductKey,
+  loadCatalogVariants,
+  removeCatalogVariants,
+  saveCatalogVariants,
+  type ProductAttribute,
+  type ProductVariant,
+} from "../../lib/variantMatrix";
 
 export interface ProductFormModalProps {
   open: boolean;
@@ -22,7 +31,12 @@ export interface ProductFormModalProps {
   /** Existing image to preview when editing and no new file has been chosen. */
   initialImageUrl?: string;
   onClose: () => void;
-  onSubmit: (payload: ProductSubmitPayload) => Promise<void>;
+  onSubmit: (
+    payload: ProductSubmitPayload & {
+      attributes: ProductAttribute[];
+      variants: ProductVariant[];
+    }
+  ) => Promise<void>;
 }
 
 const EMPTY_FORM: ProductFormData = {
@@ -83,6 +97,8 @@ export function ProductFormModal({
   const [submitting, setSubmitting] = useState(false);
   const [dragActive, setDragActive] = useState(false);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [attributes, setAttributes] = useState<ProductAttribute[]>([]);
+  const [variants, setVariants] = useState<ProductVariant[]>([]);
   const dialogRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   useFocusTrap({ containerRef: dialogRef, isActive: open });
@@ -97,6 +113,9 @@ export function ProductFormModal({
     setStockInput(String(initialData?.stockQuantity ?? 0));
     setErrors({});
     setSubmitError(null);
+    const saved = loadCatalogVariants(catalogProductKey(initialData?.title ?? ""));
+    setAttributes(saved?.attributes ?? []);
+    setVariants(saved?.variants ?? []);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
@@ -149,6 +168,13 @@ export function ProductFormModal({
     const priceStroops = decimalToStroops(data.priceDecimal);
     if (priceStroops === null) return;
 
+    const productKey = catalogProductKey(data.title);
+    const previousKey = catalogProductKey(initialData?.title ?? "");
+    if (previousKey && previousKey !== productKey) removeCatalogVariants(previousKey);
+    if (productKey && (attributes.length > 0 || variants.length > 0)) {
+      saveCatalogVariants({ productKey, attributes, variants });
+    }
+
     setSubmitError(null);
     setSubmitting(true);
     try {
@@ -157,6 +183,8 @@ export function ProductFormModal({
         title: data.title.trim(),
         priceDecimal: data.priceDecimal.trim(),
         priceStroops: priceStroops.toString(),
+        attributes,
+        variants,
       });
       onClose();
     } catch (err) {
@@ -426,6 +454,18 @@ export function ProductFormModal({
             )}
             <FieldError id="product-image-error" message={errors.imageFile} />
           </div>
+
+          <VariantMatrixEditor
+            baseSku={form.title}
+            defaultPriceStroops={decimalToStroops(form.priceDecimal)?.toString() ?? "0"}
+            defaultStock={Number.isInteger(Number(stockInput)) ? Number(stockInput) : 0}
+            attributes={attributes}
+            variants={variants}
+            onChange={(nextAttributes, nextVariants) => {
+              setAttributes(nextAttributes);
+              setVariants(nextVariants);
+            }}
+          />
 
           {submitError && (
             <div

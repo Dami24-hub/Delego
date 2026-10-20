@@ -13,7 +13,6 @@ import { Button } from "@delegolabs/ui";
 import { useFocusTrap } from "../../hooks/useFocusTrap";
 import { apiFetch } from "../../lib/apiFetch";
 import {
-  MAX_BIOMETRIC_ATTEMPTS,
   biometricErrorMessage,
   hasPlatformAuthenticator,
   isBiometricSupported,
@@ -80,20 +79,41 @@ export function BiometricCheckoutPrompt({
   orderId,
 }: BiometricCheckoutPromptProps) {
   const panelRef = useRef<HTMLDivElement>(null);
+  const passkeyRef = useRef<HTMLButtonElement>(null);
   const [phase, setPhase] = useState<Phase>("preparing");
   const [error, setError] = useState<string | null>(null);
   const [attempts, setAttempts] = useState(0);
   const [platformAuth, setPlatformAuth] = useState(false);
+  const [panelReady, setPanelReady] = useState(false);
+  const [animationDone, setAnimationDone] = useState(false);
   const mountedRef = useRef(true);
   const attemptsRef = useRef(0);
   const successTimer = useRef<number | null>(null);
 
-  useFocusTrap({ containerRef: panelRef, isActive: true, onEscape: onCancel });
+  // The panel ref is attached by framer-motion only after the dialog enters.
+  // Arming the trap before that makes useFocusTrap bail out on a null ref and
+  // never retry, so Tab escapes the dialog (#900).
+  useFocusTrap({
+    containerRef: panelRef,
+    isActive: panelReady && animationDone,
+    onEscape: onCancel,
+    initialFocusRef: passkeyRef as React.RefObject<HTMLElement | null>,
+    returnFocusOnDeactivate: true,
+    escapeDeactivates: true,
+  });
 
   useEffect(() => {
     mountedRef.current = true;
+    setPanelReady(panelRef.current !== null);
+    const reduced =
+      typeof window.matchMedia === "function" &&
+      window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (reduced) setAnimationDone(true);
+    // Fallback if the enter animation never reports completion.
+    const timer = window.setTimeout(() => setAnimationDone(true), 220);
     return () => {
       mountedRef.current = false;
+      window.clearTimeout(timer);
       if (successTimer.current) window.clearTimeout(successTimer.current);
     };
   }, []);
@@ -151,7 +171,7 @@ export function BiometricCheckoutPrompt({
       setPhase("error");
       setError(biometricErrorMessage(err));
     }
-  }, [merchantName, onCancel, orderId, onSuccess, orderAmount]);
+  }, [merchantName, orderId, onSuccess, orderAmount]);
 
   useEffect(() => {
     let cancelled = false;
@@ -166,7 +186,7 @@ export function BiometricCheckoutPrompt({
 
   return (
     <div className="approval-drawer-overlay" onClick={onCancel} data-testid="biometric-checkout-overlay">
-      <div
+      <motion.div
         ref={panelRef}
         role="dialog"
         aria-modal="true"
@@ -174,6 +194,10 @@ export function BiometricCheckoutPrompt({
         tabIndex={-1}
         onClick={(e) => e.stopPropagation()}
         data-testid="biometric-checkout-modal"
+        initial={{ opacity: 0, y: 8 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.2 }}
+        onAnimationComplete={() => setAnimationDone(true)}
         style={{
           background: "var(--color-surface, #fff)",
           borderRadius: "0.75rem",
@@ -282,7 +306,16 @@ export function BiometricCheckoutPrompt({
               <div className="flex gap-2">
                 <Button
                   type="button"
-                  variant="outline"
+                  variant="ghost"
+                  ref={passkeyRef}
+                  onClick={() => void runCheckout()}
+                  data-testid="biometric-checkout-passkey"
+                >
+                  Passkey Sign
+                </Button>
+                <Button
+                  type="button"
+                  variant="secondary"
                   onClick={onCancel}
                   data-testid="biometric-checkout-cancel"
                 >
@@ -301,7 +334,7 @@ export function BiometricCheckoutPrompt({
             </motion.div>
           )}
         </AnimatePresence>
-      </div>
+      </motion.div>
     </div>
   );
 }

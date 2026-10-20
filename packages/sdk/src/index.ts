@@ -108,14 +108,13 @@ export class DelegoClient {
 
   rejectOrder(
     id: string,
-    reason?: string,
-    reasonCode?: string,
-    options: DelegoRequestOptions = {}
+    options: { reason?: string; reasonCode?: string } & DelegoRequestOptions = {}
   ): Promise<any> {
+    const { reason, reasonCode, ...restOptions } = options;
     return this.request(`/orders/${encodeURIComponent(id)}/reject`, {
       method: "POST",
       body: JSON.stringify({ reason, reasonCode }),
-      signal: options.signal,
+      signal: restOptions.signal,
     });
   }
 

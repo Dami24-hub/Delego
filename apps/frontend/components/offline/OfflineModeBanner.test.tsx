@@ -8,11 +8,11 @@ import { render, screen } from "@testing-library/react";
  * `next-intl`, so both are mocked to drive the exact offline/online states and
  * assert the exact copy without a provider tree (#773).
  */
-const connection = { isOffline: false };
+const connection = { connectionStatus: "online" };
 
 vi.mock("../../hooks/useOnlineStatus", () => ({
   useOnlineStatus: () => ({
-    isOffline: connection.isOffline,
+    connectionStatus: connection.connectionStatus,
     cachedOrdersCount: 0,
     lastSyncedAt: null,
     disabledProps: {},
@@ -28,7 +28,7 @@ import { OfflineModeBanner } from "./OfflineModeBanner";
 
 describe("OfflineModeBanner (#773)", () => {
   beforeEach(() => {
-    connection.isOffline = false;
+    connection.connectionStatus = "online";
   });
 
   it("renders nothing while online", () => {
@@ -37,7 +37,7 @@ describe("OfflineModeBanner (#773)", () => {
   });
 
   it("shows the amber browse-only notice with the exact copy while offline", () => {
-    connection.isOffline = true;
+    connection.connectionStatus = "offline";
     render(<OfflineModeBanner />);
 
     const status = screen.getByRole("status");

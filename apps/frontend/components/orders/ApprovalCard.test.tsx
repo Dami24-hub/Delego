@@ -340,7 +340,7 @@ describe("ApprovalCard — callback guards and loading states (#898)", () => {
   it("Approve & Pay button is disabled while offline", () => {
     vi.mock("../../hooks/useOnlineStatus", () => ({
       useOnlineStatus: () => ({
-        isOffline: true,
+        connectionStatus: "offline",
         cachedOrdersCount: 0,
         lastSyncedAt: null,
         disabledProps: { disabled: true as const, title: "You're offline \u2014 reconnect to continue." },

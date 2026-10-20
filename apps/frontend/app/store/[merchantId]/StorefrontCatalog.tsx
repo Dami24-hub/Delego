@@ -5,12 +5,19 @@
  * Supports search filtering and adding products to the global cart (#917).
  */
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { formatAmount } from "@delegolabs/ui";
+import { StockDepletionPanel } from "../../../components/storefront/StockDepletionPanel";
 import {
   filterStoreProducts,
   type MerchantProduct,
 } from "../../../lib/storefront";
+import {
+  availableToSell,
+  canAddToCart,
+  fetchStockDepletion,
+  type StockDepletionInfo,
+} from "../../../lib/stockDepletion";
 import { useCart } from "../../../hooks/useCart";
 import type { CartItem } from "../../../lib/cart";
 
@@ -39,7 +46,38 @@ export function StorefrontCatalog({
   payoutAddress,
 }: StorefrontCatalogProps) {
   const [query, setQuery] = useState("");
+  const [liveStock, setLiveStock] = useState<Record<string, StockDepletionInfo>>({});
+  const [expandedId, setExpandedId] = useState<string | null>(null);
   const { addItem, openDrawer, summary } = useCart();
+  const productKey = products.map((product) => product.id).join("\n");
+
+  useEffect(() => {
+    let cancelled = false;
+    const ids = productKey ? productKey.split("\n") : [];
+    async function tick() {
+      const updates = await Promise.all(
+        ids.map(async (id) => [id, await fetchStockDepletion(merchantId, id)] as const)
+      );
+      if (cancelled) return;
+      setLiveStock((prev) => {
+        const next = { ...prev };
+        for (const [id, stock] of updates) {
+          if (stock) next[id] = stock;
+        }
+        return next;
+      });
+    }
+    void tick();
+    const timer = window.setInterval(() => void tick(), 15_000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+    };
+  }, [merchantId, productKey]);
+
+  function stockFor(product: MerchantProduct): StockDepletionInfo | null {
+    return liveStock[product.id] ?? product.stock ?? null;
+  }
 
   const visible = useMemo(
     () => filterStoreProducts(products, query),
@@ -47,6 +85,11 @@ export function StorefrontCatalog({
   );
 
   function handleAddToCart(product: MerchantProduct) {
+    const stock = stockFor(product);
+    if (stock && !canAddToCart(stock)) return;
+    const available = stock ? availableToSell(stock) : 99;
+    const maxStock = !stock ? 99 : available > 0 ? available : stock.allowBackorder ? 99 : 0;
+    if (maxStock <= 0) return;
     const item: CartItem = {
       productId: product.id,
       merchantId,
@@ -55,9 +98,7 @@ export function StorefrontCatalog({
       title: product.name,
       priceStroops: product.priceStroops,
       quantity: 1,
-      // storefront.ts MerchantProduct has no stock field — default to a
-      // reasonable cap; the checkout flow will re-validate server-side.
-      maxStock: 99,
+      maxStock,
     };
     addItem(item);
     openDrawer();
@@ -162,13 +203,17 @@ export function StorefrontCatalog({
           gap: "0.75rem",
         }}
       >
-        {visible.map((product) => (
+        {visible.map((product) => {
+          const stock = stockFor(product);
+          const blocked = stock ? !canAddToCart(stock) : false;
+          return (
           <li
             key={product.id}
             className="card"
             style={{ padding: "0.875rem", display: "flex", flexDirection: "column", gap: "0.5rem" }}
           >
             <h2 style={{ margin: 0, fontSize: "1rem" }}>{product.name}</h2>
+            {stock && <StockDepletionPanel merchantId={merchantId} stock={stock} mode="card" />}
             {product.description && (
               <p style={{ margin: 0, color: "#6b7280", fontSize: "0.875rem" }}>
                 {product.description}
@@ -189,24 +234,37 @@ export function StorefrontCatalog({
               <button
                 type="button"
                 onClick={() => handleAddToCart(product)}
+                disabled={blocked}
                 data-testid={`add-to-cart-${product.id}`}
                 style={{
                   padding: "0.4375rem 0.875rem",
                   borderRadius: "0.5rem",
                   border: "none",
-                  background: "#2563eb",
+                  background: blocked ? "#d1d5db" : "#2563eb",
                   color: "#fff",
                   fontWeight: 600,
                   fontSize: "0.8125rem",
-                  cursor: "pointer",
+                  cursor: blocked ? "not-allowed" : "pointer",
                   whiteSpace: "nowrap",
                 }}
               >
                 Add to cart
               </button>
             </div>
+            <button
+              type="button"
+              aria-expanded={expandedId === product.id}
+              onClick={() => setExpandedId((current) => (current === product.id ? null : product.id))}
+              style={{ alignSelf: "flex-start", background: "none", border: "none", padding: 0, color: "#2563eb", cursor: "pointer", fontSize: "0.75rem" }}
+            >
+              {expandedId === product.id ? "Hide details" : "View details"}
+            </button>
+            {expandedId === product.id && stock && (
+              <StockDepletionPanel merchantId={merchantId} stock={stock} mode="detail" />
+            )}
           </li>
-        ))}
+          );
+        })}
       </ul>
     </section>
   );

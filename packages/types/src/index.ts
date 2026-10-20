@@ -284,22 +284,17 @@ export interface ApiResponse<T> {
   error: ApiError | null;
 }
 
+/** User agent preference item. */
 export interface UserPreferenceItem {
   key: string;
-  value: string;
-  learnedFromOrder?: string;
+  value: string | number | boolean;
+  category: "agent" | "ui" | "privacy" | "wallet";
+  updatedAt: string;
 }
 
 /**
- * Connectivity snapshot surfaced by the frontend's `useOnlineStatus` hook
- * (#773). `cachedOrdersCount`/`lastSyncedAt` describe what is readable from
- * the offline cache while disconnected so the storefront can stay browsable
- * and CTAs can be gated honestly.
+ * Connectivity status snapshot surfaced by the frontend's `useOnlineStatus` hook (#773).
  */
-export interface OfflineStatus {
-  isOffline: boolean;
-  cachedOrdersCount: number;
-  lastSyncedAt: Date | null;
-}
+export type OfflineStatus = "online" | "offline" | "reconnecting";
 
 export * from "./schemas.js";

@@ -10,6 +10,8 @@ import { ReceiptPanel } from "../../../components/orders/ReceiptPanel";
 import { TaxBreakdownPanel } from "../../../components/orders/TaxBreakdownPanel";
 import { computeTaxBreakdown } from "../../../lib/taxBreakdown";
 import { receiptFeeStroops, receiptSubtotalStroops } from "../../../lib/receipts";
+import { PathPaymentQuotePanel } from "../../../components/orders/PathPaymentQuoteVisualizer";
+import { stroopsToDecimal } from "../../../hooks/usePathPaymentQuote";
 import { getConfiguredContracts } from "../../../lib/contracts";
 
 const OnChainVerificationPanel = dynamic(
@@ -84,6 +86,10 @@ export default function OrderDetailPage() {
             networkFeeStroops={fee.toString()}
             defaultExpanded
             variant="checkout"
+          />
+          <PathPaymentQuotePanel
+            destinationAsset={(order.currency || "USDC").toUpperCase()}
+            destinationAmount={stroopsToDecimal(order.totalStroops ?? 0)}
           />
         </Card>
       </div>

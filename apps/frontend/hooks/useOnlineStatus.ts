@@ -1,14 +1,26 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import type { OfflineStatus } from "@delegolabs/types";
+import type { OfflineStatus as ConnectionStatus } from "@delegolabs/types";
 import { listCachedReads } from "../lib/offlineCache";
 
 /** Accessible reason attached to controls disabled while offline. */
 export const OFFLINE_BLOCKED_MESSAGE =
   "You're offline — reconnect to continue.";
 
-export interface UseOnlineStatusResult extends OfflineStatus {
+export interface UseOnlineStatusResult {
+  /** Connection status from the browser (online/offline/reconnecting). */
+  connectionStatus: ConnectionStatus;
+  /**
+   * Number of orders cached for offline browsing. Populated when
+   * `connectionStatus` is "offline" or "reconnecting".
+   */
+  cachedOrdersCount: number;
+  /**
+   * Timestamp of the last successful sync with the server, or null if
+   * no sync has occurred or service worker is unavailable.
+   */
+  lastSyncedAt: Date | null;
   /**
    * Spread onto a control to disable it while offline with an accessible
    * reason (`title`), mirroring `useDemoModeGuard`'s `disabledProps`.
@@ -24,7 +36,7 @@ export interface UseOnlineStatusResult extends OfflineStatus {
  * for offline reading (#773).
  *
  * SSR-safe: the server and the first client render both assume online
- * (`isOffline: false`) so the markup matches during hydration; the effect
+ * (`connectionStatus: "online"`) so the markup matches during hydration; the effect
  * reconciles against the real `navigator.onLine` value immediately after
  * mount — the same hydration pattern as DemoBanner/DomainWarningBanner.
  *
@@ -33,13 +45,19 @@ export interface UseOnlineStatusResult extends OfflineStatus {
  * before the first read or in browsers without service worker support.
  */
 export function useOnlineStatus(): UseOnlineStatusResult {
-  const [isOffline, setIsOffline] = useState(false);
+  const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus>("online");
   const [cachedOrdersCount, setCachedOrdersCount] = useState(0);
   const [lastSyncedAt, setLastSyncedAt] = useState<Date | null>(null);
 
   useEffect(() => {
     function update() {
-      setIsOffline(!navigator.onLine);
+      if (!navigator.onLine) {
+        setConnectionStatus("offline");
+      } else {
+        // Try to detect reconnecting state by checking if we were offline recently
+        // For now, just set to online when navigator.onLine is true
+        setConnectionStatus("online");
+      }
     }
 
     update();
@@ -68,17 +86,17 @@ export function useOnlineStatus(): UseOnlineStatusResult {
     return () => {
       active = false;
     };
-  }, [isOffline]);
+  }, [connectionStatus]);
 
   return useMemo(
     () => ({
-      isOffline,
+      connectionStatus,
       cachedOrdersCount,
       lastSyncedAt,
-      disabledProps: isOffline
+      disabledProps: connectionStatus !== "online"
         ? { disabled: true as const, title: OFFLINE_BLOCKED_MESSAGE }
         : ({} as Record<string, never>),
     }),
-    [isOffline, cachedOrdersCount, lastSyncedAt]
+    [connectionStatus, cachedOrdersCount, lastSyncedAt]
   );
 }

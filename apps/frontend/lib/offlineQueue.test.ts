@@ -89,4 +89,25 @@ describe("Offline Mutation Queue & Replay Engine (#618)", () => {
     const queuedItem = queue.find((q) => q.id === item.id);
     expect(queuedItem?.status).toBe("quarantined");
   });
+
+  it("replays reject_order with correct payload (reason and reasonCode)", async () => {
+    vi.mocked(api.rejectOrder).mockResolvedValue({
+      data: { id: "order-400", status: "rejected" },
+    } as never);
+
+    const item = await enqueueMutation("reject_order", "order-400", {
+      reason: "Too expensive",
+      reasonCode: "too_expensive" as const,
+    });
+
+    const result = await replayOfflineQueue();
+
+    expect(api.rejectOrder).toHaveBeenCalledWith(
+      "order-400",
+      { reason: "Too expensive", reasonCode: "too_expensive" }
+    );
+    expect(result.replayed).toBe(1);
+    const queue = await getQueuedMutations();
+    expect(queue.find((q) => q.id === item.id)).toBeUndefined();
+  });
 });

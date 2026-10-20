@@ -2,12 +2,15 @@
  * Public merchant storefront (#695).
  */
 
+import { parseStockDepletion, type StockDepletionInfo } from "./stockDepletion";
+
 export interface MerchantProduct {
   id: string;
   name: string;
   description: string;
   priceStroops: string;
   active: boolean;
+  stock?: StockDepletionInfo;
 }
 
 export interface StorefrontData {
@@ -42,6 +45,15 @@ function parseProduct(value: unknown): MerchantProduct | null {
     return null;
   }
   const price = record.priceStroops ?? record.price_stroops ?? "0";
+  const stock = parseStockDepletion(
+    record.stock ?? {
+      remainingStock: record.remainingStock ?? record.remaining_stock ?? record.stockQuantity,
+      reservedStock: record.reservedStock ?? record.reserved_stock,
+      allowBackorder: record.allowBackorder ?? record.allow_backorder,
+      restockWaitlistCount: record.restockWaitlistCount ?? record.restock_waitlist_count,
+    },
+    record.id
+  );
   return {
     id: record.id,
     name: record.name,
@@ -49,6 +61,7 @@ function parseProduct(value: unknown): MerchantProduct | null {
     priceStroops:
       typeof price === "bigint" ? price.toString() : String(price ?? "0"),
     active: record.active !== false,
+    ...(stock ? { stock } : {}),
   };
 }
 

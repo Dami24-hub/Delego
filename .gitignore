@@ -65,3 +65,6 @@ apps/frontend/mocks/fixtures/demo-world.json
 # Change log (internal, not for review)
 # Local changelog
 CHANGES.md
+
+# Per-session change notes (not for review)
+CHANGES-*.md

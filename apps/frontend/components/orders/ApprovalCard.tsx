@@ -90,7 +90,7 @@ export function ApprovalCard({
   const { currencyId, rate } = useCurrency();
   const { announce } = useAnnounce();
   const { isDemoMode, guard } = useDemoModeGuard();
-  const { isOffline } = useOnlineStatus();
+  const { connectionStatus } = useOnlineStatus();
   const { getTag } = useDelegationTags();
   const tag = getTag(order.delegationId);
 
@@ -109,9 +109,9 @@ export function ApprovalCard({
     dualControlFlagEnabled && dualControlCapable && order.dualControl?.required === true;
   const [dcSubmitting, setDcSubmitting] = useState(false);
 
-  const disabled = pending || dcSubmitting || isMismatched || isDemoMode || isOffline || approving || rejecting;
+  const disabled = pending || dcSubmitting || isMismatched || isDemoMode || connectionStatus !== "online" || approving || rejecting;
 
-  const actionTitle = isOffline
+  const actionTitle = connectionStatus !== "online"
     ? OFFLINE_BLOCKED_MESSAGE
     : isDemoMode
       ? DEMO_MODE_BLOCKED_MESSAGE

@@ -6,6 +6,7 @@ import { useMerchantEscrowOrders } from "../../../hooks/useMerchantEscrowOrders"
 import { useNow } from "../../../hooks/useNow";
 import { ExpiryCountdown } from "../../../components/delegations/ExpiryCountdown";
 import { ShipmentUploadModal } from "../../../components/orders/ShipmentUploadModal";
+import { DeliveryEvidenceUploader } from "../../../components/escrows/DeliveryEvidenceUploader";
 import { VirtualTable } from "../../../components/orders/VirtualTable";
 import { deadlineUrgency, type MerchantEscrowOrder } from "../../../lib/merchantEscrowOrders";
 
@@ -33,6 +34,7 @@ export default function MerchantOrdersPage() {
   const now = useNow(1000);
   const [activeTab, setActiveTab] = useState<Tab>("toShip");
   const [shipModalOrderId, setShipModalOrderId] = useState<string | null>(null);
+  const [evidenceOrderId, setEvidenceOrderId] = useState<string | null>(null);
 
   const activeStatuses = TABS.find((t) => t.key === activeTab)!.statuses;
   const visibleOrders = orders.filter((o) => activeStatuses.includes(o.status));
@@ -133,6 +135,24 @@ export default function MerchantOrdersPage() {
                       Mark shipped
                     </button>
                   )}
+                  {(order.status === "shipped" || order.status === "delivered") && (
+                    <button
+                      type="button"
+                      onClick={() => setEvidenceOrderId(order.orderId)}
+                      style={{
+                        padding: "0.375rem 0.75rem",
+                        borderRadius: "0.5rem",
+                        border: "1px solid #2563eb",
+                        background: "#fff",
+                        color: "#2563eb",
+                        fontWeight: 600,
+                        fontSize: "0.75rem",
+                        cursor: "pointer",
+                      }}
+                    >
+                      Add proof
+                    </button>
+                  )}
                   {order.status !== "funded" && <Badge tone="neutral">{order.status}</Badge>}
                 </div>
               </div>
@@ -147,6 +167,18 @@ export default function MerchantOrdersPage() {
         onClose={() => setShipModalOrderId(null)}
         onSubmitted={refresh}
       />
+
+      {evidenceOrderId ? (
+        <DeliveryEvidenceUploader
+          orderId={evidenceOrderId}
+          open
+          onClose={() => setEvidenceOrderId(null)}
+          onConfirmed={() => {
+            setEvidenceOrderId(null);
+            refresh();
+          }}
+        />
+      ) : null}
     </div>
   );
 }

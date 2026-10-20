@@ -61,7 +61,7 @@ vi.mock("../../hooks/useDemoModeGuard", () => ({
 
 vi.mock("../../hooks/useOnlineStatus", () => ({
   useOnlineStatus: vi.fn(() => ({
-    isOffline: false,
+    connectionStatus: "online",
     cachedOrdersCount: 0,
     lastSyncedAt: null,
     disabledProps: {},

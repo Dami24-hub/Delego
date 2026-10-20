@@ -103,7 +103,7 @@ describe("useOrders", () => {
       await result.current.rejectOrder("order-1", "too expensive");
     });
 
-    expect(mockRejectOrder).toHaveBeenCalledWith("order-1", "too expensive", undefined);
+    expect(mockRejectOrder).toHaveBeenCalledWith("order-1", { reason: "too expensive", reasonCode: undefined });
     expect(result.current.error).toBe("cannot reject");
   });
 
@@ -121,6 +121,6 @@ describe("useOrders", () => {
       await result.current.rejectOrder("order-1", "budget note", "too_expensive");
     });
 
-    expect(mockRejectOrder).toHaveBeenCalledWith("order-1", "budget note", "too_expensive");
+    expect(mockRejectOrder).toHaveBeenCalledWith("order-1", { reason: "budget note", reasonCode: "too_expensive" });
   });
 });

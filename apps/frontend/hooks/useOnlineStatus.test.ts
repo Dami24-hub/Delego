@@ -30,7 +30,7 @@ describe("useOnlineStatus (#773)", () => {
 
   it("reports online with no disabled props by default", async () => {
     const { result } = renderHook(() => useOnlineStatus());
-    await waitFor(() => expect(result.current.isOffline).toBe(false));
+    await waitFor(() => expect(result.current.connectionStatus).toBe("online"));
     expect(result.current.disabledProps).toEqual({});
   });
 
@@ -42,7 +42,7 @@ describe("useOnlineStatus (#773)", () => {
       setOnline(false);
       window.dispatchEvent(new Event("offline"));
     });
-    expect(result.current.isOffline).toBe(true);
+    expect(result.current.connectionStatus).toBe("offline");
     expect(result.current.disabledProps).toEqual({
       disabled: true,
       title: OFFLINE_BLOCKED_MESSAGE,
@@ -52,7 +52,7 @@ describe("useOnlineStatus (#773)", () => {
       setOnline(true);
       window.dispatchEvent(new Event("online"));
     });
-    expect(result.current.isOffline).toBe(false);
+    expect(result.current.connectionStatus).toBe("online");
     expect(result.current.disabledProps).toEqual({});
   });
 

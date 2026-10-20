@@ -2,6 +2,9 @@
 
 import { Card } from "@delegolabs/ui";
 import { CopyButton } from "../../../components/wallet/CopyButton";
+import { LowStockBanner } from "../../../components/merchant/InventoryAlerts";
+import { RevenueAreaChart } from "../../../components/merchant/RevenueAreaChart";
+import { useMerchantCatalog } from "../../../hooks/useMerchantCatalog";
 import { useMerchantPayouts } from "../../../hooks/useMerchantPayouts";
 import { useMerchantEscrowOrders } from "../../../hooks/useMerchantEscrowOrders";
 import { useNetwork } from "../../../hooks/useNetwork";
@@ -11,6 +14,7 @@ import { computePayoutProjections } from "../../../lib/merchantEscrowOrders";
 
 export default function MerchantPayoutsPage() {
   const { payouts, loading, error } = useMerchantPayouts();
+  const { products } = useMerchantCatalog(0);
   const { orders } = useMerchantEscrowOrders();
   const { network } = useNetwork();
   
@@ -20,6 +24,8 @@ export default function MerchantPayoutsPage() {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
       <h1>Payouts</h1>
+
+      <LowStockBanner products={products} />
 
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem" }}>
         <Card title="Total earnings" ariaLabel="Total net earnings">
@@ -46,6 +52,8 @@ export default function MerchantPayoutsPage() {
           </p>
         </Card>
       </div>
+
+      <RevenueAreaChart payouts={payouts} />
 
       {error && (
         <div role="alert" style={{ color: "#dc2626", fontSize: "0.8125rem" }}>

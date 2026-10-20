@@ -17,9 +17,9 @@ import { useOnlineStatus } from "../../hooks/useOnlineStatus";
  */
 export function OfflineModeBanner() {
   const t = useTranslations("offline");
-  const { isOffline } = useOnlineStatus();
+  const { connectionStatus } = useOnlineStatus();
 
-  if (!isOffline) return null;
+  if (connectionStatus === "online") return null;
 
   return (
     <div

@@ -240,7 +240,7 @@ export function useOrders(options: UseOrdersOptions = {}): UseOrdersResult {
       setPending(id, true);
       setError(null);
       try {
-        const res = (await api.rejectOrder(id, reason, reasonCode)) as RejectOrderResponse;
+        const res = (await api.rejectOrder(id, { reason, reasonCode })) as RejectOrderResponse;
         if (res.error) {
           setError(res.error.message);
           return null;
