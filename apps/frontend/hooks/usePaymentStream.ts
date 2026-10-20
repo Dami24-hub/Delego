@@ -112,13 +112,16 @@ export function usePaymentStream(
     const connect = () => {
       if (!active) return;
       const accountUrl = `${horizonUrl.replace(/\/+$/, "")}/accounts/${encodeURIComponent(address)}/payments?cursor=now`;
-      source = new EventSource(accountUrl);
-      source.onopen = () => {
-        if (active)
+      const eventSource = new EventSource(accountUrl);
+      source = eventSource;
+      eventSource.onopen = () => {
+        if (active && source === eventSource) {
+          retryAttempt = 0;
           setState((prev) => ({ ...prev, status: "connected", error: null }));
+        }
       };
-      source.onmessage = (event: MessageEvent<string>) => {
-        if (!active) return;
+      eventSource.onmessage = (event: MessageEvent<string>) => {
+        if (!active || source !== eventSource) return;
         const payment = parseIncomingPaymentEvent(
           event.data,
           event.lastEventId,
@@ -134,9 +137,9 @@ export function usePaymentStream(
         retryAttempt = 0;
         setState({ status: "connected", latestPayment: payment, error: null });
       };
-      source.onerror = () => {
-        if (!active || !source) return;
-        source?.close();
+      eventSource.onerror = () => {
+        if (!active || source !== eventSource) return;
+        eventSource.close();
         source = null;
         setState((prev) => ({
           ...prev,
