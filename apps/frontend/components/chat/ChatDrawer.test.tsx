@@ -232,7 +232,7 @@ describe("ChatDrawer — composer", () => {
     await user.type(input, "  find me a keyboard  ");
     await user.click(screen.getByRole("button", { name: "Send" }));
 
-    expect(onSendMessage).toHaveBeenCalledWith("find me a keyboard");
+    expect(onSendMessage).toHaveBeenCalledWith({ type: "text", content: "find me a keyboard" });
     expect(input).toHaveValue("");
   });
 
@@ -246,7 +246,7 @@ describe("ChatDrawer — composer", () => {
     expect(input).toHaveValue("hello\n");
 
     await user.type(input, "{Enter}");
-    expect(onSendMessage).toHaveBeenCalledWith("hello");
+    expect(onSendMessage).toHaveBeenCalledWith({ type: "text", content: "hello" });
   });
 
   it("does not send an empty message", async () => {
