@@ -15,7 +15,11 @@ vi.mock("next/navigation", () => ({
   useRouter: () => ({ push }),
 }));
 
-function fireKey(key: string, opts: KeyboardEventInit = {}, target: EventTarget = window) {
+function fireKey(
+  key: string,
+  opts: KeyboardEventInit = {},
+  target: Element | Node | Window | Document = window
+) {
   fireEvent.keyDown(target, { key, bubbles: true, cancelable: true, ...opts });
 }
 

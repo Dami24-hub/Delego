@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach, beforeAll, afterAll } from "vitest";
+import { useEffect } from "react";
 import { renderHook, act } from "@testing-library/react";
 import { NetworkProvider, useNetwork } from "./useNetwork";
 import { useSorobanEvents } from "./useSorobanEvents";
