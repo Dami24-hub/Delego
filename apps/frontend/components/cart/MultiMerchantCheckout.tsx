@@ -21,6 +21,7 @@ import {
   type MerchantCartPartition,
 } from "../../lib/cartPartition";
 import { useCart } from "../../hooks/useCart";
+import type { AppliedPromoCode } from "../../lib/promoCode";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -338,6 +339,8 @@ function PartitionCard({
 // ---------------------------------------------------------------------------
 
 export interface MultiMerchantCheckoutProps {
+  /** A server-validated coupon bound to the cart being checked out. */
+  promoCode?: AppliedPromoCode;
   /** Called when every partition has been confirmed, with the ordered list. */
   onComplete?: (partitions: MerchantCartPartition[]) => void;
   /** Called when the buyer cancels the checkout. */
@@ -367,6 +370,7 @@ async function defaultSignEscrow(_partition: MerchantCartPartition): Promise<voi
 }
 
 export function MultiMerchantCheckout({
+  promoCode,
   onComplete,
   onCancel,
   signEscrow = defaultSignEscrow,
@@ -374,7 +378,7 @@ export function MultiMerchantCheckout({
   const { summary, clearCart } = useCart();
 
   const initialPartitions = useMemo(
-    () => partitionCartByMerchant(summary.items),
+    () => partitionCartByMerchant(summary.items, promoCode),
     // Snapshot on mount — we don't want the list to re-partition mid-checkout
     // eslint-disable-next-line react-hooks/exhaustive-deps
     []

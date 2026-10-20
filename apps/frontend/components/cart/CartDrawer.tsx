@@ -10,17 +10,15 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useCart } from "../../hooks/useCart";
-import { formatAmount } from "@delegolabs/ui";
 import type { CartItem } from "../../lib/cart";
 import { MultiMerchantCheckout } from "./MultiMerchantCheckout";
-
-const STROOPS_PER_XLM = 10_000_000n;
+import { CartPromoCode } from "./CartPromoCode";
+import { useCartPromoCode } from "../../hooks/useCartPromoCode";
+import { formatPromoStroops } from "../../lib/promoCode";
 
 function formatStroops(stroops: string): string {
   try {
-    const value = BigInt(stroops);
-    const xlm = Number(value) / Number(STROOPS_PER_XLM);
-    return `${xlm.toLocaleString(undefined, { maximumFractionDigits: 7 })} XLM`;
+    return formatPromoStroops(stroops);
   } catch {
     return stroops;
   }
@@ -112,6 +110,7 @@ export function CartDrawer() {
   const closeBtnRef = useRef<HTMLButtonElement>(null);
   const backdropRef = useRef<HTMLDivElement>(null);
   const [checkingOut, setCheckingOut] = useState(false);
+  const coupon = useCartPromoCode(summary.items);
 
   // Focus the close button when drawer opens
   useEffect(() => {
@@ -243,6 +242,7 @@ export function CartDrawer() {
         >
           {checkingOut ? (
             <MultiMerchantCheckout
+              promoCode={coupon.applied ?? undefined}
               onCancel={() => setCheckingOut(false)}
               onComplete={() => {
                 setCheckingOut(false);
@@ -355,6 +355,7 @@ export function CartDrawer() {
               gap: "0.75rem",
             }}
           >
+            <CartPromoCode coupon={coupon} />
             <div
               style={{
                 display: "flex",
@@ -367,7 +368,12 @@ export function CartDrawer() {
                 data-testid="cart-subtotal"
                 style={{ fontWeight: 700, fontSize: "1rem" }}
               >
-                {formatStroops(subtotalStroops)}
+                {formatPromoStroops(
+                  (
+                    BigInt(subtotalStroops) -
+                    BigInt(coupon.applied?.discount.appliedDiscountStroops ?? "0")
+                  ).toString()
+                )}
               </span>
             </div>
 
@@ -394,6 +400,7 @@ export function CartDrawer() {
             <button
               type="button"
               onClick={() => setCheckingOut(true)}
+              disabled={coupon.pending}
               data-testid="proceed-to-checkout"
               style={{
                 padding: "0.625rem 1rem",
