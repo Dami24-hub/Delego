@@ -14,6 +14,7 @@ import { FeeTierField } from "../../components/wallet/FeeTierField";
 import { BalanceSparkline } from "../../components/wallet/BalanceSparkline";
 import { AssetBreakdownTable } from "../../components/wallet/AssetBreakdownTable";
 import { CopyButton } from "../../components/wallet/CopyButton";
+import { TokenAllowancesCard } from "../../components/wallet/TokenAllowancesCard";
 import { HydrationStableBalance } from "../../components/HydrationStableBalance";
 import {
   useDemoModeGuard,
@@ -306,6 +307,12 @@ export default function WalletPage() {
           </div>
         </Card>
       )}
+
+      <TokenAllowancesCard
+        address={address}
+        isConnected={isConnected}
+        disabled={isDemoMode || connectionStatus !== "online"}
+      />
 
       <Card title="About Soroban Permissions">
         <p>
