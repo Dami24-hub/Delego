@@ -47,6 +47,7 @@ export function StorefrontCatalog({
 }: StorefrontCatalogProps) {
   const [query, setQuery] = useState("");
   const [liveStock, setLiveStock] = useState<Record<string, StockDepletionInfo>>({});
+  const [checked, setChecked] = useState<Record<string, boolean>>({});
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const { addItem, openDrawer, summary } = useCart();
   const productKey = products.map((product) => product.id).join("\n");
@@ -59,6 +60,10 @@ export function StorefrontCatalog({
         ids.map(async (id) => [id, await fetchStockDepletion(merchantId, id)] as const)
       );
       if (cancelled) return;
+      setChecked((prev) => ({
+        ...prev,
+        ...Object.fromEntries(ids.map((id) => [`${merchantId}/${id}`, true])),
+      }));
       setLiveStock((prev) => {
         const next = { ...prev };
         for (const [id, stock] of updates) {
@@ -213,7 +218,12 @@ export function StorefrontCatalog({
             style={{ padding: "0.875rem", display: "flex", flexDirection: "column", gap: "0.5rem" }}
           >
             <h2 style={{ margin: 0, fontSize: "1rem" }}>{product.name}</h2>
-            {stock && <StockDepletionPanel merchantId={merchantId} stock={stock} mode="card" />}
+            <StockDepletionPanel
+              merchantId={merchantId}
+              stock={stock}
+              loading={!stock && !checked[`${merchantId}/${product.id}`]}
+              mode="card"
+            />
             {product.description && (
               <p style={{ margin: 0, color: "#6b7280", fontSize: "0.875rem" }}>
                 {product.description}
@@ -259,8 +269,13 @@ export function StorefrontCatalog({
             >
               {expandedId === product.id ? "Hide details" : "View details"}
             </button>
-            {expandedId === product.id && stock && (
-              <StockDepletionPanel merchantId={merchantId} stock={stock} mode="detail" />
+            {expandedId === product.id && (
+              <StockDepletionPanel
+                merchantId={merchantId}
+                stock={stock}
+                loading={!stock && !checked[`${merchantId}/${product.id}`]}
+                mode="detail"
+              />
             )}
           </li>
           );
