@@ -17,9 +17,7 @@ export interface CatalogFilterState {
   /** Maximum price in stroops (inclusive). Undefined = no upper bound. */
   maxPrice?: number;
   /** When true, only products with stockQuantity > 0 are shown. */
-  inStockOnly: boolean;
-  /** When true, only products with stockQuantity < 5 are shown. */
-  lowStockOnly?: boolean;
+  inStockOnly?: boolean;
   /** Minimum average rating 0–5 (inclusive). Undefined = no restriction. */
   minRating?: number;
 }
