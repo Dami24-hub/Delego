@@ -10,9 +10,11 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useCart } from "../../hooks/useCart";
-import { formatAmount } from "@delegolabs/ui";
 import type { CartItem } from "../../lib/cart";
-import { MultiMerchantCheckout } from "./MultiMerchantCheckout";
+import { MultiMerchantCheckout, type MultiMerchantCheckoutProps } from "./MultiMerchantCheckout";
+import { CartPromoCode } from "./CartPromoCode";
+import { useCartPromoCode } from "../../hooks/useCartPromoCode";
+import { formatPromoStroops } from "../../lib/promoCode";
 
 const STROOPS_PER_XLM = 10_000_000n;
 const MAX_QUANTITY = 99;
@@ -20,9 +22,7 @@ const QUANTITY_DEBOUNCE_MS = 250;
 
 function formatStroops(stroops: string): string {
   try {
-    const value = BigInt(stroops);
-    const xlm = Number(value) / Number(STROOPS_PER_XLM);
-    return `${xlm.toLocaleString(undefined, { maximumFractionDigits: 7 })} XLM`;
+    return formatPromoStroops(stroops);
   } catch {
     return stroops;
   }
@@ -190,11 +190,14 @@ const btnStyle: React.CSSProperties = {
 
 export { clampQuantity, sanitizeQuantityInput, MAX_QUANTITY };
 
-export function CartDrawer() {
+export function CartDrawer({ signEscrow, refundEscrow }: Pick<MultiMerchantCheckoutProps, "signEscrow" | "refundEscrow"> = {}) {
   const { summary, drawerOpen, closeDrawer, removeItem, clearCart } = useCart();
   const closeBtnRef = useRef<HTMLButtonElement>(null);
   const backdropRef = useRef<HTMLDivElement>(null);
   const [checkingOut, setCheckingOut] = useState(false);
+  const coupon = useCartPromoCode(summary.items);
+
+  const [recoveryRequired, setRecoveryRequired] = useState(false);
 
   // Focus the close button when drawer opens
   useEffect(() => {
@@ -207,11 +210,11 @@ export function CartDrawer() {
   useEffect(() => {
     if (!drawerOpen) return;
     const handle = (e: KeyboardEvent) => {
-      if (e.key === "Escape") closeDrawer();
+      if (e.key === "Escape" && !recoveryRequired) closeDrawer();
     };
     document.addEventListener("keydown", handle);
     return () => document.removeEventListener("keydown", handle);
-  }, [drawerOpen, closeDrawer]);
+  }, [drawerOpen, closeDrawer, recoveryRequired]);
 
   // Prevent body scroll when open
   useEffect(() => {
@@ -235,7 +238,7 @@ export function CartDrawer() {
       <div
         ref={backdropRef}
         aria-hidden="true"
-        onClick={closeDrawer}
+        onClick={() => { if (!recoveryRequired) closeDrawer(); }}
         style={{
           position: "fixed",
           inset: 0,
@@ -301,7 +304,8 @@ export function CartDrawer() {
             ref={closeBtnRef}
             type="button"
             aria-label="Close cart"
-            onClick={closeDrawer}
+            disabled={recoveryRequired}
+            onClick={() => { if (!recoveryRequired) closeDrawer(); }}
             style={{
               display: "inline-flex",
               alignItems: "center",
@@ -326,8 +330,16 @@ export function CartDrawer() {
         >
           {checkingOut ? (
             <MultiMerchantCheckout
-              onCancel={() => setCheckingOut(false)}
+              promoCode={coupon.applied ?? undefined}
+              onRecoveryRequiredChange={setRecoveryRequired}
+              signEscrow={signEscrow}
+              refundEscrow={refundEscrow}
+              onCancel={() => {
+                setRecoveryRequired(false);
+                setCheckingOut(false);
+              }}
               onComplete={() => {
+                setRecoveryRequired(false);
                 setCheckingOut(false);
                 closeDrawer();
               }}
@@ -438,6 +450,7 @@ export function CartDrawer() {
               gap: "0.75rem",
             }}
           >
+            <CartPromoCode coupon={coupon} />
             <div
               style={{
                 display: "flex",
@@ -450,7 +463,12 @@ export function CartDrawer() {
                 data-testid="cart-subtotal"
                 style={{ fontWeight: 700, fontSize: "1rem" }}
               >
-                {formatStroops(subtotalStroops)}
+                {formatPromoStroops(
+                  (
+                    BigInt(subtotalStroops) -
+                    BigInt(coupon.applied?.discount.appliedDiscountStroops ?? "0")
+                  ).toString()
+                )}
               </span>
             </div>
 
@@ -477,6 +495,7 @@ export function CartDrawer() {
             <button
               type="button"
               onClick={() => setCheckingOut(true)}
+              disabled={coupon.pending}
               data-testid="proceed-to-checkout"
               style={{
                 padding: "0.625rem 1rem",
