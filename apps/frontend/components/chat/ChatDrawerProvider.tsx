@@ -11,12 +11,15 @@ import {
   type ReactNode,
 } from "react";
 import { ChatDrawer, type ChatMessage } from "./ChatDrawer";
+import { ContextMemoryPanel } from "../agent/ContextMemoryPanel";
+import { useAgentConversationContext } from "../../hooks/useAgentConversationContext";
 
 interface ChatDrawerContextValue {
   isOpen: boolean;
   openChat: (initialDraft?: string) => void;
   closeChat: () => void;
   toggleChat: () => void;
+  openContextPanel: () => void;
 }
 
 const ChatDrawerContext = createContext<ChatDrawerContextValue | null>(null);
@@ -59,10 +62,15 @@ export function ChatDrawerProvider({
   agentId?: string;
 }) {
   const [isOpen, setIsOpen] = useState(false);
+  const [isContextPanelOpen, setIsContextPanelOpen] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isGenerating, setIsGenerating] = useState(false);
   const [initialDraft, setInitialDraft] = useState("");
   const replyTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Derive multi-turn negotiation context from the live transcript.
+  const { context, resetContext, wasRecentlyReset } =
+    useAgentConversationContext(messages);
 
   const openChat = useCallback((draft = "") => {
     setInitialDraft(draft);
@@ -70,6 +78,8 @@ export function ChatDrawerProvider({
   }, []);
   const closeChat = useCallback(() => setIsOpen(false), []);
   const toggleChat = useCallback(() => setIsOpen((open) => !open), []);
+  const openContextPanel = useCallback(() => setIsContextPanelOpen(true), []);
+  const closeContextPanel = useCallback(() => setIsContextPanelOpen(false), []);
 
   // Global ⌘J / Ctrl+J shortcut — mirrors the ⌘K binding for the command palette.
   useEffect(() => {
@@ -122,8 +132,8 @@ export function ChatDrawerProvider({
   }, []);
 
   const value = useMemo(
-    () => ({ isOpen, openChat, closeChat, toggleChat }),
-    [isOpen, openChat, closeChat, toggleChat]
+    () => ({ isOpen, openChat, closeChat, toggleChat, openContextPanel }),
+    [isOpen, openChat, closeChat, toggleChat, openContextPanel]
   );
 
   return (
@@ -137,6 +147,14 @@ export function ChatDrawerProvider({
         isGenerating={isGenerating}
         initialDraft={initialDraft}
         onSendMessage={handleSend}
+        onOpenContextPanel={openContextPanel}
+      />
+      <ContextMemoryPanel
+        isOpen={isContextPanelOpen}
+        onClose={closeContextPanel}
+        context={context}
+        onReset={resetContext}
+        wasRecentlyReset={wasRecentlyReset}
       />
     </ChatDrawerContext.Provider>
   );

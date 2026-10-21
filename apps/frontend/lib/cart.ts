@@ -39,6 +39,19 @@ export interface CartSummary {
 /** localStorage key for persisted cart state. */
 export const CART_STORAGE_KEY = "delego_cart_items";
 
+export function isCartItem(item: unknown): item is CartItem {
+  if (item === null || typeof item !== "object") return false;
+  const candidate = item as Record<string, unknown>;
+  return (
+    typeof candidate.productId === "string" &&
+    typeof candidate.merchantId === "string" &&
+    typeof candidate.title === "string" &&
+    typeof candidate.priceStroops === "string" &&
+    typeof candidate.quantity === "number" &&
+    typeof candidate.maxStock === "number"
+  );
+}
+
 /**
  * Computes cart summary from an item list using BigInt arithmetic to
  * prevent precision loss.
@@ -73,17 +86,7 @@ export function readCartFromStorage(): CartItem[] {
     const parsed: unknown = JSON.parse(raw);
     if (!Array.isArray(parsed)) return [];
     // Basic shape validation — drop anything malformed
-    return parsed.filter(
-      (item): item is CartItem =>
-        item !== null &&
-        typeof item === "object" &&
-        typeof item.productId === "string" &&
-        typeof item.merchantId === "string" &&
-        typeof item.title === "string" &&
-        typeof item.priceStroops === "string" &&
-        typeof item.quantity === "number" &&
-        typeof item.maxStock === "number"
-    );
+    return parsed.filter(isCartItem);
   } catch {
     return [];
   }
