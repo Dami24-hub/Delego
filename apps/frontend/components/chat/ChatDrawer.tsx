@@ -88,6 +88,8 @@ export interface ChatDrawerProps {
   onSendMessage?: (content: string | { type: string; content?: string; count?: number }) => void;
   /** Called when the buyer taps the proposal reference attached to a message. */
   onOpenProposal?: (proposalId: string) => void;
+  /** Called when the buyer clicks the "Context / Memory" button in the header. */
+  onOpenContextPanel?: () => void;
 }
 
 /** Human-readable heading shown on each tool-call indicator. */
@@ -160,6 +162,7 @@ export function ChatDrawer({
   isGenerating = false,
   onSendMessage,
   onOpenProposal,
+  onOpenContextPanel,
 }: ChatDrawerProps) {
   const [draft, setDraft] = useState("");
   const [images, setImages] = useState<File[]>([]);
@@ -301,22 +304,50 @@ export function ChatDrawer({
               {agentId}
             </p>
           </div>
-          <button
-            type="button"
-            onClick={onClose}
-            aria-label="Close chat"
-            data-testid="chat-drawer-close"
-            style={{
-              border: "none",
-              background: "transparent",
-              cursor: "pointer",
-              fontSize: "1rem",
-              lineHeight: 1,
-              padding: "0.25rem",
-            }}
-          >
-            ✕
-          </button>
+          <div style={{ display: "flex", alignItems: "center", gap: "0.375rem" }}>
+            {onOpenContextPanel && (
+              <button
+                type="button"
+                onClick={onOpenContextPanel}
+                aria-label="View context and memory"
+                data-testid="chat-context-button"
+                title="Context / Memory"
+                style={{
+                  border: "1px solid #e5e7eb",
+                  background: "#f9fafb",
+                  cursor: "pointer",
+                  fontSize: "0.75rem",
+                  fontWeight: 500,
+                  lineHeight: 1,
+                  padding: "0.3125rem 0.625rem",
+                  borderRadius: "9999px",
+                  color: "#374151",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "0.3rem",
+                }}
+              >
+                <span aria-hidden="true">🧠</span>
+                Context
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={onClose}
+              aria-label="Close chat"
+              data-testid="chat-drawer-close"
+              style={{
+                border: "none",
+                background: "transparent",
+                cursor: "pointer",
+                fontSize: "1rem",
+                lineHeight: 1,
+                padding: "0.25rem",
+              }}
+            >
+              ✕
+            </button>
+          </div>
         </header>
 
         {/* ── Message history ────────────────────────────────────────────── */}
