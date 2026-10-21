@@ -217,6 +217,7 @@ export function StorefrontCatalog({
       payoutAddress,
       title: product.name,
       priceStroops: product.priceStroops,
+      assetCode: product.assetCode,
       quantity: 1,
       maxStock,
     };

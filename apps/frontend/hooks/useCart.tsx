@@ -75,7 +75,11 @@ function cartReducer(state: CartState, action: CartAction): CartState {
           ...state,
           items: state.items.map((i) =>
             i.productId === action.item.productId
-              ? { ...i, quantity: next }
+              ? {
+                  ...i,
+                  quantity: next,
+                  assetCode: action.item.assetCode ?? i.assetCode,
+                }
               : i
           ),
         };

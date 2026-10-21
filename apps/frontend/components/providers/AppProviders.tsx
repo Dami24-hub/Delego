@@ -29,6 +29,7 @@ import { CommandPaletteProvider } from "../command-palette/CommandPaletteProvide
 import { ChatDrawerProvider } from "../chat/public";
 import { CartProvider } from "../../hooks/useCart";
 import { CartDrawer } from "../cart/CartDrawer";
+import { CopilotBubbleProvider } from "../chat/CopilotBubbleProvider";
 import { useBroadcastChannel } from "../../hooks/useBroadcastChannel";
 import { syncWalletDisconnected } from "../../hooks/useWallet";
 
@@ -90,16 +91,18 @@ export function AppProviders({ children }: { children: ReactNode }) {
                         <GlobalShortcutsProvider>
                         <ChatDrawerProvider>
                           <CartProvider>
-                            <DomainWarningBanner />
-                            <ConsentBanner />
-                            <DemoBanner />
-                            <SentryBreadcrumbs />
-                            <WebVitalsReporter />
-                            <QueueInspectorModal />
-                            {children}
-                            <CartDrawer />
-                            <NetworkMismatchModal />
-                            <IdleSessionGuard />
+                            <CopilotBubbleProvider>
+                              <DomainWarningBanner />
+                              <ConsentBanner />
+                              <DemoBanner />
+                              <SentryBreadcrumbs />
+                              <WebVitalsReporter />
+                              <QueueInspectorModal />
+                              {children}
+                              <CartDrawer />
+                              <NetworkMismatchModal />
+                              <IdleSessionGuard />
+                            </CopilotBubbleProvider>
                           </CartProvider>
                         </ChatDrawerProvider>
                         </GlobalShortcutsProvider>

@@ -18,6 +18,8 @@ export interface CartItem {
   title: string;
   /** Price per unit in stroops */
   priceStroops: string;
+  /** Asset used to price the product. Optional for carts saved before asset tracking. */
+  assetCode?: "USDC" | "XLM" | "EURC";
   /** Current quantity in cart (≥ 1) */
   quantity: number;
   /** Maximum purchasable quantity (from product stock) */

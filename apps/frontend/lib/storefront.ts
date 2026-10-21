@@ -3,12 +3,14 @@
  */
 
 import { parseStockDepletion, type StockDepletionInfo } from "./stockDepletion";
+import type { CartItem } from "./cart";
 
 export interface MerchantProduct {
   id: string;
   name: string;
   description: string;
   priceStroops: string;
+  assetCode?: CartItem["assetCode"];
   active: boolean;
   stock?: StockDepletionInfo;
 }
@@ -65,12 +67,16 @@ function parseProduct(value: unknown): MerchantProduct | null {
     },
     record.id
   );
+  const assetCode = record.assetCode ?? record.asset_code;
   return {
     id: record.id,
     name: record.name,
     description: typeof record.description === "string" ? record.description : "",
     priceStroops:
       typeof price === "bigint" ? price.toString() : String(price ?? "0"),
+    ...(assetCode === "USDC" || assetCode === "XLM" || assetCode === "EURC"
+      ? { assetCode }
+      : {}),
     active: record.active !== false,
     ...(stock ? { stock } : {}),
   };
