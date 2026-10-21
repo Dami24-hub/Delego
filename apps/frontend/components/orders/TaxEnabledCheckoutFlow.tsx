@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useId, useMemo, useState } from "react";
 import { Card, Button, FormField } from "@delegolabs/ui";
 import type { Order } from "@delegolabs/types";
 import { ApprovalCard } from "./ApprovalCard";
@@ -9,6 +9,13 @@ import { TaxBreakdownDisplay } from "./TaxBreakdownDisplay";
 import { enhanceOrderWithTax, getTaxPostalCode, type TaxEnhancedOrder } from "../../lib/taxEnhancedOrder";
 import { calculateTaxBreakdown } from "../../lib/taxCalculation";
 import { receiptSubtotalStroops } from "../../lib/receipts";
+import {
+  DELIVERY_INSTRUCTIONS_MAX_LENGTH,
+  DeliveryInstructionsError,
+  encryptDeliveryNote,
+  formatDeliveryNote,
+  type DeliveryNoteOrderMetadata,
+} from "../../lib/deliveryInstructions";
 import { useAddressValidation } from "../../hooks/useAddressValidation";
 
 export interface TaxEnabledCheckoutFlowProps {
@@ -16,8 +23,22 @@ export interface TaxEnabledCheckoutFlowProps {
   order: Order;
   /** Initial postal code (can come from user settings, delegation config, etc.) */
   initialPostalCode?: string;
-  /** Callback when order is approved with tax-inclusive amount */
-  onApprove?: (orderId: string, taxInclusiveAmount: bigint) => void | Promise<void>;
+  /**
+   * The merchant's delivery key (`deliveryPublicKey` from the merchant
+   * directory, see `merchantDeliveryKey`). Delivery instructions are sealed
+   * with it in the browser; without it the field is disabled.
+   */
+  merchantPublicKey?: string;
+  /**
+   * Callback when order is approved with tax-inclusive amount. When the buyer
+   * left delivery instructions, `metadata.encryptedDeliveryNote` carries the
+   * sealed note for the order request; the plaintext is never passed on.
+   */
+  onApprove?: (
+    orderId: string,
+    taxInclusiveAmount: bigint,
+    metadata?: DeliveryNoteOrderMetadata
+  ) => void | Promise<void>;
   /** Callback when order is rejected */
   onReject?: (orderId: string, reason?: string) => void | Promise<void>;
   /** Whether to show the full checkout flow or just the tax calculation */
@@ -50,6 +71,7 @@ const COUNTRY_OPTIONS = [
 export function TaxEnabledCheckoutFlow({
   order,
   initialPostalCode = "",
+  merchantPublicKey,
   onApprove,
   onReject,
   mode = "full",
@@ -59,6 +81,10 @@ export function TaxEnabledCheckoutFlow({
   const [countryCode, setCountryCode] = useState("US");
   const [isProcessing, setIsProcessing] = useState(false);
   const [showReceipt, setShowReceipt] = useState(mode === "receipt");
+  const [deliveryInstructions, setDeliveryInstructions] = useState("");
+  const [deliveryError, setDeliveryError] = useState<string | null>(null);
+  const deliveryFieldId = useId();
+  const deliveryKeyAvailable = Boolean(merchantPublicKey?.trim());
 
   const addressValidation = useAddressValidation({
     streetAddress,
@@ -81,10 +107,35 @@ export function TaxEnabledCheckoutFlow({
     if (!addressValidation.isValid) return;
     setIsProcessing(true);
     try {
+      let metadata: DeliveryNoteOrderMetadata | undefined;
+      if (deliveryInstructions.trim()) {
+        try {
+          const note = await encryptDeliveryNote(
+            deliveryInstructions,
+            merchantPublicKey ?? ""
+          );
+          metadata = formatDeliveryNote(note);
+        } catch (err) {
+          setDeliveryError(
+            err instanceof DeliveryInstructionsError
+              ? err.message
+              : "Delivery instructions could not be encrypted."
+          );
+          throw err;
+        }
+        // Only the sealed note is kept; drop the plaintext right away.
+        setDeliveryInstructions("");
+        setDeliveryError(null);
+      }
+
       // Calculate final amount including tax
       const finalAmount = taxBreakdown?.totalStroops ?? subtotal;
       
-      await onApprove?.(orderId, finalAmount);
+      if (metadata) {
+        await onApprove?.(orderId, finalAmount, metadata);
+      } else {
+        await onApprove?.(orderId, finalAmount);
+      }
       
       // Show receipt after successful approval
       if (mode === "full") {
@@ -204,6 +255,44 @@ export function TaxEnabledCheckoutFlow({
               {addressValidation.validationError}
             </div>
           )}
+          <div style={{ marginTop: "1rem" }}>
+            <FormField
+              label="Delivery instructions (gate code, buzzer)"
+              inputProps={{ id: deliveryFieldId }}
+              hint={
+                deliveryKeyAvailable
+                  ? "Encrypted in your browser with the merchant's key. Only the merchant can read it."
+                  : "This merchant has not published a delivery key, so delivery instructions can't be sent securely."
+              }
+              error={deliveryError ?? undefined}
+            >
+              <textarea
+                id={deliveryFieldId}
+                value={deliveryInstructions}
+                onChange={(e) => {
+                  setDeliveryInstructions(e.target.value);
+                  setDeliveryError(null);
+                }}
+                maxLength={DELIVERY_INSTRUCTIONS_MAX_LENGTH}
+                rows={3}
+                disabled={!deliveryKeyAvailable || isProcessing}
+                autoComplete="off"
+                spellCheck={false}
+                aria-describedby={
+                  deliveryError
+                    ? `${deliveryFieldId}-hint ${deliveryFieldId}-error`
+                    : `${deliveryFieldId}-hint`
+                }
+                aria-invalid={deliveryError ? true : undefined}
+                placeholder="Optional, e.g. gate code 4821, buzzer 12B"
+                style={{
+                  padding: "0.75rem",
+                  width: "100%",
+                  maxWidth: "480px",
+                }}
+              />
+            </FormField>
+          </div>
         </Card>
 
         {/* Step 2: Tax Calculation Preview */}
