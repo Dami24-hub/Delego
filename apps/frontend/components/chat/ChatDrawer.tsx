@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Button, carrierTrackingUrl } from "@delegolabs/ui";
 import { useFocusTrap } from "../../hooks/useFocusTrap";
+import { useNow } from "../../hooks/useNow";
 
 /**
  * Role of a message author in the Buyer Agent conversation (#676).
@@ -84,7 +85,7 @@ export interface ChatDrawerProps {
   /** True while the agent is generating — swaps the tail for a skeleton. */
   isGenerating?: boolean;
   /** Called with the trimmed input when the buyer submits a message. */
-  onSendMessage?: (content: string) => void;
+  onSendMessage?: (content: string | { type: string; content?: string; count?: number }) => void;
   /** Called when the buyer taps the proposal reference attached to a message. */
   onOpenProposal?: (proposalId: string) => void;
 }
@@ -161,6 +162,7 @@ export function ChatDrawer({
   onOpenProposal,
 }: ChatDrawerProps) {
   const [draft, setDraft] = useState("");
+  const [images, setImages] = useState<File[]>([]);
   const [expandedTools, setExpandedTools] = useState<Record<string, boolean>>(
     {}
   );
@@ -182,9 +184,62 @@ export function ChatDrawer({
 
   function handleSend() {
     const trimmed = draft.trim();
-    if (!trimmed) return;
-    onSendMessage?.(trimmed);
+    if (!trimmed && images.length === 0) return;
+    const content = trimmed
+      ? { type: "text", content: trimmed }
+      : { type: "image", count: images.length };
+    onSendMessage?.(content);
     setDraft("");
+    setImages([]);
+  }
+
+  function handleDrop(event: React.DragEvent) {
+    event.preventDefault();
+    event.stopPropagation();
+    const file = event.dataTransfer?.files?.[0];
+    if (file) {
+      validateAndAddImage(file);
+    }
+  }
+
+  function handleDragOver(event: React.DragEvent) {
+    event.preventDefault();
+    event.stopPropagation();
+  }
+
+  function handlePaste(event: React.ClipboardEvent) {
+    event.preventDefault();
+    event.stopPropagation();
+    const items = event.clipboardData?.items;
+    if (items) {
+      for (let i = 0; i < items.length; i++) {
+        if (items[i].kind === "file") {
+          const file = items[i].getAsFile();
+          if (file) {
+            validateAndAddImage(file);
+          }
+        }
+      }
+    }
+  }
+
+  function validateAndAddImage(file: File) {
+    const maxSizeBytes = 5 * 1024 * 1024; // 5MB
+    const allowedMimeTypes = [
+      "image/jpeg",
+      "image/png",
+      "image/webp",
+    ] as const;
+
+    if (file.size > maxSizeBytes) {
+      return;
+    }
+
+    if (!allowedMimeTypes.includes(file.mimeType)) {
+      return;
+    }
+
+    setImages((prev) => [...prev, file]);
   }
 
   function toggleTool(key: string) {
@@ -517,31 +572,137 @@ export function ChatDrawer({
             borderTop: "1px solid #e5e7eb",
           }}
         >
-          <textarea
-            value={draft}
-            onChange={(event) => setDraft(event.target.value)}
-            onKeyDown={(event) => {
-              if (event.key === "Enter" && !event.shiftKey) {
-                event.preventDefault();
-                handleSend();
-              }
-            }}
-            rows={2}
-            placeholder="Type a message…"
-            aria-label="Message your agent"
-            data-testid="chat-input"
+          <div
             style={{
-              flex: 1,
-              resize: "none",
-              padding: "0.5rem 0.75rem",
-              borderRadius: "0.5rem",
+              position: "relative",
               border: "1px solid #d1d5db",
-              fontSize: "0.875rem",
-              fontFamily: "inherit",
-              outline: "none",
+              borderRadius: "0.5rem",
+              overflow: "hidden",
+              flex: 1,
+              minHeight: "2.5rem",
             }}
-          />
-          <Button type="submit" variant="primary" disabled={draft.trim().length === 0}>
+          >
+            {/* Drag-and-drop zone */}
+            <div
+              style={{
+                position: "absolute",
+                inset: 0,
+                opacity: images.length === 0 ? 0.5 : 0,
+                pointerEvents: "none",
+              }}
+            >
+            </div>
+
+            {/* Image preview area */}
+            {images.length > 0 && (
+              <div
+                style={{
+                  position: "relative",
+                  marginLeft: "-2.5rem",
+                  marginRight: "-0.5rem",
+                  marginTop: "-2.5rem",
+                  maxHeight: "4rem",
+                  display: "flex",
+                  gap: "0.5rem",
+                  alignItems: "flex-end",
+                }}
+              >
+                {images.map((file, idx) => {
+                  const reader = new FileReader();
+                  reader.onload = () => {
+                    const thumbnailUrl = reader.result as string;
+                  };
+                  reader.readAsDataURL(file);
+
+                  return (
+                    <div
+                      key={idx}
+                      style={{
+                        position: "relative",
+                        width: "120px",
+                        height: "80px",
+                        borderRadius: "0.375rem",
+                        background: "#fff",
+                        border: "1px solid #e5e7eb",
+                        flexShrink: 0,
+                        overflow: "hidden",
+                      }}
+                    >
+                      <img
+                        src={thumbnailUrl}
+                        alt=""
+                        style={{
+                          width: "100%",
+                          height: "100%",
+                          objectFit: "cover",
+                        }}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const newImages = images.filter(
+                            (_file, i) => i !== idx
+                          );
+                          setImages(newImages);
+                        }}
+                        style={{
+                          position: "absolute",
+                          top: "0.125rem",
+                          right: "0.125rem",
+                          width: "1.5rem",
+                          height: "1.5rem",
+                          borderRadius: "9999px",
+                          background: "rgba(0,0,0,0.7)",
+                          color: "#fff",
+                          border: "none",
+                          fontSize: "0.625rem",
+                          lineHeight: 1,
+                          padding: 0,
+                          cursor: "pointer",
+                        }}
+                        aria-label="Remove image"
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
+            <textarea
+              value={draft}
+              onChange={(event) => setDraft(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === "Enter" && !event.shiftKey) {
+                  event.preventDefault();
+                  handleSend();
+                }
+              }}
+              onDragOver={handleDragOver}
+              onDragLeave={handleDragOver}
+              onDrop={handleDrop}
+              onPaste={handlePaste}
+              rows={2}
+              placeholder="Type a message…"
+              aria-label="Message your agent"
+              data-testid="chat-input"
+              style={{
+                flex: 1,
+                resize: "none",
+                padding: "0.5rem 0.75rem 0.5rem 2.5rem",
+                border: "none",
+                borderRadius: "0.5rem",
+                fontSize: "0.875rem",
+                fontFamily: "inherit",
+                outline: "none",
+                background: "transparent",
+                color: "#111827",
+              }}
+            />
+          </div>
+
+          <Button type="submit" variant="primary" disabled={draft.trim().length === 0 && images.length === 0}>
             Send
           </Button>
         </form>
