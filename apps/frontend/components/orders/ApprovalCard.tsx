@@ -82,6 +82,7 @@ export function ApprovalCard({
   onReject,
   onDualControlUpdate,
 }: ApprovalCardProps) {
+  const [rejectDialogOpen, setRejectDialogOpen] = useState(false);
   const [rejecting, setRejecting] = useState(false);
   const [reason, setReason] = useState("");
   const [reasonCode, setReasonCode] = useState<RejectionReasonCode | "">("");
@@ -192,6 +193,7 @@ export function ApprovalCard({
     try {
       await onReject?.(order.id, reason.trim() || undefined, reasonCode || undefined);
       announce(`Order ${order.id} rejected.`, "polite");
+      setRejectDialogOpen(false);
     } catch {
       announce(`Failed to reject order ${order.id}.`, "assertive");
     } finally {
@@ -350,8 +352,13 @@ export function ApprovalCard({
             </strong>
           </div>
 
-          {rejecting ? (
-            <div className="approval-reject-form">
+          {rejectDialogOpen ? (
+            <div
+              className="approval-reject-form"
+              role="dialog"
+              aria-modal="true"
+              aria-label={`Reject order ${order.id}`}
+            >
               {showReasonPicker ? (
                 <div className="approval-reject-reason-picker">
                   <label
@@ -403,7 +410,7 @@ export function ApprovalCard({
                 <Button
                   variant="secondary"
                   size="sm"
-                  onClick={() => setRejecting(false)}
+                  onClick={() => setRejectDialogOpen(false)}
                   disabled={pending || rejecting}
                 >
                   Cancel
@@ -451,7 +458,7 @@ export function ApprovalCard({
               <Button
                 variant="destructive"
                 size="sm"
-                onClick={() => setRejecting(true)}
+                onClick={() => setRejectDialogOpen(true)}
                 disabled={disabled}
                 title={actionTitle}
               >
