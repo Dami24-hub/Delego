@@ -575,7 +575,7 @@ export function createSubscriptionManager(
   config: Omit<SubscriptionConfig, "network">
 ): EventSubscriptionManager {
   const networkId = config.networkId;
-  const network = {
+  const network: NetworkConfig = {
     id: networkId,
     label: networkId === "mainnet" ? "Mainnet" : "Testnet",
     shortLabel: networkId === "mainnet" ? "MAIN" : "TEST",

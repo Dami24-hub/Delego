@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Card, Button, FormField } from "@delegolabs/ui";
 import type { Order } from "@delegolabs/types";
 import { ApprovalCard } from "./ApprovalCard";
@@ -9,6 +9,7 @@ import { TaxBreakdownDisplay } from "./TaxBreakdownDisplay";
 import { enhanceOrderWithTax, getTaxPostalCode, type TaxEnhancedOrder } from "../../lib/taxEnhancedOrder";
 import { calculateTaxBreakdown } from "../../lib/taxCalculation";
 import { receiptSubtotalStroops } from "../../lib/receipts";
+import { useAddressValidation } from "../../hooks/useAddressValidation";
 
 export interface TaxEnabledCheckoutFlowProps {
   /** Base order information */
@@ -22,6 +23,20 @@ export interface TaxEnabledCheckoutFlowProps {
   /** Whether to show the full checkout flow or just the tax calculation */
   mode?: "full" | "tax-preview" | "receipt";
 }
+
+const COUNTRY_OPTIONS = [
+  { value: "US", label: "United States" },
+  { value: "UK", label: "United Kingdom" },
+  { value: "CA", label: "Canada" },
+  { value: "DE", label: "Germany" },
+  { value: "FR", label: "France" },
+  { value: "ES", label: "Spain" },
+  { value: "IT", label: "Italy" },
+  { value: "NL", label: "Netherlands" },
+  { value: "BE", label: "Belgium" },
+  { value: "IE", label: "Ireland" },
+  { value: "AT", label: "Austria" },
+];
 
 /**
  * Complete checkout flow with integrated tax calculation.
@@ -39,17 +54,31 @@ export function TaxEnabledCheckoutFlow({
   onReject,
   mode = "full",
 }: TaxEnabledCheckoutFlowProps) {
+  const [streetAddress, setStreetAddress] = useState("");
   const [postalCode, setPostalCode] = useState(initialPostalCode);
+  const [countryCode, setCountryCode] = useState("US");
   const [isProcessing, setIsProcessing] = useState(false);
   const [showReceipt, setShowReceipt] = useState(mode === "receipt");
+
+  const addressValidation = useAddressValidation({
+    streetAddress,
+    postalCode,
+    countryCode,
+  });
+
+  const effectivePostalCode = useMemo(
+    () => addressValidation.formattedPostalCode || postalCode,
+    [addressValidation.formattedPostalCode, postalCode]
+  );
 
   // Calculate subtotal from line items
   const subtotal = receiptSubtotalStroops(order);
 
   // Calculate tax breakdown if postal code is provided
-  const taxBreakdown = postalCode ? calculateTaxBreakdown(subtotal, postalCode) : null;
+  const taxBreakdown = effectivePostalCode ? calculateTaxBreakdown(subtotal, effectivePostalCode) : null;
 
   const handleApprove = async (orderId: string) => {
+    if (!addressValidation.isValid) return;
     setIsProcessing(true);
     try {
       // Calculate final amount including tax
@@ -93,7 +122,7 @@ export function TaxEnabledCheckoutFlow({
           
           <TaxBreakdownDisplay
             subtotalStroops={subtotal}
-            postalCode={postalCode}
+            postalCode={effectivePostalCode}
             showDetails={true}
           />
         </Card>
@@ -125,30 +154,64 @@ export function TaxEnabledCheckoutFlow({
     <div className="tax-enabled-checkout">
       <div className="checkout-steps">
         
-        {/* Step 1: Postal Code Configuration */}
+        {/* Step 1: Delivery Information */}
         <Card title="Delivery Information" className="checkout-step">
-          <FormField label="Delivery Postal Code" required>
-            <input
-              type="text"
-              value={postalCode}
-              onChange={(e) => setPostalCode(e.target.value)}
-              placeholder="Enter postal code for tax calculation"
-              style={{ padding: "0.75rem", width: "100%", maxWidth: "300px" }}
-            />
-          </FormField>
-          {postalCode && (
-            <div style={{ marginTop: "0.5rem", fontSize: "0.875rem", color: "var(--color-text-muted)" }}>
-              Tax will be calculated based on this delivery location
+          <div style={{ display: "grid", gap: "1rem", maxWidth: "420px" }}>
+            <FormField label="Street address" required>
+              <input
+                type="text"
+                value={streetAddress}
+                onChange={(e) => setStreetAddress(e.target.value)}
+                placeholder="123 Main St"
+                style={{ padding: "0.75rem", width: "100%" }}
+              />
+            </FormField>
+
+            <FormField label="Country" required>
+              <select
+                value={countryCode}
+                onChange={(e) => setCountryCode(e.target.value)}
+                style={{ padding: "0.75rem", width: "100%" }}
+              >
+                {COUNTRY_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </FormField>
+
+            <FormField label="Postal code" required>
+              <input
+                type="text"
+                value={postalCode}
+                onChange={(e) => setPostalCode(e.target.value)}
+                placeholder="Enter postal code"
+                style={{ padding: "0.75rem", width: "100%" }}
+              />
+            </FormField>
+          </div>
+
+          {addressValidation.validationError && (
+            <div
+              role="alert"
+              style={{
+                marginTop: "0.75rem",
+                color: "var(--color-danger-text, #b91c1c)",
+                fontSize: "0.875rem",
+              }}
+            >
+              {addressValidation.validationError}
             </div>
           )}
         </Card>
 
         {/* Step 2: Tax Calculation Preview */}
-        {postalCode && (
+        {effectivePostalCode && (
           <Card title="Tax Calculation" className="checkout-step">
             <TaxBreakdownDisplay
               subtotalStroops={subtotal}
-              postalCode={postalCode}
+              postalCode={effectivePostalCode}
               showDetails={true}
             />
           </Card>
@@ -158,8 +221,10 @@ export function TaxEnabledCheckoutFlow({
         <div className="checkout-step">
           <ApprovalCard
             order={order}
-            deliveryPostalCode={postalCode || undefined}
+            deliveryPostalCode={effectivePostalCode || undefined}
             pending={isProcessing}
+            approveDisabled={!addressValidation.isValid}
+            approveDisabledReason={addressValidation.validationError ?? "Address validation failed."}
             onApprove={handleApprove}
             onReject={handleReject}
           />
