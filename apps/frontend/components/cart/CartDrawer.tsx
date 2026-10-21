@@ -10,17 +10,17 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useCart } from "../../hooks/useCart";
-import { formatAmount } from "@delegolabs/ui";
 import type { CartItem } from "../../lib/cart";
 import { MultiMerchantCheckout, type MultiMerchantCheckoutProps } from "./MultiMerchantCheckout";
+import { CartPromoCode } from "./CartPromoCode";
+import { useCartPromoCode } from "../../hooks/useCartPromoCode";
+import { formatPromoStroops } from "../../lib/promoCode";
 
 const STROOPS_PER_XLM = 10_000_000n;
 
 function formatStroops(stroops: string): string {
   try {
-    const value = BigInt(stroops);
-    const xlm = Number(value) / Number(STROOPS_PER_XLM);
-    return `${xlm.toLocaleString(undefined, { maximumFractionDigits: 7 })} XLM`;
+    return formatPromoStroops(stroops);
   } catch {
     return stroops;
   }
@@ -112,6 +112,7 @@ export function CartDrawer({ signEscrow, refundEscrow }: Pick<MultiMerchantCheck
   const closeBtnRef = useRef<HTMLButtonElement>(null);
   const backdropRef = useRef<HTMLDivElement>(null);
   const [checkingOut, setCheckingOut] = useState(false);
+  const coupon = useCartPromoCode(summary.items);
 
   const [recoveryRequired, setRecoveryRequired] = useState(false);
 
@@ -246,6 +247,7 @@ export function CartDrawer({ signEscrow, refundEscrow }: Pick<MultiMerchantCheck
         >
           {checkingOut ? (
             <MultiMerchantCheckout
+              promoCode={coupon.applied ?? undefined}
               onRecoveryRequiredChange={setRecoveryRequired}
               signEscrow={signEscrow}
               refundEscrow={refundEscrow}
@@ -365,6 +367,7 @@ export function CartDrawer({ signEscrow, refundEscrow }: Pick<MultiMerchantCheck
               gap: "0.75rem",
             }}
           >
+            <CartPromoCode coupon={coupon} />
             <div
               style={{
                 display: "flex",
@@ -377,7 +380,12 @@ export function CartDrawer({ signEscrow, refundEscrow }: Pick<MultiMerchantCheck
                 data-testid="cart-subtotal"
                 style={{ fontWeight: 700, fontSize: "1rem" }}
               >
-                {formatStroops(subtotalStroops)}
+                {formatPromoStroops(
+                  (
+                    BigInt(subtotalStroops) -
+                    BigInt(coupon.applied?.discount.appliedDiscountStroops ?? "0")
+                  ).toString()
+                )}
               </span>
             </div>
 
@@ -404,6 +412,7 @@ export function CartDrawer({ signEscrow, refundEscrow }: Pick<MultiMerchantCheck
             <button
               type="button"
               onClick={() => setCheckingOut(true)}
+              disabled={coupon.pending}
               data-testid="proceed-to-checkout"
               style={{
                 padding: "0.625rem 1rem",

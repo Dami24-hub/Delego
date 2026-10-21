@@ -20,6 +20,7 @@ import {
   type MerchantCartPartition,
 } from "../../lib/cartPartition";
 import { useCart } from "../../hooks/useCart";
+import type { AppliedPromoCode } from "../../lib/promoCode";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -352,6 +353,8 @@ export interface MultiMerchantBatchState {
 }
 
 export interface MultiMerchantCheckoutProps {
+  /** A server-validated coupon bound to the cart being checked out. */
+  promoCode?: AppliedPromoCode;
   onComplete?: (partitions: MerchantCartPartition[]) => void;
   onCancel?: () => void;
   /** Resolve only after confirmation, with the actual on-chain receipt.
@@ -365,6 +368,7 @@ export interface MultiMerchantCheckoutProps {
 }
 
 export function MultiMerchantCheckout({
+  promoCode,
   onComplete,
   onCancel,
   signEscrow,
@@ -372,7 +376,7 @@ export function MultiMerchantCheckout({
   onRecoveryRequiredChange,
 }: MultiMerchantCheckoutProps) {
   const { summary, clearCart } = useCart();
-  const [initialPartitions] = useState(() => partitionCartByMerchant(summary.items));
+  const [initialPartitions] = useState(() => partitionCartByMerchant(summary.items, promoCode));
   const [partitions, setPartitions] = useState(initialPartitions);
   const [completedEscrows, setCompletedEscrows] = useState<MultiMerchantBatchState["completedEscrows"]>([]);
   const [refundedIds, setRefundedIds] = useState<string[]>([]);
