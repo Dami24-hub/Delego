@@ -14,7 +14,7 @@ import { ChatDrawer, type ChatMessage } from "./ChatDrawer";
 
 interface ChatDrawerContextValue {
   isOpen: boolean;
-  openChat: () => void;
+  openChat: (initialDraft?: string) => void;
   closeChat: () => void;
   toggleChat: () => void;
 }
@@ -61,9 +61,13 @@ export function ChatDrawerProvider({
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [initialDraft, setInitialDraft] = useState("");
   const replyTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const openChat = useCallback(() => setIsOpen(true), []);
+  const openChat = useCallback((draft = "") => {
+    setInitialDraft(draft);
+    setIsOpen(true);
+  }, []);
   const closeChat = useCallback(() => setIsOpen(false), []);
   const toggleChat = useCallback(() => setIsOpen((open) => !open), []);
 
@@ -131,6 +135,7 @@ export function ChatDrawerProvider({
         agentId={agentId}
         messages={messages}
         isGenerating={isGenerating}
+        initialDraft={initialDraft}
         onSendMessage={handleSend}
       />
     </ChatDrawerContext.Provider>

@@ -49,6 +49,8 @@ export interface ChatDrawerProps {
   isGenerating?: boolean;
   /** Called with the trimmed input when the buyer submits a message. */
   onSendMessage?: (content: string) => void;
+  /** Optional draft to prefill when the drawer is opened from a contextual prompt. */
+  initialDraft?: string;
   /** Called when the buyer taps the proposal reference attached to a message. */
   onOpenProposal?: (proposalId: string) => void;
 }
@@ -95,6 +97,7 @@ export function ChatDrawer({
   messages = [],
   isGenerating = false,
   onSendMessage,
+  initialDraft = "",
   onOpenProposal,
 }: ChatDrawerProps) {
   const [draft, setDraft] = useState("");
@@ -105,6 +108,10 @@ export function ChatDrawer({
   const listRef = useRef<HTMLDivElement>(null);
 
   useFocusTrap({ containerRef: panelRef, isActive: isOpen, onEscape: onClose });
+
+  useEffect(() => {
+    setDraft(initialDraft);
+  }, [initialDraft]);
 
   // Auto-scroll to the newest content whenever a stream chunk arrives (the
   // parent hands us a new `messages` identity) or the skeleton appears.

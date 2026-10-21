@@ -27,6 +27,7 @@ import { CommandPaletteProvider } from "../command-palette/CommandPaletteProvide
 import { ChatDrawerProvider } from "../chat/public";
 import { CartProvider } from "../../hooks/useCart";
 import { CartDrawer } from "../cart/CartDrawer";
+import { CopilotBubbleProvider } from "../chat/CopilotBubbleProvider";
 
 // Ephemeral session signing keys live only inside this worker's isolated
 // memory. Loaded client-side only so it never runs during SSR.
@@ -74,16 +75,18 @@ export function AppProviders({ children }: { children: ReactNode }) {
                       <CommandPaletteProvider>
                         <ChatDrawerProvider>
                           <CartProvider>
-                            <DomainWarningBanner />
-                            <ConsentBanner />
-                            <DemoBanner />
-                            <SentryBreadcrumbs />
-                            <WebVitalsReporter />
-                            <QueueInspectorModal />
-                            {children}
-                            <CartDrawer />
-                            <NetworkMismatchModal />
-                            <IdleSessionGuard />
+                            <CopilotBubbleProvider>
+                              <DomainWarningBanner />
+                              <ConsentBanner />
+                              <DemoBanner />
+                              <SentryBreadcrumbs />
+                              <WebVitalsReporter />
+                              <QueueInspectorModal />
+                              {children}
+                              <CartDrawer />
+                              <NetworkMismatchModal />
+                              <IdleSessionGuard />
+                            </CopilotBubbleProvider>
                           </CartProvider>
                         </ChatDrawerProvider>
                       </CommandPaletteProvider>
