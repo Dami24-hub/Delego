@@ -494,9 +494,8 @@ describe("EventSubscriptionManager", () => {
       // Verify the delay is capped
       const timer = vi.useFakeTimers();
       manager["scheduleReconnect"]();
-      timer.advanceTimersByTime(15000); // Should trigger reconnect after 15s cap
-
-      timer.restore();
+      timer.advanceTimersByTime(15000);
+      timer.clearAllTimers();
     });
   });
 

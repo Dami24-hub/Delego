@@ -50,6 +50,10 @@ export interface ApprovalCardProps {
   pendingOffline?: boolean;
   /** Delivery postal code for tax calculation. If provided, shows tax breakdown before approval. */
   deliveryPostalCode?: string;
+  /** Prevent the approve action when the checkout address is invalid. */
+  approveDisabled?: boolean;
+  /** Human-readable explanation when payment is blocked by address validation. */
+  approveDisabledReason?: string;
   /** Called when the order is approved. */
   onApprove?: (id: string) => void | Promise<unknown>;
   /** Called when the order is rejected. */
@@ -72,6 +76,8 @@ export function ApprovalCard({
   pending = false,
   pendingOffline = false,
   deliveryPostalCode,
+  approveDisabled = false,
+  approveDisabledReason,
   onApprove,
   onReject,
   onDualControlUpdate,
@@ -109,7 +115,7 @@ export function ApprovalCard({
     dualControlFlagEnabled && dualControlCapable && order.dualControl?.required === true;
   const [dcSubmitting, setDcSubmitting] = useState(false);
 
-  const disabled = pending || dcSubmitting || isMismatched || isDemoMode || connectionStatus !== "online" || approving || rejecting;
+  const disabled = pending || dcSubmitting || isMismatched || isDemoMode || connectionStatus !== "online" || approving || rejecting || approveDisabled;
 
   const actionTitle = connectionStatus !== "online"
     ? OFFLINE_BLOCKED_MESSAGE
@@ -117,9 +123,14 @@ export function ApprovalCard({
       ? DEMO_MODE_BLOCKED_MESSAGE
       : isMismatched
         ? "Cannot execute action while wallet and app network are mismatched"
-        : undefined;
+        : approveDisabled
+          ? approveDisabledReason ?? "Address validation failed. Please fix the delivery details before paying."
+          : undefined;
 
   const handleApprove = guard(async () => {
+    if (approveDisabled) {
+      return;
+    }
     setApproving(true);
     const trimmedNote = note.trim();
     try {
@@ -144,6 +155,9 @@ export function ApprovalCard({
   });
 
   const handleDualControlApprove = guard(async () => {
+    if (approveDisabled) {
+      return;
+    }
     setApproving(true);
     setDcSubmitting(true);
     const trimmedNote = note.trim();

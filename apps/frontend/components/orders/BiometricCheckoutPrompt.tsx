@@ -307,7 +307,6 @@ export function BiometricCheckoutPrompt({
                 <Button
                   type="button"
                   variant="ghost"
-                  ref={passkeyRef}
                   onClick={() => void runCheckout()}
                   data-testid="biometric-checkout-passkey"
                 >
